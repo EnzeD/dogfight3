@@ -11,8 +11,8 @@ export default class Plane extends Entity {
 
         // Flight mechanics variables
         this.speed = 0;
-        this.maxSpeed = 0.5;
-        this.minTakeoffSpeed = 0.1;
+        this.maxSpeed = 1.5;
+        this.minTakeoffSpeed = 0.3;
         this.acceleration = 0.001;
         this.deceleration = 0.002;
         this.isAirborne = false;
@@ -25,8 +25,8 @@ export default class Plane extends Entity {
         this.rudder = null;
 
         // Control sensitivity
-        this.rollSpeed = 0.02;
-        this.pitchSpeed = 0.015;
+        this.rollSpeed = 0.04;
+        this.pitchSpeed = 0.03;
         this.yawSpeed = 0.015;
 
         // Auto-stabilization
@@ -150,7 +150,9 @@ export default class Plane extends Entity {
 
             // Auto-stabilization when no roll/pitch input is given
             if (this.autoStabilizationEnabled) {
-                this.applyAutoStabilization(deltaTime);
+                // Only apply roll stabilization when roll or pitch keys aren't pressed
+                const isRolling = keysPressed['a'] || keysPressed['q'] || keysPressed['d'] || keysPressed['arrowup'] || keysPressed['arrowdown'];
+                this.applyAutoStabilization(deltaTime, isRolling);
             }
 
             // Apply gravity if airborne
@@ -170,15 +172,26 @@ export default class Plane extends Entity {
     /**
      * Apply auto-stabilization to gradually level the plane
      * @param {number} deltaTime - Time since last frame in seconds
+     * @param {boolean} isRolling - Whether the plane is rolling
      */
-    applyAutoStabilization(deltaTime) {
+    applyAutoStabilization(deltaTime, isRolling) {
         // Get current rotation in Euler angles
         const rotation = new THREE.Euler().setFromQuaternion(this.mesh.quaternion, 'ZYX');
 
-        // Stabilize roll (z-axis)
-        if (Math.abs(rotation.z) > 0.01) {
-            const stabilizationFactor = 0.01 * deltaTime * 60;
-            this.mesh.rotateZ(-rotation.z * stabilizationFactor);
+        // Stabilize roll (z-axis) - only when roll is beyond a small threshold
+        // Increased threshold from 0.01 to 0.025 to prevent triggering on tiny angles
+        if (Math.abs(rotation.z) > 0.025 && !isRolling) {
+            // Use constant stabilization factor independent of speed
+            const stabilizationFactor = 0.05 * deltaTime * 60;
+
+            // Apply correction
+            const correctionAmount = -rotation.z * stabilizationFactor;
+
+            // Limit maximum correction per frame to prevent jitter
+            const maxCorrection = 0.02;
+            const limitedCorrection = Math.max(-maxCorrection, Math.min(maxCorrection, correctionAmount));
+
+            this.mesh.rotateZ(limitedCorrection);
         }
 
         // Don't auto-stabilize pitch - let the player control altitude

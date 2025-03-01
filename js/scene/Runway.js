@@ -92,14 +92,14 @@ export default class Runway {
         const startThreshold = new THREE.Mesh(thresholdGeometry, markingMaterial);
         startThreshold.receiveShadow = true;
         startThreshold.rotation.x = Math.PI / 2;
-        startThreshold.position.set(0, 0.02, -runwayLength / 2 + 1 - 30); // Apply the Z offset
+        startThreshold.position.set(0, 0.04, -runwayLength / 2 + 1 - 30); // Apply the Z offset
         this.scene.add(startThreshold);
 
         // End threshold
         const endThreshold = new THREE.Mesh(thresholdGeometry, markingMaterial);
         endThreshold.receiveShadow = true;
         endThreshold.rotation.x = Math.PI / 2;
-        endThreshold.position.set(0, 0.02, runwayLength / 2 - 1 - 30); // Apply the Z offset
+        endThreshold.position.set(0, 0.04, runwayLength / 2 - 1 - 30); // Apply the Z offset
         this.scene.add(endThreshold);
     }
 
