@@ -107,44 +107,52 @@ export default class Camera {
      * @param {number} deltaTime - Time since last frame in seconds
      */
     update(deltaTime) {
-        // Skip if no target or user is controlling camera
+        // Skip if no target or no target mesh
         if (!this.target || !this.target.mesh) return;
-
-        // If user is controlling camera or it's too soon after user interaction, don't update
-        const currentTime = performance.now();
-        if (this.isUserControlling ||
-            (currentTime - this.lastUserInteractionTime < this.cameraFollowDelay)) {
-            // Just update controls
-            this.controls.update();
-            return;
-        }
 
         // Get plane's position and direction
         const planePosition = this.target.mesh.position.clone();
         const planeDirection = new THREE.Vector3(0, 0, -1).applyQuaternion(this.target.mesh.quaternion);
 
-        // Calculate ideal camera position based on plane's position and direction
-        const idealOffset = planeDirection.clone().multiplyScalar(-this.followDistance);
-        idealOffset.y += 5; // Position camera above the plane
+        // Store previous target position to calculate movement delta
+        const previousTargetPosition = this.controls.target.clone();
 
-        // Calculate speed-based look-ahead distance
-        const speed = this.target.speed || 0;
-        const maxSpeed = this.target.maxSpeed || 1;
-        const lookAheadDistance = 10 + (speed / maxSpeed) * 20;
+        // Always update the orbit center to the plane's position
+        this.controls.target.copy(planePosition);
 
-        // Calculate look target ahead of the plane
-        const lookTarget = planePosition.clone().add(
-            planeDirection.clone().multiplyScalar(lookAheadDistance)
-        );
+        // Calculate how much the plane has moved since last frame
+        const positionDelta = planePosition.clone().sub(previousTargetPosition);
 
-        // Smoothly transition the controls target
-        this.controls.target.lerp(lookTarget, this.springStrength * 1.5);
+        // If the plane has moved, move the camera by the same amount to maintain relative position
+        if (positionDelta.lengthSq() > 0.0001) {
+            this.camera.position.add(positionDelta);
+        }
 
-        // Smoothly move camera to ideal position
-        const idealPosition = planePosition.clone().add(idealOffset);
-        this.camera.position.lerp(idealPosition, this.springStrength);
+        // Handle automatic camera behavior only when not manually controlling
+        const currentTime = performance.now();
+        if (!this.isUserControlling &&
+            (currentTime - this.lastUserInteractionTime >= this.cameraFollowDelay)) {
 
-        // Update controls
+            // Calculate ideal camera position based on plane's position and direction
+            const idealOffset = planeDirection.clone().multiplyScalar(-this.followDistance);
+            idealOffset.y += 5; // Position camera above the plane
+
+            // Calculate speed-based look-ahead distance
+            const speed = this.target.speed || 0;
+            const maxSpeed = this.target.maxSpeed || 1;
+            const lookAheadDistance = 10 + (speed / maxSpeed) * 20;
+
+            // Calculate look target ahead of the plane (for smoother following)
+            const lookTarget = planePosition.clone().add(
+                planeDirection.clone().multiplyScalar(lookAheadDistance)
+            );
+
+            // Smoothly move camera to ideal position
+            const idealPosition = planePosition.clone().add(idealOffset);
+            this.camera.position.lerp(idealPosition, this.springStrength);
+        }
+
+        // Always update controls
         this.controls.update();
     }
 } 

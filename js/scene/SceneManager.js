@@ -61,7 +61,7 @@ export default class SceneManager {
     createFog() {
         // Add exponential fog - less intensive than linear fog
         // Parameters: color, density
-        this.fog = new THREE.FogExp2(0xCFE8FF, 0.0015);
+        this.fog = new THREE.FogExp2(0xCFE8FF, 0.002); // Slightly reduced from 0.0025 to help shadows be more visible
         this.scene.fog = this.fog;
         console.log('Scene fog created');
     }
@@ -89,32 +89,47 @@ export default class SceneManager {
      */
     createLighting() {
         // Add ambient light for general illumination - reduced intensity for better shadow contrast
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.18);
         this.scene.add(ambientLight);
 
         // Add directional light for sun-like illumination
-        this.sun = new THREE.DirectionalLight(0xFFD580, 1.0); // Sunny yellow color
-        this.sun.position.set(300, 200, 100);
+        this.sun = new THREE.DirectionalLight(0xFFD580, 1.4);
+        this.sun.position.set(800, 600, 400);
         this.sun.castShadow = true;
 
-        // Configure shadow properties - keep shadow map small for performance
-        this.sun.shadow.mapSize.width = 1024;
-        this.sun.shadow.mapSize.height = 1024;
+        // Configure shadow properties - optimized for smooth but crisp shadows
+        this.sun.shadow.mapSize.width = 8192;
+        this.sun.shadow.mapSize.height = 8192;
         this.sun.shadow.camera.near = 10;
-        this.sun.shadow.camera.far = 500;
-        this.sun.shadow.camera.left = -200;
-        this.sun.shadow.camera.right = 200;
-        this.sun.shadow.camera.top = 200;
-        this.sun.shadow.camera.bottom = -200;
-        this.sun.shadow.bias = -0.0005; // Reduce shadow acne
+        this.sun.shadow.camera.far = 2000;
+        this.sun.shadow.camera.left = -750;
+        this.sun.shadow.camera.right = 750;
+        this.sun.shadow.camera.top = 750;
+        this.sun.shadow.camera.bottom = -750;
+        this.sun.shadow.bias = -0.00008;
+        this.sun.shadow.normalBias = 0.005;
+        this.sun.shadow.radius = 1;
+
+        // Ensure shadows are enabled
+        this.sun.castShadow = true;
+
+        // Optimize shadow map by making it follow the camera
+        this.sun.shadow.camera.matrixAutoUpdate = true;
+
+        // Use PCFSoftShadowMap for smooth but try to keep crisp with other settings
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        // Add helper to visualize shadow camera (useful for debugging - comment out in production)
+        // const shadowCameraHelper = new THREE.CameraHelper(this.sun.shadow.camera);
+        // this.scene.add(shadowCameraHelper);
 
         this.scene.add(this.sun);
 
         // Add a hemisphere light for sky/ground color variation
-        const hemisphereLight = new THREE.HemisphereLight(0x87CEEB, 0x548c2f, 0.6);
+        const hemisphereLight = new THREE.HemisphereLight(0x87CEEB, 0x548c2f, 0.5);
         this.scene.add(hemisphereLight);
 
-        console.log('Scene lighting created');
+        console.log('Scene lighting created with smooth yet crisp shadows');
     }
 
     /**

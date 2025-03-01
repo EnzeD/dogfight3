@@ -15,7 +15,7 @@ export default class Ground {
      */
     createGround() {
         // Define ground dimensions
-        const groundSize = 1000;
+        const groundSize = 2000;
 
         // Create a plane geometry for the ground
         const groundGeometry = new THREE.PlaneGeometry(groundSize, groundSize);
@@ -38,7 +38,7 @@ export default class Ground {
         this.ground.rotation.x = Math.PI / 2;
 
         // Position the ground at y=0
-        this.ground.position.y = 0;
+        this.ground.position.y = -0.01;
 
         // Add the ground to the scene
         this.scene.add(this.ground);
