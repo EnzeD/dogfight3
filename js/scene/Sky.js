@@ -18,7 +18,7 @@ export default class Sky {
      */
     createSky() {
         // Create a large box geometry
-        const skyGeometry = new THREE.BoxGeometry(1000, 1000, 1000);
+        const skyGeometry = new THREE.BoxGeometry(5000, 5000, 5000);
 
         // Create a gradient material with blue at top and lighter blue at bottom
         const skyMaterial = new THREE.MeshBasicMaterial({
@@ -53,7 +53,7 @@ export default class Sky {
         // Position the sun in the same direction as the light source
         // We'll normalize and multiply the direction to put it on the "celestial sphere"
         if (this.sun.position) {
-            const lightPos = this.sun.position.clone().normalize().multiplyScalar(490); // Just inside the sky box
+            const lightPos = this.sun.position.clone().normalize().multiplyScalar(4900); // Moved 10x further (was 490)
             this.visibleSun.position.copy(lightPos);
         }
 

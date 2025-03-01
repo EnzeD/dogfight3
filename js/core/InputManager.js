@@ -14,6 +14,7 @@ export default class InputManager {
             'w': 'throttleUp',
             'z': 'throttleUp', // For AZERTY keyboards
             's': 'throttleDown',
+            'shift': 'boost',   // Added shift key for boost
 
             // Roll controls
             'a': 'rollLeft',

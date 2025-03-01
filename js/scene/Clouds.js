@@ -7,11 +7,11 @@ export default class Clouds {
         this.eventBus = eventBus;
         this.clouds = [];
 
-        // Cloud settings
-        this.cloudCount = 200; // Increased from 20 to 200 (10x more)
-        this.cloudSpread = 1500; // Increased from 500 to 1500 for wider spread
-        this.cloudHeight = 200; // Increased height
-        this.cloudHeightVariation = 80; // More variation in height
+        // Cloud settings - adjusted to match sky box size of 10000 units
+        this.cloudCount = 300; // Increased from 200 for better coverage
+        this.cloudSpread = 8000; // Increased from 1500 to 80% of sky box size (10000)
+        this.cloudHeight = 400; // Increased from 200 to better fit with larger sky
+        this.cloudHeightVariation = 250; // Increased for more natural distribution in taller sky
 
         // Create the clouds
         this.createClouds();

@@ -61,9 +61,9 @@ export default class SceneManager {
     createFog() {
         // Add exponential fog - less intensive than linear fog
         // Parameters: color, density
-        this.fog = new THREE.FogExp2(0xCFE8FF, 0.002); // Slightly reduced from 0.0025 to help shadows be more visible
+        this.fog = new THREE.FogExp2(0xCFE8FF, 0.0002); // Further reduced from 0.0008 for extreme distance viewing
         this.scene.fog = this.fog;
-        console.log('Scene fog created');
+        console.log('Scene fog created with extended view distance');
     }
 
     /**

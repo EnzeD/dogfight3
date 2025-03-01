@@ -10,10 +10,40 @@ export default class FlightInfo {
         this.statusValue = null;
         this.fpsValue = null;
         this.autoStabValue = null;
+        this.boostValue = null; // Added boost indicator
         this.takeoffSpeed = 20; // Minimum speed percentage required for takeoff
 
         // Create the panel
         this.createPanel();
+
+        // Listen for input events to update boost status
+        this.setupEventListeners();
+    }
+
+    /**
+     * Set up event listeners
+     */
+    setupEventListeners() {
+        // Listen for input actions to detect boost state
+        this.eventBus.on('input.action', (data) => {
+            if (data.action === 'boost') {
+                if (data.state === 'down') {
+                    this.showBoostActive(true);
+                } else if (data.state === 'up') {
+                    this.showBoostActive(false);
+                }
+            }
+        });
+    }
+
+    /**
+     * Update boost indicator state
+     * @param {boolean} isActive - Whether boost is active
+     */
+    showBoostActive(isActive) {
+        if (this.boostValue) {
+            this.boostValue.style.display = isActive ? 'inline' : 'none';
+        }
     }
 
     /**
@@ -89,6 +119,13 @@ export default class FlightInfo {
                 <span><strong>Auto-Stabilization:</strong></span>
                 <span id="auto-stab-value">Enabled</span>
             </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <span style="display: flex; align-items: center;">
+                    <strong>Boost:</strong>
+                    <span id="boost-value" style="display: none; margin-left: 5px; background-color: #FF5722; color: white; padding: 2px 5px; border-radius: 3px; font-size: 11px; font-weight: bold;">ACTIVE</span>
+                    <span style="margin-left: 5px; font-size: 11px; color: #aaa;">(Hold SHIFT)</span>
+                </span>
+            </div>
             <div style="display: flex; justify-content: space-between;">
                 <span><strong>FPS:</strong></span>
                 <span id="fps-value">0</span>
@@ -106,6 +143,7 @@ export default class FlightInfo {
         this.statusValue = document.getElementById('status-value');
         this.autoStabValue = document.getElementById('auto-stab-value');
         this.fpsValue = document.getElementById('fps-value');
+        this.boostValue = document.getElementById('boost-value');
     }
 
     /**

@@ -11,7 +11,7 @@ export default class Camera {
         this.fieldOfView = 75;
         this.aspectRatio = window.innerWidth / window.innerHeight;
         this.nearClippingPlane = 0.1;
-        this.farClippingPlane = 2000;
+        this.farClippingPlane = 30000;
 
         // Create the camera
         this.camera = new THREE.PerspectiveCamera(
@@ -52,7 +52,7 @@ export default class Camera {
     setupControls() {
         // Set some reasonable limits for the controls
         this.controls.minDistance = 5;  // Minimum zoom distance
-        this.controls.maxDistance = 100; // Maximum zoom distance
+        this.controls.maxDistance = 1000; // Significantly increased to allow seeing much more of the scene
 
         // Enable damping for smoother camera movement
         this.controls.enableDamping = true;

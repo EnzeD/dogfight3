@@ -39,6 +39,7 @@ export default class InstructionsPanel {
             <p><strong>Flight Controls:</strong></p>
             <ul style="padding-left: 20px;">
                 <li>W or Z - Increase throttle</li>
+                <li>Shift + W/Z - Boost (3x acceleration)</li>
                 <li>S - Decrease throttle</li>
                 <li>A or Q - Roll left</li>
                 <li>D - Roll right</li>

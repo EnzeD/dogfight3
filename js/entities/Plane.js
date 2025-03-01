@@ -93,8 +93,14 @@ export default class Plane extends Entity {
 
         // Throttle control
         if (keysPressed['w'] || keysPressed['z']) {
-            // Increase speed (accelerate)
-            this.speed = Math.min(this.speed + this.acceleration * deltaTime * 60, this.maxSpeed);
+            // Check if shift key is pressed for boost
+            const accelerationMultiplier = keysPressed['shift'] ? 3 : 1;
+
+            // Increase speed (accelerate) with possible boost
+            this.speed = Math.min(
+                this.speed + (this.acceleration * accelerationMultiplier * deltaTime * 60),
+                this.maxSpeed
+            );
         } else if (keysPressed['s']) {
             // Decrease speed (decelerate)
             this.speed = Math.max(this.speed - this.deceleration * deltaTime * 60, 0);

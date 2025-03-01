@@ -14,8 +14,8 @@ export default class Ground {
      * Create the ground plane
      */
     createGround() {
-        // Define ground dimensions
-        const groundSize = 2000;
+        // Define ground dimensions - much larger for horizon effect
+        const groundSize = 5000; // Significantly increased for maximum view distance
 
         // Create a plane geometry for the ground
         const groundGeometry = new THREE.PlaneGeometry(groundSize, groundSize);
@@ -37,8 +37,8 @@ export default class Ground {
         // Rotate the plane to lie flat on the ground (rotate around X axis by 90 degrees)
         this.ground.rotation.x = Math.PI / 2;
 
-        // Position the ground at y=0
-        this.ground.position.y = -0.01;
+        // Position the ground at y=0, with a slight offset to prevent z-fighting
+        this.ground.position.y = -0.5;
 
         // Add the ground to the scene
         this.scene.add(this.ground);
