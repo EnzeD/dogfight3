@@ -5,6 +5,7 @@ import Ground from './Ground.js';
 import Runway from './Runway.js';
 import Clouds from './Clouds.js';
 import Camera from './Camera.js';
+import Trees from './Trees.js';  // Import the new Trees class
 
 export default class SceneManager {
     constructor(eventBus) {
@@ -22,6 +23,7 @@ export default class SceneManager {
         this.camera = null;
         this.sun = null; // Store reference to the sun light
         this.fog = null; // Store reference to the fog
+        this.trees = null; // Store reference to the trees
 
         // Main actor (plane)
         this.mainActor = null;
@@ -48,6 +50,7 @@ export default class SceneManager {
         this.ground = new Ground(this.scene);
         this.runway = new Runway(this.scene);
         this.clouds = new Clouds(this.scene, this.eventBus);
+        this.trees = new Trees(this.scene, this.eventBus); // Initialize trees
 
         // Create and setup camera (after renderer is created)
         this.camera = new Camera(this.scene, this.renderer.domElement, this.eventBus);
@@ -93,22 +96,22 @@ export default class SceneManager {
         this.scene.add(ambientLight);
 
         // Add directional light for sun-like illumination
-        this.sun = new THREE.DirectionalLight(0xFFD580, 1.4);
+        this.sun = new THREE.DirectionalLight(0xFFD580, 1.6);
         this.sun.position.set(800, 600, 400);
         this.sun.castShadow = true;
 
         // Configure shadow properties - optimized for smooth but crisp shadows
-        this.sun.shadow.mapSize.width = 8192;
-        this.sun.shadow.mapSize.height = 8192;
+        this.sun.shadow.mapSize.width = 16384;
+        this.sun.shadow.mapSize.height = 16384;
         this.sun.shadow.camera.near = 10;
-        this.sun.shadow.camera.far = 2000;
-        this.sun.shadow.camera.left = -750;
-        this.sun.shadow.camera.right = 750;
-        this.sun.shadow.camera.top = 750;
-        this.sun.shadow.camera.bottom = -750;
-        this.sun.shadow.bias = -0.00008;
-        this.sun.shadow.normalBias = 0.005;
-        this.sun.shadow.radius = 1;
+        this.sun.shadow.camera.far = 6000;
+        this.sun.shadow.camera.left = -2000;
+        this.sun.shadow.camera.right = 2000;
+        this.sun.shadow.camera.top = 2000;
+        this.sun.shadow.camera.bottom = -2000;
+        this.sun.shadow.bias = -0.00004;
+        this.sun.shadow.normalBias = 0.003;
+        this.sun.shadow.radius = 1.5;
 
         // Ensure shadows are enabled
         this.sun.castShadow = true;
@@ -158,6 +161,11 @@ export default class SceneManager {
         // Update sky (will update the sun position if implemented)
         if (this.sky) {
             this.sky.update(deltaTime);
+        }
+
+        // Update trees if needed
+        if (this.trees) {
+            this.trees.update(deltaTime);
         }
 
         // Update camera to follow the main actor

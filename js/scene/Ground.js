@@ -15,7 +15,7 @@ export default class Ground {
      */
     createGround() {
         // Define ground dimensions - much larger for horizon effect
-        const groundSize = 5000; // Significantly increased for maximum view distance
+        const groundSize = 3000; // Significantly increased for maximum view distance
 
         // Create a plane geometry for the ground
         const groundGeometry = new THREE.PlaneGeometry(groundSize, groundSize);

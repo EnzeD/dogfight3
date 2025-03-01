@@ -14,6 +14,15 @@ export default class WW2Plane extends Plane {
 
         // Create the WW2 plane mesh
         this.createMesh();
+
+        // Initialize wing trails after mesh is created
+        // Parameters: wingSpan, wingHeight, wingZ position
+        console.log("Wing dimensions:", this.wingSpan, this.fuselageHeight / 5, -0.5);
+        this.initWingTrails(
+            this.wingSpan,           // Pass the wingspan 
+            this.fuselageHeight / 5, // Wing height - matches wings.position.y in createMesh
+            -0.5                     // Wing Z position - matches wings.position.z in createMesh
+        );
     }
 
     /**

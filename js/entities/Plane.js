@@ -11,7 +11,17 @@ export default class Plane extends Entity {
 
         // Flight mechanics variables
         this.speed = 0;
-        this.maxSpeed = 1.5;
+        this.maxSpeed = 3.5;
+        // Wing trails properties
+        this.wingTrails = {
+            left: null,
+            right: null
+        };
+        this.trailMaxLength = 100; // Maximum number of points in the trail
+        this.trailMinOpacity = 0.2; // Minimum opacity for trail at low speeds
+        this.trailBaseWidth = 0.1; // Base width of the trail
+        this.trailsEnabled = true; // Trail visibility toggle
+
         this.minTakeoffSpeed = 0.3;
         this.acceleration = 0.001;
         this.deceleration = 0.002;
@@ -62,6 +72,25 @@ export default class Plane extends Entity {
                 });
             }
         });
+
+        // Listen for trails toggle with 'T' key
+        document.addEventListener('keydown', (event) => {
+            if (event.key.toLowerCase() === 't') {
+                this.trailsEnabled = !this.trailsEnabled;
+
+                // Update trail visibility
+                if (this.wingTrails.left && this.wingTrails.right) {
+                    this.wingTrails.left.mesh.visible = this.trailsEnabled;
+                    this.wingTrails.right.mesh.visible = this.trailsEnabled;
+                }
+
+                console.log(`Trails ${this.trailsEnabled ? 'enabled' : 'disabled'}`);
+                this.eventBus.emit('notification', {
+                    message: `Chemtrails ${this.trailsEnabled ? 'enabled' : 'disabled'}`,
+                    type: 'info'
+                });
+            }
+        });
     }
 
     /**
@@ -78,6 +107,9 @@ export default class Plane extends Entity {
 
         // Update control surfaces based on input
         this.updateControlSurfaces(inputState);
+
+        // Update wing trails
+        this.updateWingTrails(deltaTime);
 
         // Emit flight info update event
         this.emitFlightInfoUpdate();
@@ -304,7 +336,403 @@ export default class Plane extends Entity {
             speed: speedPercent,
             altitude: altitude,
             isAirborne: this.isAirborne,
-            autoStabilization: this.autoStabilizationEnabled
+            autoStabilization: this.autoStabilizationEnabled,
+            chemtrails: this.trailsEnabled
         });
+    }
+
+    /**
+     * Initialize wing trails
+     * Must be called after the mesh is created
+     * @param {number} wingSpan - The wingspan of the plane
+     * @param {number} wingHeight - The height of the wings relative to fuselage
+     * @param {number} wingZ - The z-position of the wings
+     */
+    initWingTrails(wingSpan, wingHeight, wingZ) {
+        console.log('Initializing wing trails');
+
+        // Trail configuration
+        this.trailMaxLength = 250;      // Longer trail for better effect
+        this.trailMinOpacity = 0.0;     // Should be 0 since we handle this in updateWingTrails
+        this.trailBaseWidth = 0.2;      // Width of the trail
+
+        // Trail material - white semi-transparent material
+        const trailMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.5,               // Max opacity for the trail
+            side: THREE.DoubleSide,
+            depthWrite: false           // Prevent z-fighting issues
+        });
+
+        // For better looking trails, we'll create a ribbon-like mesh
+        // Instead of just a line, we'll create a plane that always faces the camera
+
+        // Left trail
+        const leftTrailGeometry = new THREE.BufferGeometry();
+        // We need 2 vertices per point to create a ribbon (top and bottom points)
+        const leftTrailPositions = new Float32Array(this.trailMaxLength * 2 * 3); // 2 vertices per point, 3 coords per vertex
+        const leftTrailIndices = [];
+
+        // Create indices for the ribbon
+        for (let i = 0; i < this.trailMaxLength - 1; i++) {
+            // Each quad consists of 2 triangles
+            const topLeft = i * 2;
+            const bottomLeft = i * 2 + 1;
+            const topRight = (i + 1) * 2;
+            const bottomRight = (i + 1) * 2 + 1;
+
+            // First triangle
+            leftTrailIndices.push(topLeft, bottomLeft, bottomRight);
+            // Second triangle
+            leftTrailIndices.push(topLeft, bottomRight, topRight);
+        }
+
+        leftTrailGeometry.setIndex(leftTrailIndices);
+        leftTrailGeometry.setAttribute('position', new THREE.BufferAttribute(leftTrailPositions, 3));
+        leftTrailGeometry.setDrawRange(0, 0);
+
+        // Create UVs to enable texture mapping later if needed
+        const leftTrailUVs = new Float32Array(this.trailMaxLength * 2 * 2); // 2 vertices per point, 2 UV coords per vertex
+        leftTrailGeometry.setAttribute('uv', new THREE.BufferAttribute(leftTrailUVs, 2));
+
+        // Create opacity attribute for fading the trail at the end
+        const leftTrailOpacity = new Float32Array(this.trailMaxLength * 2);
+        leftTrailGeometry.setAttribute('opacity', new THREE.BufferAttribute(leftTrailOpacity, 1));
+
+        // Create mesh
+        const leftTrail = new THREE.Mesh(leftTrailGeometry, trailMaterial.clone());
+        leftTrail.frustumCulled = false; // Prevent disappearing when out of camera view
+        this.scene.add(leftTrail);
+
+        // Right trail (same process)
+        const rightTrailGeometry = new THREE.BufferGeometry();
+        const rightTrailPositions = new Float32Array(this.trailMaxLength * 2 * 3);
+
+        // Reuse the same indices for the right trail
+        rightTrailGeometry.setIndex(leftTrailIndices);
+        rightTrailGeometry.setAttribute('position', new THREE.BufferAttribute(rightTrailPositions, 3));
+        rightTrailGeometry.setDrawRange(0, 0);
+
+        // Create UVs
+        const rightTrailUVs = new Float32Array(this.trailMaxLength * 2 * 2);
+        rightTrailGeometry.setAttribute('uv', new THREE.BufferAttribute(rightTrailUVs, 2));
+
+        // Create opacity attribute
+        const rightTrailOpacity = new Float32Array(this.trailMaxLength * 2);
+        rightTrailGeometry.setAttribute('opacity', new THREE.BufferAttribute(rightTrailOpacity, 1));
+
+        // Create mesh
+        const rightTrail = new THREE.Mesh(rightTrailGeometry, trailMaterial.clone());
+        rightTrail.frustumCulled = false;
+        this.scene.add(rightTrail);
+
+        // Calculate exact wing tip positions for more accurate trail placement
+        const wingHalfSpan = wingSpan / 2;
+
+        // Store references with metadata
+        this.wingTrails = {
+            left: {
+                mesh: leftTrail,
+                positions: leftTrailPositions,
+                uvs: leftTrailUVs,
+                opacity: leftTrailOpacity,
+                count: 0,
+                lastPos: new THREE.Vector3(),
+                emitterOffset: new THREE.Vector3(-wingHalfSpan, wingHeight, wingZ)
+            },
+            right: {
+                mesh: rightTrail,
+                positions: rightTrailPositions,
+                uvs: rightTrailUVs,
+                opacity: rightTrailOpacity,
+                count: 0,
+                lastPos: new THREE.Vector3(),
+                emitterOffset: new THREE.Vector3(wingHalfSpan, wingHeight, wingZ)
+            }
+        };
+
+        // Initially hide trails until we're airborne and above 50% speed
+        this.wingTrails.left.mesh.visible = false;
+        this.wingTrails.right.mesh.visible = false;
+    }
+
+    /**
+     * Update wing trails
+     * @param {number} deltaTime - Time since last frame in seconds
+     */
+    updateWingTrails(deltaTime) {
+        // Debug if the plane is airborne
+        if (!this.isAirborne && this.speed > 0) {
+            console.log("Not airborne yet, speed:", this.speed, "minTakeoffSpeed:", this.minTakeoffSpeed);
+        }
+
+        // Get speed as percentage (0-1)
+        const speedFactor = this.speed / this.maxSpeed;
+
+        // Only generate trails if:
+        // 1. The plane is airborne
+        // 2. Speed is at least 50% of max speed (speedFactor >= 0.5)
+        // 3. Trails are initialized and enabled
+        if (!this.isAirborne || speedFactor < 0.5 || !this.wingTrails.left || !this.wingTrails.right || !this.trailsEnabled) {
+            // If trails exist and we're below 50% speed, hide them
+            if (this.wingTrails.left && this.wingTrails.right && speedFactor < 0.5) {
+                this.wingTrails.left.mesh.visible = false;
+                this.wingTrails.right.mesh.visible = false;
+            }
+            return;
+        }
+
+        // Make sure trails are visible
+        this.wingTrails.left.mesh.visible = this.trailsEnabled;
+        this.wingTrails.right.mesh.visible = this.trailsEnabled;
+
+        // Calculate opacity based on speed:
+        // - At 50% speed: 0% opacity
+        // - At 100% speed: 50% opacity
+        // Normalize the speed factor to this range
+        const normalizedSpeedFactor = (speedFactor - 0.5) * 2; // 0 at 50% speed, 1 at 100% speed
+        const opacity = normalizedSpeedFactor * 0.5; // 0.5 max opacity
+
+        // Calculate width based on speed
+        const width = this.trailBaseWidth + (speedFactor * 0.2); // Width increases slightly with speed
+
+        // Determine how often to add new points based on speed
+        // Higher speed = less frequent updates to create longer trails
+        const updateFrequency = Math.max(1, Math.floor(10 - speedFactor * 8));
+
+        // Only add points periodically to control density
+        if (Math.floor(performance.now() / 20) % updateFrequency !== 0) {
+            return;
+        }
+
+        // Get camera position vector from scene - need this to make ribbons face the camera
+        const cameraPosition = new THREE.Vector3(0, 10, 20); // Default camera position if we can't find one
+
+        // Try to find the camera in the scene
+        let cameraFound = false;
+        this.scene.traverse(object => {
+            if (object instanceof THREE.PerspectiveCamera || object instanceof THREE.OrthographicCamera) {
+                cameraPosition.copy(object.position);
+                cameraFound = true;
+            }
+        });
+
+        if (!cameraFound) {
+            // If we can't find a camera, look for objects that might contain a camera
+            this.scene.traverse(object => {
+                if (object.children) {
+                    for (const child of object.children) {
+                        if (child instanceof THREE.PerspectiveCamera || child instanceof THREE.OrthographicCamera) {
+                            cameraPosition.copy(child.position);
+                            cameraFound = true;
+                            break;
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update both trails
+        this.updateSingleTrail('left', opacity, speedFactor, width, cameraPosition);
+        this.updateSingleTrail('right', opacity, speedFactor, width, cameraPosition);
+    }
+
+    /**
+     * Update a single wing trail
+     * @param {string} side - 'left' or 'right'
+     * @param {number} opacity - Current opacity for trail
+     * @param {number} speedFactor - Speed factor (0-1)
+     * @param {number} width - Width of the trail
+     * @param {THREE.Vector3} cameraPosition - Camera position for billboard effect
+     */
+    updateSingleTrail(side, opacity, speedFactor, width, cameraPosition) {
+        const trail = this.wingTrails[side];
+        const positions = trail.positions;
+        const emitterOffset = trail.emitterOffset;
+        const uvs = trail.uvs;
+        const opacityAttr = trail.opacity;
+
+        // Get world position of the wing tip by applying the plane's transformation
+        const wingTipLocal = emitterOffset.clone();
+        const wingTipWorld = wingTipLocal.applyMatrix4(this.mesh.matrixWorld);
+
+        // Only add a new point if we've moved some minimum distance
+        if (trail.lastPos.distanceTo(wingTipWorld) < 0.1 && trail.count > 0) {
+            return;
+        }
+
+        // Direction to camera - if no camera was found, use a direction pointing back and slightly up
+        let toCamera;
+        if (cameraPosition.lengthSq() === 0) {
+            toCamera = new THREE.Vector3(0, 0.5, 1).normalize();
+        } else {
+            toCamera = new THREE.Vector3().subVectors(cameraPosition, wingTipWorld).normalize();
+        }
+
+        // We want up vector to be perpendicular to both the direction of travel and to-camera vector
+        // For simplicity, we'll use world up and make it perpendicular to toCamera
+        const up = new THREE.Vector3(0, 1, 0);
+        up.sub(toCamera.clone().multiplyScalar(up.dot(toCamera))).normalize();
+
+        // Calculate the left and right points of the ribbon
+        const left = up.clone().multiplyScalar(width / 2);
+        const right = up.clone().multiplyScalar(-width / 2);
+
+        // Top vertex = position + left
+        const topPos = wingTipWorld.clone().add(left);
+
+        // Bottom vertex = position + right
+        const bottomPos = wingTipWorld.clone().add(right);
+
+        // Calculate how much of the trail to keep based on speed
+        // Faster = more of the trail visible
+        const visiblePoints = Math.max(5, Math.floor(5 + speedFactor * 45));
+
+        if (trail.count < this.trailMaxLength) {
+            // If we're still building the trail
+            // For the first point, just store the position and return
+            if (trail.count === 0) {
+                // Set first point
+                positions[0] = topPos.x;
+                positions[1] = topPos.y;
+                positions[2] = topPos.z;
+
+                positions[3] = bottomPos.x;
+                positions[4] = bottomPos.y;
+                positions[5] = bottomPos.z;
+
+                // Set UV coordinates
+                uvs[0] = 0;
+                uvs[1] = 0;
+                uvs[2] = 0;
+                uvs[3] = 1;
+
+                // Set opacity
+                opacityAttr[0] = opacity;
+                opacityAttr[1] = opacity;
+
+                trail.count = 1;
+                trail.lastPos.copy(wingTipWorld);
+                return;
+            }
+
+            // Shift existing points one position back
+            for (let i = trail.count; i > 0; i--) {
+                // Each point has 2 vertices
+                const destTopIdx = i * 2;
+                const destBottomIdx = i * 2 + 1;
+                const srcTopIdx = (i - 1) * 2;
+                const srcBottomIdx = (i - 1) * 2 + 1;
+
+                // Copy positions
+                positions[destTopIdx * 3] = positions[srcTopIdx * 3];
+                positions[destTopIdx * 3 + 1] = positions[srcTopIdx * 3 + 1];
+                positions[destTopIdx * 3 + 2] = positions[srcTopIdx * 3 + 2];
+
+                positions[destBottomIdx * 3] = positions[srcBottomIdx * 3];
+                positions[destBottomIdx * 3 + 1] = positions[srcBottomIdx * 3 + 1];
+                positions[destBottomIdx * 3 + 2] = positions[srcBottomIdx * 3 + 2];
+
+                // Copy UVs
+                uvs[destTopIdx * 2] = uvs[srcTopIdx * 2];
+                uvs[destTopIdx * 2 + 1] = uvs[srcTopIdx * 2 + 1];
+
+                uvs[destBottomIdx * 2] = uvs[srcBottomIdx * 2];
+                uvs[destBottomIdx * 2 + 1] = uvs[srcBottomIdx * 2 + 1];
+
+                // Copy and fade opacity
+                const fadePoint = Math.max(0, visiblePoints - i) / visiblePoints;
+                const pointOpacity = Math.max(0, fadePoint) * opacity;
+
+                opacityAttr[destTopIdx] = pointOpacity;
+                opacityAttr[destBottomIdx] = pointOpacity;
+            }
+
+            trail.count++;
+        } else {
+            // If trail at max length, shift all points
+            for (let i = this.trailMaxLength - 1; i > 0; i--) {
+                // Each point has 2 vertices
+                const destTopIdx = i * 2;
+                const destBottomIdx = i * 2 + 1;
+                const srcTopIdx = (i - 1) * 2;
+                const srcBottomIdx = (i - 1) * 2 + 1;
+
+                // Copy positions
+                positions[destTopIdx * 3] = positions[srcTopIdx * 3];
+                positions[destTopIdx * 3 + 1] = positions[srcTopIdx * 3 + 1];
+                positions[destTopIdx * 3 + 2] = positions[srcTopIdx * 3 + 2];
+
+                positions[destBottomIdx * 3] = positions[srcBottomIdx * 3];
+                positions[destBottomIdx * 3 + 1] = positions[srcBottomIdx * 3 + 1];
+                positions[destBottomIdx * 3 + 2] = positions[srcBottomIdx * 3 + 2];
+
+                // Copy UVs
+                uvs[destTopIdx * 2] = uvs[srcTopIdx * 2];
+                uvs[destTopIdx * 2 + 1] = uvs[srcTopIdx * 2 + 1];
+
+                uvs[destBottomIdx * 2] = uvs[srcBottomIdx * 2];
+                uvs[destBottomIdx * 2 + 1] = uvs[srcBottomIdx * 2 + 1];
+
+                // Calculate fade based on position in the trail
+                const fadePoint = Math.max(0, visiblePoints - i) / visiblePoints;
+                const pointOpacity = Math.max(0, fadePoint) * opacity;
+
+                opacityAttr[destTopIdx] = pointOpacity;
+                opacityAttr[destBottomIdx] = pointOpacity;
+            }
+        }
+
+        // Add new top point at the beginning
+        positions[0] = topPos.x;
+        positions[1] = topPos.y;
+        positions[2] = topPos.z;
+
+        // Add new bottom point at the beginning
+        positions[3] = bottomPos.x;
+        positions[4] = bottomPos.y;
+        positions[5] = bottomPos.z;
+
+        // Set UV coordinates for the new points
+        uvs[0] = 0;
+        uvs[1] = 0;
+        uvs[2] = 0;
+        uvs[3] = 1;
+
+        // Set opacity for the new points (fully visible)
+        opacityAttr[0] = opacity;
+        opacityAttr[1] = opacity;
+
+        // Store last position
+        trail.lastPos.copy(wingTipWorld);
+
+        // Update how many vertices to draw
+        const drawCount = Math.min(trail.count, this.trailMaxLength);
+        // Each quad = 2 triangles = 6 vertices, and we have `drawCount-1` quads
+        const indexCount = (drawCount - 1) * 6;
+        trail.mesh.geometry.setDrawRange(0, Math.max(0, indexCount));
+
+        // Apply the opacity to the material
+        trail.mesh.material.opacity = opacity;
+
+        // Force attributes update
+        trail.mesh.geometry.attributes.position.needsUpdate = true;
+        trail.mesh.geometry.attributes.uv.needsUpdate = true;
+        trail.mesh.geometry.attributes.opacity.needsUpdate = true;
+
+        // Use simpler material for testing instead of the custom shader
+        if (!trail.mesh.material._hasSimpleMaterial) {
+            // Create a simple material for testing
+            trail.mesh.material = new THREE.MeshBasicMaterial({
+                color: 0xffffff,   // Pure white for better visibility
+                transparent: true,
+                opacity: opacity,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+
+            trail.mesh.material._hasSimpleMaterial = true;
+        }
     }
 } 
