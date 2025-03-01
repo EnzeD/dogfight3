@@ -290,6 +290,21 @@ function createRunway() {
 
 // Create the plane - scale up by 50%
 function createPlane() {
+    // Store references to flaps for animation
+    let leftAileron, rightAileron, elevators, rudder;
+
+    // Switch between original and WW2 plane design
+    const useWW2Design = true;
+
+    if (useWW2Design) {
+        createWW2Plane();
+    } else {
+        createOriginalPlane();
+    }
+}
+
+// Original plane design - preserved for reference
+function createOriginalPlane() {
     // Create a group to hold all plane parts
     plane = new THREE.Group();
 
@@ -414,6 +429,271 @@ function createPlane() {
 
     // Add the plane group to the scene
     scene.add(plane);
+}
+
+// Create the improved WW2-style plane with moving flaps
+function createWW2Plane() {
+    // Create a group to hold all plane parts
+    plane = new THREE.Group();
+
+    // Color scheme for WW2 plane (olive drab/khaki)
+    const fuselageColor = 0x5A5A3C; // Olive drab
+    const wingsColor = 0x6B6B4B;    // Slightly lighter olive
+    const cockpitColor = 0x88CCFF;  // Light blue for glass
+    const detailColor = 0x3A3A28;   // Darker for details
+    const controlSurfaceColor = 0x7B7B5B; // Slightly different color for control surfaces
+
+    // FUSELAGE (main body) - more authentic WW2 shape
+    const fuselageLength = 8;
+    const fuselageWidth = 1.6;
+    const fuselageHeight = 1.8;
+
+    // Create tapered fuselage for more realistic shape 
+    const fuselageGeometry = new THREE.BoxGeometry(fuselageWidth, fuselageHeight, fuselageLength);
+    const fuselageMaterial = new THREE.MeshBasicMaterial({
+        color: fuselageColor
+    });
+    const fuselage = new THREE.Mesh(fuselageGeometry, fuselageMaterial);
+    fuselage.position.set(0, 0, 0);
+    plane.add(fuselage);
+
+    // Create a nose cone (slightly tapered front section)
+    const noseLength = 2;
+    const noseGeometry = new THREE.CylinderGeometry(0.8, 1.2, noseLength, 8);
+    const noseMaterial = new THREE.MeshBasicMaterial({ color: fuselageColor });
+    const nose = new THREE.Mesh(noseGeometry, noseMaterial);
+    nose.rotation.x = Math.PI / 2; // Rotate to align with fuselage
+    nose.position.set(0, 0, -fuselageLength / 2 - noseLength / 2 + 0.3); // Attach to front of fuselage
+    plane.add(nose);
+
+    // Engine cowling (cylinder around the front of the nose)
+    const cowlingRadius = 1.1;
+    const cowlingLength = 0.8;
+    const cowlingGeometry = new THREE.CylinderGeometry(cowlingRadius, cowlingRadius, cowlingLength, 16);
+    const cowlingMaterial = new THREE.MeshBasicMaterial({ color: detailColor });
+    const cowling = new THREE.Mesh(cowlingGeometry, cowlingMaterial);
+    cowling.rotation.x = Math.PI / 2;
+    cowling.position.set(0, 0, -fuselageLength / 2 - noseLength + 0.8);
+    plane.add(cowling);
+
+    // WINGS - Wider with more detail for WW2 look
+    const wingSpan = 10; // Much wider than original
+    const wingChord = 2.5; // Wing depth (front to back)
+    const wingThickness = 0.25;
+
+    // Create a simple rectangular wing instead of a tapered one for better symmetry
+    const wingGeometry = new THREE.BoxGeometry(wingSpan, wingThickness, wingChord);
+    const wingMaterial = new THREE.MeshBasicMaterial({ color: wingsColor });
+    const wings = new THREE.Mesh(wingGeometry, wingMaterial);
+
+    // Position wings on top of the fuselage, slightly towards the front
+    wings.position.set(0, fuselageHeight / 5, -0.5);
+    plane.add(wings);
+
+    // ADD AILERONS (control surfaces on wings that move when rolling)
+    // Left aileron
+    const aileronWidth = wingSpan * 0.25; // 25% of wing span
+    const aileronChord = wingChord * 0.3; // 30% of wing chord
+    const aileronThickness = wingThickness;
+
+    const aileronGeometry = new THREE.BoxGeometry(aileronWidth, aileronThickness, aileronChord);
+    const aileronMaterial = new THREE.MeshBasicMaterial({ color: controlSurfaceColor });
+
+    // Left aileron
+    leftAileron = new THREE.Mesh(aileronGeometry, aileronMaterial);
+    leftAileron.position.set(-wingSpan / 2 + aileronWidth / 2, fuselageHeight / 5, -0.5 + wingChord / 2 - aileronChord / 2);
+    leftAileron.name = "leftAileron"; // Give it a name for identification
+    plane.add(leftAileron);
+
+    // Right aileron
+    rightAileron = new THREE.Mesh(aileronGeometry, aileronMaterial);
+    rightAileron.position.set(wingSpan / 2 - aileronWidth / 2, fuselageHeight / 5, -0.5 + wingChord / 2 - aileronChord / 2);
+    rightAileron.name = "rightAileron";
+    plane.add(rightAileron);
+
+    // COCKPIT (more detailed)
+    const cockpitLength = 2;
+    const cockpitWidth = 1.1;
+    const cockpitHeight = 0.8;
+    const cockpitGeometry = new THREE.BoxGeometry(cockpitWidth, cockpitHeight, cockpitLength);
+    const cockpitMaterial = new THREE.MeshBasicMaterial({
+        color: cockpitColor,
+        transparent: true,
+        opacity: 0.6
+    });
+    const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
+
+    // Position cockpit on top of the fuselage
+    cockpit.position.set(0, fuselageHeight / 2 + cockpitHeight / 2 - 0.1, 0);
+    plane.add(cockpit);
+
+    // Add canopy frame (outline strips along the cockpit edges)
+    const frameWidth = 0.05;
+    const frameGeometry = new THREE.BoxGeometry(cockpitWidth + frameWidth, frameWidth, cockpitLength + frameWidth);
+    const frameMaterial = new THREE.MeshBasicMaterial({ color: detailColor });
+    const topFrame = new THREE.Mesh(frameGeometry, frameMaterial);
+    topFrame.position.set(0, fuselageHeight / 2 + cockpitHeight - 0.1, 0);
+    plane.add(topFrame);
+
+    // TAIL SECTION (more detailed)
+    // Vertical stabilizer (fin)
+    const tailFinHeight = 1.8;
+    const tailFinLength = 1.5;
+    const tailFinThickness = 0.15;
+    const tailFinGeometry = new THREE.BoxGeometry(tailFinThickness, tailFinHeight, tailFinLength);
+    const tailMaterial = new THREE.MeshBasicMaterial({
+        color: wingsColor
+    });
+    const tailFin = new THREE.Mesh(tailFinGeometry, tailMaterial);
+
+    // Position tail fin at the back of the fuselage
+    tailFin.position.set(0, fuselageHeight / 2 + tailFinHeight / 2 - 0.3, fuselageLength / 2 - tailFinLength / 2);
+    plane.add(tailFin);
+
+    // Rudder - control surface on vertical stabilizer
+    const rudderHeight = tailFinHeight * 0.8;
+    const rudderLength = tailFinLength * 0.5;
+    const rudderThickness = tailFinThickness;
+    const rudderGeometry = new THREE.BoxGeometry(rudderThickness, rudderHeight, rudderLength);
+    const rudderMaterial = new THREE.MeshBasicMaterial({ color: controlSurfaceColor });
+    rudder = new THREE.Mesh(rudderGeometry, rudderMaterial);
+    rudder.position.set(0, fuselageHeight / 2 + tailFinHeight / 2 - 0.3, fuselageLength / 2 + tailFinLength / 2 - rudderLength / 2);
+    rudder.name = "rudder";
+    plane.add(rudder);
+
+    // Horizontal stabilizer
+    const tailWingSpan = 4;
+    const tailWingLength = 1.5;
+    const tailWingThickness = 0.15;
+    const tailWingGeometry = new THREE.BoxGeometry(tailWingSpan, tailWingThickness, tailWingLength);
+    const horizontalStabilizer = new THREE.Mesh(tailWingGeometry, tailMaterial);
+
+    // Position horizontal tail at the back of the fuselage
+    horizontalStabilizer.position.set(0, fuselageHeight / 4, fuselageLength / 2 - tailWingLength / 2);
+    plane.add(horizontalStabilizer);
+
+    // Elevators - control surfaces on horizontal stabilizer
+    const elevatorSpan = tailWingSpan * 0.8;
+    const elevatorLength = tailWingLength * 0.4;
+    const elevatorThickness = tailWingThickness;
+    const elevatorGeometry = new THREE.BoxGeometry(elevatorSpan, elevatorThickness, elevatorLength);
+    const elevatorMaterial = new THREE.MeshBasicMaterial({ color: controlSurfaceColor });
+    elevators = new THREE.Mesh(elevatorGeometry, elevatorMaterial);
+    elevators.position.set(0, fuselageHeight / 4, fuselageLength / 2 + tailWingLength / 2 - elevatorLength / 2);
+    elevators.name = "elevators";
+    plane.add(elevators);
+
+    // PROPELLER with more detail
+    const propellerWidth = 0.15;
+    const propellerHeight = 3;
+    const propellerDepth = 0.3;
+
+    // Create two-blade propeller
+    const propBladeGeometry = new THREE.BoxGeometry(propellerWidth, propellerHeight, propellerDepth);
+    const propellerMaterial = new THREE.MeshBasicMaterial({
+        color: 0x222222 // Dark grey/black
+    });
+
+    const propeller = new THREE.Group(); // Create a group for the propeller
+
+    // First blade
+    const blade1 = new THREE.Mesh(propBladeGeometry, propellerMaterial);
+    propeller.add(blade1);
+
+    // Second blade (rotated 90 degrees)
+    const blade2 = new THREE.Mesh(propBladeGeometry, propellerMaterial);
+    blade2.rotation.z = Math.PI / 2;
+    propeller.add(blade2);
+
+    // Add propeller center cap
+    const capGeometry = new THREE.SphereGeometry(0.3, 16, 16);
+    const capMaterial = new THREE.MeshBasicMaterial({ color: 0x333333 });
+    const propCap = new THREE.Mesh(capGeometry, capMaterial);
+    propeller.add(propCap);
+
+    // Position the propeller at the front of the fuselage
+    propeller.position.set(0, 0, -fuselageLength / 2 - noseLength - 0.2);
+    plane.add(propeller);
+
+    // LANDING GEAR - More detailed for WW2 style
+    // Main wheels (2)
+    const wheelRadius = 0.4;
+    const wheelThickness = 0.25;
+    const wheelSegments = 16; // More segments for smoother wheels
+    const wheelGeometry = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelThickness, wheelSegments);
+    const wheelMaterial = new THREE.MeshBasicMaterial({
+        color: 0x222222 // Very dark grey, almost black
+    });
+
+    // Add wheel struts (the metal parts connecting wheels to fuselage)
+    const strutHeight = 1.6; // Increased height to avoid wing clipping
+    const strutWidth = 0.1;
+    const strutDepth = 0.1;
+    const strutGeometry = new THREE.BoxGeometry(strutWidth, strutHeight, strutDepth);
+    const strutMaterial = new THREE.MeshBasicMaterial({ color: detailColor });
+
+    // Left wheel assembly - moved further out and down from wing
+    const leftWheelGroup = new THREE.Group();
+
+    const leftStrut = new THREE.Mesh(strutGeometry, strutMaterial);
+    leftWheelGroup.add(leftStrut);
+
+    const leftWheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+    leftWheel.rotation.z = Math.PI / 2; // Rotate to stand up like a wheel
+    leftWheel.position.set(0, -strutHeight / 2 - wheelRadius / 2, 0);
+    leftWheelGroup.add(leftWheel);
+
+    // Position wheel assembly further outward from fuselage and lower to avoid wing clipping
+    leftWheelGroup.position.set(-fuselageWidth - 1.0, -0.2, -1);
+    plane.add(leftWheelGroup);
+
+    // Right wheel assembly - moved further out and down from wing
+    const rightWheelGroup = new THREE.Group();
+
+    const rightStrut = new THREE.Mesh(strutGeometry, strutMaterial);
+    rightWheelGroup.add(rightStrut);
+
+    const rightWheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+    rightWheel.rotation.z = Math.PI / 2; // Rotate to stand up like a wheel
+    rightWheel.position.set(0, -strutHeight / 2 - wheelRadius / 2, 0);
+    rightWheelGroup.add(rightWheel);
+
+    // Position wheel assembly further outward from fuselage and lower to avoid wing clipping
+    rightWheelGroup.position.set(fuselageWidth + 1.0, -0.2, -1);
+    plane.add(rightWheelGroup);
+
+    // Rear wheel (smaller)
+    const rearWheelRadius = 0.25;
+    const rearWheelGeometry = new THREE.CylinderGeometry(rearWheelRadius, rearWheelRadius, wheelThickness, wheelSegments);
+    const rearWheel = new THREE.Mesh(rearWheelGeometry, wheelMaterial);
+    rearWheel.rotation.z = Math.PI / 2; // Rotate to stand up like a wheel
+    rearWheel.position.set(0, -fuselageHeight / 2 - rearWheelRadius / 2, fuselageLength / 2 - 0.5);
+    plane.add(rearWheel);
+
+    // Position the entire plane on the runway
+    plane.position.set(0, fuselageHeight / 2 + 0.6, 60);
+    plane.rotation.y = 0;
+
+    // Add the plane group to the scene
+    scene.add(plane);
+
+    // Store references to control surfaces for animation
+    window.planeControlSurfaces = {
+        leftAileron,
+        rightAileron,
+        elevators,
+        rudder
+    };
+
+    // Calculate the correct ground contact point for wheels based on plane position
+    // The ground is at -0.15, and the plane is at 0.8, so wheels need to span 0.95 units
+    const distanceToGround = 0.95; // Distance from plane origin to ground
+    const wheelContactAdjustment = 0.05; // Small adjustment to ensure wheels just touch the ground
+
+    // Adjust wheel positions so they just touch the ground
+    leftWheelGroup.position.y = -distanceToGround + wheelRadius + wheelContactAdjustment;
+    rightWheelGroup.position.y = -distanceToGround + wheelRadius + wheelContactAdjustment;
+    rearWheel.position.y = -distanceToGround + rearWheelRadius + wheelContactAdjustment;
 }
 
 // Position the camera and set up OrbitControls
@@ -690,12 +970,20 @@ function updatePlaneMovement() {
     }
 
     // Rotate propeller based on speed
-    const propeller = plane.children.find(child =>
-        child.position.z < -2 && child.geometry && child.geometry.parameters && child.geometry.parameters.width > 1.5);
+    // First try to find the propeller group (for WW2 plane)
+    let propellerToRotate = plane.children.find(child =>
+        child instanceof THREE.Group && child.position.z < -3);
 
-    if (propeller) {
+    // If not found, try to find the original plane's propeller
+    if (!propellerToRotate) {
+        propellerToRotate = plane.children.find(child =>
+            child.position.z < -2 && child.geometry && child.geometry.parameters && child.geometry.parameters.width > 1.5);
+    }
+
+    if (propellerToRotate) {
         propellerRotation += speed * 5; // Faster rotation for visual feedback
-        propeller.rotation.z = propellerRotation;
+        // For WW2 plane (group), rotate the entire group
+        propellerToRotate.rotation.z = propellerRotation;
     }
 
     // Check if plane has reached takeoff speed
@@ -707,6 +995,17 @@ function updatePlaneMovement() {
 
     // Handle flight controls
     const rotationAmount = deltaTime * 60; // Base rotation amount for frame-rate independence
+
+    // Get control surfaces if they exist
+    const { leftAileron, rightAileron, elevators, rudder } = window.planeControlSurfaces || {};
+
+    // Variables to track control input for flap animation
+    let isRollingLeft = false;
+    let isRollingRight = false;
+    let isPitchingUp = false;
+    let isPitchingDown = false;
+    let isYawingLeft = false;
+    let isYawingRight = false;
 
     if (isAirborne) {
         // --- AIRBORNE CONTROLS - SIMPLIFIED ---
@@ -724,11 +1023,13 @@ function updatePlaneMovement() {
             // Roll axis is always the plane's local Z axis
             rollQuaternion.setFromAxisAngle(new THREE.Vector3(0, 0, 1), rollSpeed * rotationAmount);
             plane.quaternion.multiply(rollQuaternion);
+            isRollingLeft = true; // Track rolling left for aileron animation
         }
         if (keysPressed['d']) {
             // Roll in the opposite direction
             rollQuaternion.setFromAxisAngle(new THREE.Vector3(0, 0, 1), -rollSpeed * rotationAmount);
             plane.quaternion.multiply(rollQuaternion);
+            isRollingRight = true; // Track rolling right for aileron animation
         }
 
         // Auto horizontal stabilization (roll only)
@@ -782,11 +1083,13 @@ function updatePlaneMovement() {
             // Pitch down around the plane's local X axis
             pitchQuaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -pitchSpeed * rotationAmount);
             plane.quaternion.multiply(pitchQuaternion);
+            isPitchingDown = true; // Track pitching down for elevator animation
         }
         if (keysPressed['arrowdown']) {
             // Pitch up around the plane's local X axis
             pitchQuaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitchSpeed * rotationAmount);
             plane.quaternion.multiply(pitchQuaternion);
+            isPitchingUp = true; // Track pitching up for elevator animation
         }
 
         // Yaw control (left/right turn) - Related to the plane's local Y axis
@@ -794,11 +1097,13 @@ function updatePlaneMovement() {
             // Yaw left around the plane's local Y axis
             yawQuaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yawSpeed * rotationAmount);
             plane.quaternion.multiply(yawQuaternion);
+            isYawingLeft = true; // Track yawing left for rudder animation
         }
         if (keysPressed['arrowright']) {
             // Yaw right around the plane's local Y axis
             yawQuaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -yawSpeed * rotationAmount);
             plane.quaternion.multiply(yawQuaternion);
+            isYawingRight = true; // Track yawing right for rudder animation
         }
     } else {
         // --- GROUND CONTROLS ---
@@ -806,9 +1111,25 @@ function updatePlaneMovement() {
         // Only allow turning on the ground
         if (keysPressed['arrowleft']) {
             plane.rotation.y += yawSpeed * 0.5 * rotationAmount;
+            isYawingLeft = true; // Track yawing left for rudder animation
         }
         if (keysPressed['arrowright']) {
             plane.rotation.y -= yawSpeed * 0.5 * rotationAmount;
+            isYawingRight = true; // Track yawing right for rudder animation
+        }
+
+        // Allow aileron and elevator controls even when not moving
+        if (keysPressed['a'] || keysPressed['q']) {
+            isRollingLeft = true;
+        }
+        if (keysPressed['d']) {
+            isRollingRight = true;
+        }
+        if (keysPressed['arrowup']) {
+            isPitchingDown = true;
+        }
+        if (keysPressed['arrowdown']) {
+            isPitchingUp = true;
         }
 
         // Reset orientation when on ground
@@ -816,6 +1137,120 @@ function updatePlaneMovement() {
             // Reset to level flight orientation
             plane.rotation.x = 0;
             plane.rotation.z = 0;
+        }
+    }
+
+    // --- CONTROL SURFACE ANIMATION ---
+    // Animate control surfaces based on input, even when not moving
+
+    // Define maximum deflection angles (in radians)
+    const maxAileronDeflection = 0.4; // About 23 degrees
+    const maxElevatorDeflection = 0.3; // About 17 degrees
+    const maxRudderDeflection = 0.5;   // About 28 degrees
+
+    // Define animation speed
+    const controlSurfaceSpeed = 0.15;  // How quickly control surfaces move
+
+    // ANIMATE AILERONS
+    if (leftAileron && rightAileron) {
+        // When rolling left: left aileron goes up, right aileron goes down
+        if (isRollingLeft) {
+            // Reset rotation to apply from original position
+            leftAileron.rotation.x = THREE.MathUtils.lerp(
+                leftAileron.rotation.x || 0,
+                -maxAileronDeflection,
+                controlSurfaceSpeed
+            );
+
+            rightAileron.rotation.x = THREE.MathUtils.lerp(
+                rightAileron.rotation.x || 0,
+                maxAileronDeflection,
+                controlSurfaceSpeed
+            );
+        }
+        // When rolling right: right aileron goes up, left aileron goes down
+        else if (isRollingRight) {
+            leftAileron.rotation.x = THREE.MathUtils.lerp(
+                leftAileron.rotation.x || 0,
+                maxAileronDeflection,
+                controlSurfaceSpeed
+            );
+
+            rightAileron.rotation.x = THREE.MathUtils.lerp(
+                rightAileron.rotation.x || 0,
+                -maxAileronDeflection,
+                controlSurfaceSpeed
+            );
+        }
+        // Return to neutral position when not rolling
+        else {
+            leftAileron.rotation.x = THREE.MathUtils.lerp(
+                leftAileron.rotation.x || 0,
+                0,
+                controlSurfaceSpeed / 2
+            );
+
+            rightAileron.rotation.x = THREE.MathUtils.lerp(
+                rightAileron.rotation.x || 0,
+                0,
+                controlSurfaceSpeed / 2
+            );
+        }
+    }
+
+    // ANIMATE ELEVATORS
+    if (elevators) {
+        // When pitching up: elevators go up
+        if (isPitchingUp) {
+            elevators.rotation.x = THREE.MathUtils.lerp(
+                elevators.rotation.x || 0,
+                -maxElevatorDeflection,
+                controlSurfaceSpeed
+            );
+        }
+        // When pitching down: elevators go down
+        else if (isPitchingDown) {
+            elevators.rotation.x = THREE.MathUtils.lerp(
+                elevators.rotation.x || 0,
+                maxElevatorDeflection,
+                controlSurfaceSpeed
+            );
+        }
+        // Return to neutral position when not pitching
+        else {
+            elevators.rotation.x = THREE.MathUtils.lerp(
+                elevators.rotation.x || 0,
+                0,
+                controlSurfaceSpeed / 2
+            );
+        }
+    }
+
+    // ANIMATE RUDDER
+    if (rudder) {
+        // When yawing left: rudder goes left
+        if (isYawingLeft) {
+            rudder.rotation.y = THREE.MathUtils.lerp(
+                rudder.rotation.y || 0,
+                maxRudderDeflection,
+                controlSurfaceSpeed
+            );
+        }
+        // When yawing right: rudder goes right
+        else if (isYawingRight) {
+            rudder.rotation.y = THREE.MathUtils.lerp(
+                rudder.rotation.y || 0,
+                -maxRudderDeflection,
+                controlSurfaceSpeed
+            );
+        }
+        // Return to neutral position when not yawing
+        else {
+            rudder.rotation.y = THREE.MathUtils.lerp(
+                rudder.rotation.y || 0,
+                0,
+                controlSurfaceSpeed / 2
+            );
         }
     }
 
