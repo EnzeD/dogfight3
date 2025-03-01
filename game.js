@@ -869,39 +869,88 @@ function updatePlaneMovement() {
 
 // Make camera follow the plane with smoother transitions
 function updateCameraFollow() {
+    // Check if user is controlling camera
+    if (isUserControllingCamera) {
+        // When user is controlling camera, don't update the camera position
+        // This allows free orbit around the plane
+        controls.update();
+        return;
+    }
+
     // Get the plane's direction vector (forward direction)
     const planeDirection = new THREE.Vector3(0, 0, -1);
     planeDirection.applyQuaternion(plane.quaternion);
 
-    // Create a camera position that's behind the plane
-    // Calculate offset based on plane direction and follow distance
-    const cameraOffset = planeDirection.clone().multiplyScalar(-followDistance);
+    // Get the plane's up vector
+    const planeUp = new THREE.Vector3(0, 1, 0);
+    planeUp.applyQuaternion(plane.quaternion);
 
-    // Add height offset that increases with speed for a more dynamic feel
-    const heightOffset = 3 + (speed / maxSpeed) * 2;
-    cameraOffset.y += heightOffset;
+    // Calculate velocity-based look-ahead factor
+    // This makes the camera look ahead more when moving faster
+    const lookAheadFactor = Math.min(speed / maxSpeed, 1) * 10;
 
-    // Calculate the desired camera position by adding offset to plane position
-    const desiredCameraPos = plane.position.clone().add(cameraOffset);
+    // Create a target position that's behind and slightly above the plane
+    // Base follow distance adjusts with speed
+    const baseFollowDistance = 15 + (speed / maxSpeed) * 10;
 
-    // ALWAYS update the controls target to the plane's current position
-    // This ensures the camera always pivots around the plane, regardless of speed
-    controls.target.copy(plane.position);
+    // Extract current plane orientation
+    const euler = new THREE.Euler().setFromQuaternion(plane.quaternion, 'YXZ');
 
-    if (isUserControllingCamera) {
-        // When user is controlling camera, don't update the camera position
-        // This allows free orbit around the plane
-    } else {
-        // Immediate target transition when auto-following
-        // Immediately snap camera position to behind the plane
-        camera.position.copy(desiredCameraPos);
-    }
+    // Create a modified quaternion that preserves pitch and yaw but ignores roll
+    // This keeps the camera level regardless of the plane's roll angle
+    const noRollQuaternion = new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(euler.x, euler.y, 0, 'YXZ')
+    );
 
-    // Adjust the follow distance based on plane speed
-    const targetFollowDistance = 15 + (speed / maxSpeed) * 10;
-    followDistance += (targetFollowDistance - followDistance) * 0.05;
+    // Get direction vectors without roll influence
+    const levelDirection = new THREE.Vector3(0, 0, -1);
+    levelDirection.applyQuaternion(noRollQuaternion);
 
-    // Always update controls
+    const levelUp = new THREE.Vector3(0, 1, 0);
+    levelUp.applyQuaternion(noRollQuaternion);
+
+    // Calculate camera offset with dynamic components
+    let cameraOffset = new THREE.Vector3();
+
+    // 1. Base position: behind the plane (using level direction to ignore roll)
+    cameraOffset.add(levelDirection.clone().multiplyScalar(-baseFollowDistance));
+
+    // 2. Height component: above the plane (using level up to ignore roll)
+    const heightFactor = 3 + (speed / maxSpeed) * 3;
+    cameraOffset.add(levelUp.clone().multiplyScalar(heightFactor));
+
+    // 3. Look-ahead component: shift camera in direction of travel
+    // Use the actual plane direction for look-ahead to maintain proper targeting
+    cameraOffset.add(planeDirection.clone().multiplyScalar(lookAheadFactor));
+
+    // Calculate the desired camera position
+    const targetCameraPos = plane.position.clone().add(cameraOffset);
+
+    // Smooth camera movement using spring physics
+    // Use different spring strengths for different maneuvers
+    const pitchYawSpringStrength = 0.05; // For pitch/yaw movements
+    const rollSpringStrength = 0.1;      // Faster response to roll changes
+
+    // Calculate spring strength based on how much roll is happening
+    const rollAmount = Math.abs(Math.sin(euler.z));
+    const springStrength = pitchYawSpringStrength * (1 - rollAmount) +
+        rollSpringStrength * rollAmount;
+
+    // Apply spring physics to camera position
+    // This creates smooth movement toward the target position
+    camera.position.lerp(targetCameraPos, springStrength);
+
+    // Calculate a look target that's ahead of the plane
+    // This makes the camera look ahead of the plane, especially during fast movement
+    const lookAheadDistance = 10 + (speed / maxSpeed) * 20;
+    const lookTarget = plane.position.clone().add(
+        planeDirection.clone().multiplyScalar(lookAheadDistance)
+    );
+
+    // Smoothly transition the controls target
+    controls.target.lerp(lookTarget, springStrength * 1.5);
+
+    // Update controls
     controls.update();
 }
 
@@ -1177,22 +1226,35 @@ function initSound() {
 // New function to start audio after user interaction
 function startAudio() {
     if (isSoundInitialized && !isAudioStarted) {
+        console.log("Attempting to start audio...");
         // CRITICAL: Resume the AudioContext - this was missing!
         if (audioContext.state === 'suspended') {
             audioContext.resume().then(() => {
                 console.log('AudioContext resumed successfully');
-                startEngineSound();
+                // Only start engine sound if it hasn't been started yet
+                if (!engineSound) {
+                    startEngineSound();
+                }
             }).catch(error => {
                 console.error('Failed to resume AudioContext:', error);
             });
         } else {
-            startEngineSound();
+            // Only start engine sound if it hasn't been started yet
+            if (!engineSound) {
+                startEngineSound();
+            }
         }
     }
 }
 
 // Move engine sound creation to separate function
 function startEngineSound() {
+    // Check if engine sound already exists to prevent duplicates
+    if (engineSound) {
+        console.log("Engine sound already exists, not creating another one");
+        return;
+    }
+
     // Create an oscillator for the engine sound
     engineSound = audioContext.createOscillator();
     engineSound.type = 'sawtooth'; // Harsh sound like an engine
@@ -1201,7 +1263,7 @@ function startEngineSound() {
     engineSound.start();
 
     isAudioStarted = true;
-    console.log("Audio started after user interaction");
+    console.log("Engine sound started");
 }
 
 // Modify setupControls to start audio on first key press
@@ -1368,7 +1430,7 @@ function addAudioEnabler() {
         }
 
         // Start audio
-        if (audioContext) {
+        if (audioContext && !isAudioStarted) {
             startAudio();
         }
 
