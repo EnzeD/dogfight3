@@ -5,10 +5,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WW2 Dogfight Arena</title>
-    <!-- Three.js library from CDN -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-    <!-- OrbitControls for camera movement -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
+
+    <!-- Import maps for ES modules -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.152.2/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.152.2/examples/jsm/"
+            }
+        }
+    </script>
+
     <!-- Custom CSS -->
     <link rel="stylesheet" href="style.css">
 </head>
@@ -16,8 +23,8 @@
 <body>
     <!-- Three.js will append the canvas here dynamically -->
 
-    <!-- Custom game script -->
-    <script src="game.js"></script>
+    <!-- Main game script using ES modules -->
+    <script type="module" src="js/main.js"></script>
 </body>
 
 </html>
