@@ -44,6 +44,7 @@ export default class WW2Plane extends Plane {
         });
         const fuselage = new THREE.Mesh(fuselageGeometry, fuselageMaterial);
         fuselage.position.set(0, 0, 0);
+        fuselage.castShadow = true; // Enable shadow casting
         this.mesh.add(fuselage);
 
         // Create a nose cone (slightly tapered front section)
@@ -53,6 +54,7 @@ export default class WW2Plane extends Plane {
         const nose = new THREE.Mesh(noseGeometry, noseMaterial);
         nose.rotation.x = Math.PI / 2; // Rotate to align with fuselage
         nose.position.set(0, 0, -fuselageLength / 2 - noseLength / 2 + 0.3); // Attach to front of fuselage
+        nose.castShadow = true; // Enable shadow casting
         this.mesh.add(nose);
 
         // Engine cowling (cylinder around the front of the nose)
@@ -63,6 +65,7 @@ export default class WW2Plane extends Plane {
         const cowling = new THREE.Mesh(cowlingGeometry, cowlingMaterial);
         cowling.rotation.x = Math.PI / 2;
         cowling.position.set(0, 0, -fuselageLength / 2 - noseLength + 0.8);
+        cowling.castShadow = true; // Enable shadow casting
         this.mesh.add(cowling);
 
         // WINGS - Wider with more detail for WW2 look
@@ -77,6 +80,7 @@ export default class WW2Plane extends Plane {
 
         // Position wings on top of the fuselage, slightly towards the front
         wings.position.set(0, fuselageHeight / 5, -0.5);
+        wings.castShadow = true; // Enable shadow casting
         this.mesh.add(wings);
 
         // ADD AILERONS (control surfaces on wings that move when rolling)
@@ -92,12 +96,14 @@ export default class WW2Plane extends Plane {
         this.leftAileron = new THREE.Mesh(aileronGeometry, aileronMaterial);
         this.leftAileron.position.set(-wingSpan / 2 + aileronWidth / 2, fuselageHeight / 5, -0.5 + wingChord / 2 - aileronChord / 2);
         this.leftAileron.name = "leftAileron"; // Give it a name for identification
+        this.leftAileron.castShadow = true; // Enable shadow casting
         this.mesh.add(this.leftAileron);
 
         // Right aileron
         this.rightAileron = new THREE.Mesh(aileronGeometry, aileronMaterial);
         this.rightAileron.position.set(wingSpan / 2 - aileronWidth / 2, fuselageHeight / 5, -0.5 + wingChord / 2 - aileronChord / 2);
         this.rightAileron.name = "rightAileron";
+        this.rightAileron.castShadow = true; // Enable shadow casting
         this.mesh.add(this.rightAileron);
 
         // COCKPIT (more detailed)
@@ -114,6 +120,7 @@ export default class WW2Plane extends Plane {
 
         // Position cockpit on top of the fuselage
         cockpit.position.set(0, fuselageHeight / 2 + cockpitHeight / 2 - 0.1, 0);
+        cockpit.castShadow = true; // Enable shadow casting
         this.mesh.add(cockpit);
 
         // Add canopy frame (outline strips along the cockpit edges)
@@ -122,6 +129,7 @@ export default class WW2Plane extends Plane {
         const frameMaterial = new THREE.MeshPhongMaterial({ color: detailColor });
         const topFrame = new THREE.Mesh(frameGeometry, frameMaterial);
         topFrame.position.set(0, fuselageHeight / 2 + cockpitHeight - 0.1, 0);
+        topFrame.castShadow = true; // Enable shadow casting
         this.mesh.add(topFrame);
 
         // TAIL SECTION (more detailed)
@@ -137,6 +145,7 @@ export default class WW2Plane extends Plane {
 
         // Position tail fin at the back of the fuselage
         tailFin.position.set(0, fuselageHeight / 2 + tailFinHeight / 2 - 0.3, fuselageLength / 2 - tailFinLength / 2);
+        tailFin.castShadow = true; // Enable shadow casting
         this.mesh.add(tailFin);
 
         // Rudder - control surface on vertical stabilizer
@@ -148,6 +157,7 @@ export default class WW2Plane extends Plane {
         this.rudder = new THREE.Mesh(rudderGeometry, rudderMaterial);
         this.rudder.position.set(0, fuselageHeight / 2 + tailFinHeight / 2 - 0.3, fuselageLength / 2 + tailFinLength / 2 - rudderLength / 2);
         this.rudder.name = "rudder";
+        this.rudder.castShadow = true; // Enable shadow casting
         this.mesh.add(this.rudder);
 
         // Horizontal stabilizer
@@ -159,6 +169,7 @@ export default class WW2Plane extends Plane {
 
         // Position horizontal tail at the back of the fuselage
         horizontalStabilizer.position.set(0, fuselageHeight / 4, fuselageLength / 2 - tailWingLength / 2);
+        horizontalStabilizer.castShadow = true; // Enable shadow casting
         this.mesh.add(horizontalStabilizer);
 
         // Elevators - control surfaces on horizontal stabilizer
@@ -170,6 +181,7 @@ export default class WW2Plane extends Plane {
         this.elevators = new THREE.Mesh(elevatorGeometry, elevatorMaterial);
         this.elevators.position.set(0, fuselageHeight / 4, fuselageLength / 2 + tailWingLength / 2 - elevatorLength / 2);
         this.elevators.name = "elevators";
+        this.elevators.castShadow = true; // Enable shadow casting
         this.mesh.add(this.elevators);
 
         // PROPELLER with more detail
@@ -187,17 +199,20 @@ export default class WW2Plane extends Plane {
 
         // First blade
         const blade1 = new THREE.Mesh(propBladeGeometry, propellerMaterial);
+        blade1.castShadow = true; // Enable shadow casting
         this.propeller.add(blade1);
 
         // Second blade (rotated 90 degrees)
         const blade2 = new THREE.Mesh(propBladeGeometry, propellerMaterial);
         blade2.rotation.z = Math.PI / 2;
+        blade2.castShadow = true; // Enable shadow casting
         this.propeller.add(blade2);
 
         // Add propeller center cap
         const capGeometry = new THREE.SphereGeometry(0.3, 16, 16);
         const capMaterial = new THREE.MeshPhongMaterial({ color: 0x333333 });
         const propCap = new THREE.Mesh(capGeometry, capMaterial);
+        propCap.castShadow = true; // Enable shadow casting
         this.propeller.add(propCap);
 
         // Position the propeller at the front of the fuselage
@@ -225,11 +240,13 @@ export default class WW2Plane extends Plane {
         const leftWheelGroup = new THREE.Group();
 
         const leftStrut = new THREE.Mesh(strutGeometry, strutMaterial);
+        leftStrut.castShadow = true; // Enable shadow casting
         leftWheelGroup.add(leftStrut);
 
         const leftWheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
         leftWheel.rotation.z = Math.PI / 2; // Rotate to stand up like a wheel
         leftWheel.position.set(0, -strutHeight / 2 - wheelRadius / 2, 0);
+        leftWheel.castShadow = true; // Enable shadow casting
         leftWheelGroup.add(leftWheel);
 
         // Position wheel assembly further outward from fuselage and lower to avoid wing clipping
@@ -240,11 +257,13 @@ export default class WW2Plane extends Plane {
         const rightWheelGroup = new THREE.Group();
 
         const rightStrut = new THREE.Mesh(strutGeometry, strutMaterial);
+        rightStrut.castShadow = true; // Enable shadow casting
         rightWheelGroup.add(rightStrut);
 
         const rightWheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
         rightWheel.rotation.z = Math.PI / 2; // Rotate to stand up like a wheel
         rightWheel.position.set(0, -strutHeight / 2 - wheelRadius / 2, 0);
+        rightWheel.castShadow = true; // Enable shadow casting
         rightWheelGroup.add(rightWheel);
 
         // Position wheel assembly further outward from fuselage and lower to avoid wing clipping

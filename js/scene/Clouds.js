@@ -40,34 +40,44 @@ export default class Clouds {
 
         cloud.position.set(x, y, z);
 
-        // Create 3-7 cloud puffs
-        const puffCount = 3 + Math.floor(Math.random() * 5);
+        // Create 3-5 cloud sections (fewer sections because they're bigger now)
+        const sectionCount = 3 + Math.floor(Math.random() * 3);
 
         // Cloud material - white with slight transparency
-        const cloudMaterial = new THREE.MeshBasicMaterial({
+        const cloudMaterial = new THREE.MeshStandardMaterial({
             color: 0xFFFFFF,
             transparent: true,
-            opacity: 0.9
+            opacity: 0.9,
+            roughness: 0.5,
+            metalness: 0.1
         });
 
-        // Create puffs
-        for (let j = 0; j < puffCount; j++) {
-            // Random size for each puff
-            const puffSize = 5 + Math.random() * 10;
+        // Create rectangular cloud sections
+        for (let j = 0; j < sectionCount; j++) {
+            // Larger size for rectangular sections
+            const width = 15 + Math.random() * 25;
+            const height = 8 + Math.random() * 12;
+            const depth = 12 + Math.random() * 20;
 
-            // Create sphere for cloud puff
-            const puffGeometry = new THREE.SphereGeometry(puffSize, 7, 7);
-            const puff = new THREE.Mesh(puffGeometry, cloudMaterial);
+            // Create box for cloud section
+            const sectionGeometry = new THREE.BoxGeometry(width, height, depth);
+            const section = new THREE.Mesh(sectionGeometry, cloudMaterial);
+
+            // Enable shadow casting
+            section.castShadow = true;
 
             // Random position within the cloud
-            const puffX = (Math.random() - 0.5) * 10;
-            const puffY = (Math.random() - 0.5) * 5;
-            const puffZ = (Math.random() - 0.5) * 10;
+            const sectionX = (Math.random() - 0.5) * 15;
+            const sectionY = (Math.random() - 0.5) * 8;
+            const sectionZ = (Math.random() - 0.5) * 15;
 
-            puff.position.set(puffX, puffY, puffZ);
+            section.position.set(sectionX, sectionY, sectionZ);
 
-            // Add puff to cloud
-            cloud.add(puff);
+            // Add slight random rotation for variety
+            section.rotation.y = Math.random() * Math.PI * 0.25;
+
+            // Add section to cloud
+            cloud.add(section);
         }
 
         // Add cloud to scene and store in array

@@ -20,14 +20,19 @@ export default class Ground {
         // Create a plane geometry for the ground
         const groundGeometry = new THREE.PlaneGeometry(groundSize, groundSize);
 
-        // Create a basic material with a green color
-        const groundMaterial = new THREE.MeshBasicMaterial({
+        // Create a material that can receive shadows
+        const groundMaterial = new THREE.MeshStandardMaterial({
             color: 0x3A5F0B, // Dark green color
-            side: THREE.DoubleSide // Visible from both sides
+            side: THREE.DoubleSide, // Visible from both sides
+            roughness: 0.8, // Makes the ground appear less shiny
+            metalness: 0.1
         });
 
         // Create the ground mesh
         this.ground = new THREE.Mesh(groundGeometry, groundMaterial);
+
+        // Enable shadow receiving
+        this.ground.receiveShadow = true;
 
         // Rotate the plane to lie flat on the ground (rotate around X axis by 90 degrees)
         this.ground.rotation.x = Math.PI / 2;

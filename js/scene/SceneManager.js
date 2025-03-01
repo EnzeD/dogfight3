@@ -20,6 +20,8 @@ export default class SceneManager {
         this.runway = null;
         this.clouds = null;
         this.camera = null;
+        this.sun = null; // Store reference to the sun light
+        this.fog = null; // Store reference to the fog
 
         // Main actor (plane)
         this.mainActor = null;
@@ -32,6 +34,9 @@ export default class SceneManager {
         // Set scene background color (will be replaced by sky)
         this.scene.background = new THREE.Color(0x87CEEB);
 
+        // Add fog to the scene
+        this.createFog();
+
         // Create the renderer
         this.createRenderer();
 
@@ -39,7 +44,7 @@ export default class SceneManager {
         this.createLighting();
 
         // Create scene elements
-        this.sky = new Sky(this.scene);
+        this.sky = new Sky(this.scene, this.sun); // Pass the sun to the sky
         this.ground = new Ground(this.scene);
         this.runway = new Runway(this.scene);
         this.clouds = new Clouds(this.scene, this.eventBus);
@@ -48,6 +53,17 @@ export default class SceneManager {
         this.camera = new Camera(this.scene, this.renderer.domElement, this.eventBus);
 
         console.log('SceneManager initialized');
+    }
+
+    /**
+     * Create fog for the scene
+     */
+    createFog() {
+        // Add exponential fog - less intensive than linear fog
+        // Parameters: color, density
+        this.fog = new THREE.FogExp2(0xCFE8FF, 0.0015);
+        this.scene.fog = this.fog;
+        console.log('Scene fog created');
     }
 
     /**
@@ -72,26 +88,27 @@ export default class SceneManager {
      * Create lighting for the scene
      */
     createLighting() {
-        // Add ambient light for general illumination
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        // Add ambient light for general illumination - reduced intensity for better shadow contrast
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
         this.scene.add(ambientLight);
 
         // Add directional light for sun-like illumination
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(100, 100, 50);
-        directionalLight.castShadow = true;
+        this.sun = new THREE.DirectionalLight(0xFFD580, 1.0); // Sunny yellow color
+        this.sun.position.set(300, 200, 100);
+        this.sun.castShadow = true;
 
-        // Configure shadow properties
-        directionalLight.shadow.mapSize.width = 2048;
-        directionalLight.shadow.mapSize.height = 2048;
-        directionalLight.shadow.camera.near = 0.5;
-        directionalLight.shadow.camera.far = 500;
-        directionalLight.shadow.camera.left = -100;
-        directionalLight.shadow.camera.right = 100;
-        directionalLight.shadow.camera.top = 100;
-        directionalLight.shadow.camera.bottom = -100;
+        // Configure shadow properties - keep shadow map small for performance
+        this.sun.shadow.mapSize.width = 1024;
+        this.sun.shadow.mapSize.height = 1024;
+        this.sun.shadow.camera.near = 10;
+        this.sun.shadow.camera.far = 500;
+        this.sun.shadow.camera.left = -200;
+        this.sun.shadow.camera.right = 200;
+        this.sun.shadow.camera.top = 200;
+        this.sun.shadow.camera.bottom = -200;
+        this.sun.shadow.bias = -0.0005; // Reduce shadow acne
 
-        this.scene.add(directionalLight);
+        this.scene.add(this.sun);
 
         // Add a hemisphere light for sky/ground color variation
         const hemisphereLight = new THREE.HemisphereLight(0x87CEEB, 0x548c2f, 0.6);
@@ -121,6 +138,11 @@ export default class SceneManager {
         // Update clouds
         if (this.clouds) {
             this.clouds.update(deltaTime);
+        }
+
+        // Update sky (will update the sun position if implemented)
+        if (this.sky) {
+            this.sky.update(deltaTime);
         }
 
         // Update camera to follow the main actor

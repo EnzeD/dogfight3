@@ -15,26 +15,32 @@ export default class Runway {
      */
     createRunway() {
         // Define runway dimensions
-        const runwayWidth = 20;
-        const runwayLength = 100;
+        const runwayWidth = 30;
+        const runwayLength = 150;
 
         // Create a plane geometry for the runway
         const runwayGeometry = new THREE.PlaneGeometry(runwayWidth, runwayLength);
 
-        // Create a basic material with a dark grey color
-        const runwayMaterial = new THREE.MeshBasicMaterial({
+        // Create a material that can receive shadows
+        const runwayMaterial = new THREE.MeshStandardMaterial({
             color: 0x333333, // Dark grey color
-            side: THREE.DoubleSide // Visible from both sides
+            side: THREE.DoubleSide, // Visible from both sides
+            roughness: 0.9, // Rough asphalt-like surface
+            metalness: 0.1
         });
 
         // Create the runway mesh
         this.runway = new THREE.Mesh(runwayGeometry, runwayMaterial);
 
+        // Enable shadow receiving
+        this.runway.receiveShadow = true;
+
         // Rotate the plane to lie flat on the ground (rotate around X axis by 90 degrees)
         this.runway.rotation.x = Math.PI / 2;
 
         // Position the runway at the center of the scene, on the ground
-        this.runway.position.y = 0.01; // Slightly above zero to avoid z-fighting with the ground
+        // Move it 30 units in negative Z direction so plane starts at the beginning
+        this.runway.position.set(0, 0.02, -30); // Slightly above zero to avoid z-fighting with the ground
 
         // Add the runway to the scene
         this.scene.add(this.runway);
@@ -48,16 +54,20 @@ export default class Runway {
      */
     addRunwayMarkings() {
         // Define dimensions for runway markings
-        const runwayWidth = 20;
-        const runwayLength = 100;
+        const runwayWidth = 30;
+        const runwayLength = 150;
         const stripeWidth = 1;
         const stripeLength = 10;
         const stripeSpacing = 10;
 
-        // Create a white material for the markings
-        const markingMaterial = new THREE.MeshBasicMaterial({
+        // Create a white material for the markings that can receive shadows
+        const markingMaterial = new THREE.MeshStandardMaterial({
             color: 0xFFFFFF, // White color
-            side: THREE.DoubleSide
+            side: THREE.DoubleSide,
+            roughness: 0.6, // Slightly smoother than the runway
+            metalness: 0.1,
+            emissive: 0x333333, // Slight emissive to make markings more visible
+            emissiveIntensity: 0.2
         });
 
         // Create center line markings
@@ -65,8 +75,12 @@ export default class Runway {
             const centerStripeGeometry = new THREE.PlaneGeometry(stripeWidth, stripeLength);
             const centerStripe = new THREE.Mesh(centerStripeGeometry, markingMaterial);
 
+            // Enable shadow receiving
+            centerStripe.receiveShadow = true;
+
             centerStripe.rotation.x = Math.PI / 2;
-            centerStripe.position.set(0, 0.02, z); // Slightly above runway
+            // Apply the same -30 Z offset as the runway
+            centerStripe.position.set(0, 0.04, z - 30); // Slightly above runway
 
             this.scene.add(centerStripe);
         }
@@ -76,14 +90,16 @@ export default class Runway {
 
         // Start threshold
         const startThreshold = new THREE.Mesh(thresholdGeometry, markingMaterial);
+        startThreshold.receiveShadow = true;
         startThreshold.rotation.x = Math.PI / 2;
-        startThreshold.position.set(0, 0.02, -runwayLength / 2 + 1);
+        startThreshold.position.set(0, 0.02, -runwayLength / 2 + 1 - 30); // Apply the Z offset
         this.scene.add(startThreshold);
 
         // End threshold
         const endThreshold = new THREE.Mesh(thresholdGeometry, markingMaterial);
+        endThreshold.receiveShadow = true;
         endThreshold.rotation.x = Math.PI / 2;
-        endThreshold.position.set(0, 0.02, runwayLength / 2 - 1);
+        endThreshold.position.set(0, 0.02, runwayLength / 2 - 1 - 30); // Apply the Z offset
         this.scene.add(endThreshold);
     }
 
