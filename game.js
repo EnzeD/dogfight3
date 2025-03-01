@@ -874,54 +874,39 @@ function updatePlaneMovement() {
 
 // Make camera follow the plane with smoother transitions
 function updateCameraFollow() {
-    // Check if user is currently controlling camera or has controlled it recently
-    const currentTime = performance.now();
-    const timeSinceLastInteraction = currentTime - lastUserInteractionTime;
+    // Get the plane's direction vector (forward direction)
+    const planeDirection = new THREE.Vector3(0, 0, -1);
+    planeDirection.applyQuaternion(plane.quaternion);
 
-    // Calculate desired target position (always the plane)
-    const targetPosition = plane.position.clone();
+    // Create a camera position that's behind the plane
+    // Calculate offset based on plane direction and follow distance
+    const cameraOffset = planeDirection.clone().multiplyScalar(-followDistance);
 
-    // Always smoothly update the target to the plane's position
-    controls.target.lerp(targetPosition, 0.05);
+    // Add height offset that increases with speed for a more dynamic feel
+    const heightOffset = 3 + (speed / maxSpeed) * 2;
+    cameraOffset.y += heightOffset;
 
-    // Only adjust camera position if not user-controlled
-    if (!isUserControllingCamera && timeSinceLastInteraction > cameraFollowDelay) {
-        // Get the plane's direction vector (forward direction)
-        const planeDirection = new THREE.Vector3(0, 0, -1);
-        planeDirection.applyQuaternion(plane.quaternion);
+    // Calculate the desired camera position by adding offset to plane position
+    const desiredCameraPos = plane.position.clone().add(cameraOffset);
 
-        // Create a camera position that's behind the plane
-        // Calculate offset based on plane direction and follow distance
-        const cameraOffset = planeDirection.clone().multiplyScalar(-followDistance);
+    // ALWAYS update the controls target to the plane's current position
+    // This ensures the camera always pivots around the plane, regardless of speed
+    controls.target.copy(plane.position);
 
-        // Add height offset that increases with speed for a more dynamic feel
-        const heightOffset = 3 + (speed / maxSpeed) * 2;
-        cameraOffset.y += heightOffset;
-
-        // Calculate the desired camera position by adding offset to plane position
-        const desiredCameraPos = plane.position.clone().add(cameraOffset);
-
-        // Check if this is the initial activation of auto-follow
-        if (timeSinceLastInteraction <= cameraFollowDelay + 100) {
-            // SNAP: Set camera position directly behind plane when auto-follow first activates
-            camera.position.copy(desiredCameraPos);
-            // Show a notification that auto-follow has activated
-            showCameraControlIndicator(false);
-        } else {
-            // For continuous following, use a faster lerp for more responsive following
-            // Increased from 0.03 to 0.1 for quicker positioning
-            camera.position.lerp(desiredCameraPos, 0.1);
-        }
+    if (isUserControllingCamera) {
+        // When user is controlling camera, don't update the camera position
+        // This allows free orbit around the plane
+    } else {
+        // Immediate target transition when auto-following
+        // Immediately snap camera position to behind the plane
+        camera.position.copy(desiredCameraPos);
     }
 
-    // Adjust the follow distance based on plane speed - faster speed = more distance
-    // but only if not manually controlled recently
-    if (timeSinceLastInteraction > cameraFollowDelay * 3) {
-        const targetFollowDistance = 15 + (speed / maxSpeed) * 10;
-        followDistance += (targetFollowDistance - followDistance) * 0.01;
-    }
+    // Adjust the follow distance based on plane speed
+    const targetFollowDistance = 15 + (speed / maxSpeed) * 10;
+    followDistance += (targetFollowDistance - followDistance) * 0.05;
 
-    // Always update controls to ensure smooth camera movement
+    // Always update controls
     controls.update();
 }
 
@@ -980,6 +965,7 @@ function addInstructions() {
                 <div>Left Click + Drag: Rotate camera</div>
                 <div>Right Click + Drag: Pan camera</div>
                 <div>Scroll: Zoom in/out</div>
+                <div style="color:#FFD700">Camera returns behind plane when released</div>
             </div>
         </div>
         
@@ -989,10 +975,6 @@ function addInstructions() {
                 The plane will automatically level out when you release roll/pitch controls.<br>
                 Press <span style="color:#FFD700;font-weight:bold;">T</span> key to toggle on/off.
             </div>
-        </div>
-        
-        <div style="margin-top:8px;font-size:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.2);">
-            Camera will automatically follow the plane after ${cameraFollowDelay / 1000} seconds of inactivity
         </div>
     `;
 
@@ -1094,22 +1076,17 @@ function setupMouseTracking() {
     // Track mouse button state
     window.addEventListener('mousedown', function () {
         isUserControllingCamera = true;
-        lastUserInteractionTime = performance.now();
 
         // Display a small indication that camera control is manual
         showCameraControlIndicator(true);
     });
 
     window.addEventListener('mouseup', function () {
-        // Don't immediately set to false - let the timer handle it
-        lastUserInteractionTime = performance.now();
+        // IMMEDIATELY set to false when mouse is released - no delay
+        isUserControllingCamera = false;
 
-        // Display indication that camera will return to auto-follow
-        setTimeout(() => {
-            if (performance.now() - lastUserInteractionTime > cameraFollowDelay - 100) {
-                showCameraControlIndicator(false);
-            }
-        }, cameraFollowDelay);
+        // Show notification that auto-follow is active again
+        showCameraControlIndicator(false);
     });
 
     // Track mouse movement while buttons are pressed
@@ -1117,24 +1094,19 @@ function setupMouseTracking() {
         // Only count as interaction if a mouse button is pressed
         if (event.buttons > 0) {
             isUserControllingCamera = true;
-            lastUserInteractionTime = performance.now();
         }
     });
 
     // More responsive touch controls for mobile devices
     window.addEventListener('touchstart', function () {
         isUserControllingCamera = true;
-        lastUserInteractionTime = performance.now();
         showCameraControlIndicator(true);
     });
 
     window.addEventListener('touchend', function () {
-        lastUserInteractionTime = performance.now();
-        setTimeout(() => {
-            if (performance.now() - lastUserInteractionTime > cameraFollowDelay - 100) {
-                showCameraControlIndicator(false);
-            }
-        }, cameraFollowDelay);
+        // IMMEDIATELY set to false when touch ends - no delay
+        isUserControllingCamera = false;
+        showCameraControlIndicator(false);
     });
 }
 
