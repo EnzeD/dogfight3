@@ -13,6 +13,7 @@ let audioContext;
 let engineSound;
 let engineGainNode;
 let isSoundInitialized = false;
+let isAudioStarted = false; // Add this new flag
 
 // Flight mechanics variables
 let speed = 0;
@@ -106,6 +107,9 @@ function init() {
 
     // Initialize lastFrameTime for delta time calculations
     lastFrameTime = performance.now();
+
+    // Add audio enabler overlay
+    addAudioEnabler();
 }
 
 // Create the sky background
@@ -473,11 +477,23 @@ function setupCamera() {
 function setupControls() {
     // Track key presses
     window.addEventListener('keydown', function (event) {
+        // Start audio on first key press
+        if (!isAudioStarted && audioContext) {
+            startAudio();
+        }
+
         keysPressed[event.key.toLowerCase()] = true;
     });
 
     window.addEventListener('keyup', function (event) {
         keysPressed[event.key.toLowerCase()] = false;
+    });
+
+    // Also start audio on mouse click anywhere
+    document.addEventListener('click', function () {
+        if (!isAudioStarted && audioContext) {
+            startAudio();
+        }
     });
 }
 
@@ -984,8 +1000,6 @@ function addInstructions() {
         this.style.display = 'none';
     });
 
-    document.body.appendChild(showInstructionsBtn);
-
     // Update the click handler to show the button when instructions are hidden
     instructions.addEventListener('click', function () {
         this.style.opacity = '0';
@@ -994,6 +1008,8 @@ function addInstructions() {
             showInstructionsBtn.style.display = 'block';
         }, 300);
     });
+
+    document.body.appendChild(showInstructionsBtn);
 }
 
 // Handle window resizing
@@ -1138,7 +1154,7 @@ function showCameraControlIndicator(isManual) {
 init();
 animate();
 
-// Initialize sound system
+// Initialize sound system - modified to handle autoplay restrictions
 function initSound() {
     try {
         // Create audio context
@@ -1149,13 +1165,7 @@ function initSound() {
         engineGainNode.gain.value = 0; // Start with zero volume
         engineGainNode.connect(audioContext.destination);
 
-        // Create an oscillator for the engine sound
-        engineSound = audioContext.createOscillator();
-        engineSound.type = 'sawtooth'; // Harsh sound like an engine
-        engineSound.frequency.value = 60; // Starting frequency
-        engineSound.connect(engineGainNode);
-        engineSound.start();
-
+        // Don't start sounds yet - we'll do this after user interaction
         isSoundInitialized = true;
         console.log("Sound system initialized");
     } catch (error) {
@@ -1164,26 +1174,61 @@ function initSound() {
     }
 }
 
-// Update engine sound based on speed
-function updateSound() {
-    if (!isSoundInitialized) return;
-
-    // Map speed to frequency (engine pitch)
-    const minFreq = 50;
-    const maxFreq = 120;
-    const frequency = minFreq + (speed / maxSpeed) * (maxFreq - minFreq);
-
-    // Map speed to volume
-    const minVolume = 0;
-    const maxVolume = 0.2; // Keep volume reasonable
-    const volume = minVolume + (speed / maxSpeed) * (maxVolume - minVolume);
-
-    // Apply smooth changes
-    engineSound.frequency.setTargetAtTime(frequency, audioContext.currentTime, 0.1);
-    engineGainNode.gain.setTargetAtTime(volume, audioContext.currentTime, 0.1);
+// New function to start audio after user interaction
+function startAudio() {
+    if (isSoundInitialized && !isAudioStarted) {
+        // CRITICAL: Resume the AudioContext - this was missing!
+        if (audioContext.state === 'suspended') {
+            audioContext.resume().then(() => {
+                console.log('AudioContext resumed successfully');
+                startEngineSound();
+            }).catch(error => {
+                console.error('Failed to resume AudioContext:', error);
+            });
+        } else {
+            startEngineSound();
+        }
+    }
 }
 
-// Add a sound toggle button
+// Move engine sound creation to separate function
+function startEngineSound() {
+    // Create an oscillator for the engine sound
+    engineSound = audioContext.createOscillator();
+    engineSound.type = 'sawtooth'; // Harsh sound like an engine
+    engineSound.frequency.value = 60; // Starting frequency
+    engineSound.connect(engineGainNode);
+    engineSound.start();
+
+    isAudioStarted = true;
+    console.log("Audio started after user interaction");
+}
+
+// Modify setupControls to start audio on first key press
+function setupControls() {
+    // Track key presses
+    window.addEventListener('keydown', function (event) {
+        // Start audio on first key press
+        if (!isAudioStarted && audioContext) {
+            startAudio();
+        }
+
+        keysPressed[event.key.toLowerCase()] = true;
+    });
+
+    window.addEventListener('keyup', function (event) {
+        keysPressed[event.key.toLowerCase()] = false;
+    });
+
+    // Also start audio on mouse click anywhere
+    document.addEventListener('click', function () {
+        if (!isAudioStarted && audioContext) {
+            startAudio();
+        }
+    });
+}
+
+// Modify addSoundToggle to handle user interaction
 function addSoundToggle() {
     const soundToggle = document.createElement('div');
     soundToggle.id = 'sound-toggle';
@@ -1203,6 +1248,11 @@ function addSoundToggle() {
     let isMuted = false;
 
     soundToggle.addEventListener('click', function () {
+        // Start audio if not already started
+        if (!isAudioStarted && audioContext) {
+            startAudio();
+        }
+
         if (!isSoundInitialized) {
             // Try to initialize sound if not already done
             initSound();
@@ -1226,4 +1276,111 @@ function addSoundToggle() {
     });
 
     document.body.appendChild(soundToggle);
+}
+
+// Only update sound if audio has started
+function updateSound() {
+    if (!isSoundInitialized || !isAudioStarted) return;
+
+    // Map speed to frequency (engine pitch)
+    const minFreq = 50;
+    const maxFreq = 120;
+    const frequency = minFreq + (speed / maxSpeed) * (maxFreq - minFreq);
+
+    // Map speed to volume
+    const minVolume = 0;
+    const maxVolume = 0.2; // Keep volume reasonable
+    const volume = minVolume + (speed / maxSpeed) * (maxVolume - minVolume);
+
+    // Apply smooth changes
+    engineSound.frequency.setTargetAtTime(frequency, audioContext.currentTime, 0.1);
+    engineGainNode.gain.setTargetAtTime(volume, audioContext.currentTime, 0.1);
+}
+
+// Add a prominent game start screen (that also enables audio)
+function addAudioEnabler() {
+    // Add Google Fonts link to document head
+    const fontLink = document.createElement('link');
+    fontLink.rel = 'stylesheet';
+    fontLink.href = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&family=Roboto:wght@300;400;700&display=swap';
+    document.head.appendChild(fontLink);
+
+    const overlay = document.createElement('div');
+    overlay.id = 'game-start-screen';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100%';
+    overlay.style.height = '100%';
+    overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    overlay.style.color = 'white';
+    overlay.style.display = 'flex';
+    overlay.style.flexDirection = 'column';
+    overlay.style.justifyContent = 'center';
+    overlay.style.alignItems = 'center';
+    overlay.style.textAlign = 'center';
+    overlay.style.zIndex = '1000';
+    overlay.style.backdropFilter = 'blur(5px)';
+    overlay.style.fontFamily = "'Roboto', sans-serif";
+
+    // Create a container for content with better styling
+    const contentBox = document.createElement('div');
+    contentBox.style.maxWidth = '600px';
+    contentBox.style.padding = '40px';
+    contentBox.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    contentBox.style.borderRadius = '15px';
+    contentBox.style.boxShadow = '0 0 30px rgba(0, 120, 255, 0.4)';
+    contentBox.style.border = '1px solid rgba(100, 180, 255, 0.3)';
+
+    // Add modern styled content
+    contentBox.innerHTML = `
+        <h1 style="margin-top:0;font-size:48px;text-transform:uppercase;letter-spacing:2px;color:#4CAF50;text-shadow:0 0 10px rgba(76, 175, 80, 0.5);font-family:'Montserrat',sans-serif;font-weight:900;">WW2 DOGFIGHT ARENA</h1>
+        
+        <div style="margin:20px 0 30px;font-size:18px;line-height:1.6;color:#DDD;font-weight:300;">
+            <p>Take to the skies in your WW2 fighter plane!</p>
+            <p>Master takeoff, flight maneuvers, and aerial acrobatics in this minimalist flight simulator.</p>
+            <p style="font-style:italic;margin-top:15px;font-family:'Montserrat',sans-serif;font-weight:400;">Are you ready to become an ace pilot?</p>
+        </div>
+        
+        <button id="start-game-btn" style="background-color:#4CAF50;color:white;border:none;padding:15px 40px;font-size:22px;border-radius:8px;cursor:pointer;margin-top:20px;text-transform:uppercase;letter-spacing:1px;font-weight:700;transition:all 0.2s ease;box-shadow:0 5px 15px rgba(0,0,0,0.3);font-family:'Montserrat',sans-serif;">START</button>
+    `;
+
+    overlay.appendChild(contentBox);
+    document.body.appendChild(overlay);
+
+    // Add hover effect to the button
+    const startButton = document.getElementById('start-game-btn');
+    startButton.addEventListener('mouseover', function () {
+        this.style.backgroundColor = '#45a049';
+        this.style.transform = 'scale(1.05)';
+    });
+
+    startButton.addEventListener('mouseout', function () {
+        this.style.backgroundColor = '#4CAF50';
+        this.style.transform = 'scale(1)';
+    });
+
+    // Set up the button click handler - still handles audio initialization
+    startButton.addEventListener('click', function () {
+        // Initialize audio if needed
+        if (!isSoundInitialized) {
+            initSound();
+        }
+
+        // Start audio
+        if (audioContext) {
+            startAudio();
+        }
+
+        // Add a dramatic fade-out effect
+        overlay.style.transition = 'opacity 1s ease';
+        overlay.style.opacity = '0';
+
+        // Remove the overlay after fade completes
+        setTimeout(() => {
+            if (overlay.parentNode) {
+                overlay.remove();
+            }
+        }, 1000);
+    });
 } 
