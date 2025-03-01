@@ -104,9 +104,6 @@ function init() {
     // Add a sound toggle button
     addSoundToggle();
 
-    // Add auto-stabilization toggle button
-    addAutoStabilizationToggle();
-
     // Initialize lastFrameTime for delta time calculations
     lastFrameTime = performance.now();
 }
@@ -477,24 +474,6 @@ function setupControls() {
     // Track key presses
     window.addEventListener('keydown', function (event) {
         keysPressed[event.key.toLowerCase()] = true;
-
-        // Toggle auto-stabilization with the T key
-        if (event.key.toLowerCase() === 't') {
-            // Toggle auto-stabilization
-            autoStabilizationEnabled = !autoStabilizationEnabled;
-
-            // Update the button text
-            const autoStabToggle = document.getElementById('auto-stab-toggle');
-            if (autoStabToggle) {
-                if (autoStabilizationEnabled) {
-                    autoStabToggle.innerHTML = '✈️ Auto-Stabilization On';
-                    showNotification("Auto-Stabilization Enabled", "info");
-                } else {
-                    autoStabToggle.innerHTML = '🛩️ Auto-Stabilization Off';
-                    showNotification("Auto-Stabilization Disabled", "warning");
-                }
-            }
-        }
     });
 
     window.addEventListener('keyup', function (event) {
@@ -551,27 +530,6 @@ function updateFlightInfo() {
         statusColor = '#00BFFF'; // Sky blue
     }
 
-    // Check if auto-stabilization is active and enabled
-    const isAutoStabilizationActive = autoStabilizationEnabled && isAirborne &&
-        (!keysPressed['a'] && !keysPressed['q'] && !keysPressed['d'] ||
-            !keysPressed['arrowup'] && !keysPressed['arrowdown']);
-
-    let autoStabilizeStatus = '';
-    if (isAirborne) {
-        if (autoStabilizationEnabled) {
-            const isCurrentlyStabilizing = (!keysPressed['a'] && !keysPressed['q'] && !keysPressed['d'] ||
-                !keysPressed['arrowup'] && !keysPressed['arrowdown']);
-
-            if (isCurrentlyStabilizing) {
-                autoStabilizeStatus = '<div style="margin-top:8px;"><span>Auto-Stabilization:</span> <span style="color:#00FF00;font-weight:bold;">Active</span></div>';
-            } else {
-                autoStabilizeStatus = '<div style="margin-top:8px;"><span>Auto-Stabilization:</span> <span style="color:#FFD700;font-weight:bold;">Standby</span></div>';
-            }
-        } else {
-            autoStabilizeStatus = '<div style="margin-top:8px;"><span>Auto-Stabilization:</span> <span style="color:#FF6347;font-weight:bold;">Disabled</span></div>';
-        }
-    }
-
     flightInfo.innerHTML = `
         <strong style="font-size:16px;">Flight Status</strong><br>
         <div style="margin-top:8px;">
@@ -587,7 +545,6 @@ function updateFlightInfo() {
         <div style="margin-top:8px;">
             <span>Status:</span> <span style="color:${statusColor};font-weight:bold;">${statusMessage}</span>
         </div>
-        ${autoStabilizeStatus}
         <div style="margin-top:8px;font-size:12px;opacity:0.8;">
             FPS: ${fps}
         </div>
@@ -714,10 +671,6 @@ function updatePlaneMovement() {
         // Decrease speed when S is pressed
         speed -= deceleration * deltaTime * 60;
         if (speed < 0) speed = 0;
-    } else {
-        // Gradually decrease speed when no throttle key is pressed
-        speed -= deceleration * 0.1 * deltaTime * 60; // Reduced for slower auto-deceleration
-        if (speed < 0) speed = 0;
     }
 
     // Rotate propeller based on speed
@@ -740,74 +693,47 @@ function updatePlaneMovement() {
     const rotationAmount = deltaTime * 60; // Base rotation amount for frame-rate independence
 
     if (isAirborne) {
-        // --- AIRBORNE CONTROLS ---
+        // --- AIRBORNE CONTROLS - SIMPLIFIED ---
 
-        // Pitch control - explicitly showing that up arrow = nose down, down arrow = nose up
-        let isPitching = false;
-        if (keysPressed['arrowup']) {
-            // UP arrow = nose DOWN (pitch down to descend)
-            plane.rotation.x -= pitchSpeed * rotationAmount;
-            isPitching = true;
-        }
-        if (keysPressed['arrowdown']) {
-            // DOWN arrow = nose UP (pitch up to climb)
-            plane.rotation.x += pitchSpeed * rotationAmount;
-            isPitching = true;
-        }
+        // Create a rotation quaternion for local rotations
+        const pitchQuaternion = new THREE.Quaternion();
+        const yawQuaternion = new THREE.Quaternion();
+        const rollQuaternion = new THREE.Quaternion();
 
-        // Auto-stabilization for pitch - only if enabled and not actively pitching
-        if (autoStabilizationEnabled && !isPitching && plane.rotation.x !== 0) {
-            // Calculate auto-stabilization force based on current pitch angle
-            // The further from level, the stronger the correction
-            const pitchStabilizationSpeed = 0.2; // Slower than roll for more gradual recovery
-            const pitchStabilizationForce = Math.sign(plane.rotation.x) *
-                Math.min(Math.abs(plane.rotation.x) * 0.03, pitchSpeed * pitchStabilizationSpeed) *
-                rotationAmount;
-
-            // Apply correction toward level flight (0 rotation)
-            plane.rotation.x -= pitchStabilizationForce;
-
-            // Prevent oscillation by setting to 0 if very close
-            if (Math.abs(plane.rotation.x) < 0.01) {
-                plane.rotation.x = 0;
-            }
-        }
-
-        // Roll control (left/right tilt)
-        let isRolling = false;
+        // Roll control (left/right tilt) - Simple direct input
         if (keysPressed['a'] || keysPressed['q']) {
-            plane.rotation.z += rollSpeed * rotationAmount;
-            isRolling = true;
+            // Roll axis is always the plane's local Z axis
+            rollQuaternion.setFromAxisAngle(new THREE.Vector3(0, 0, 1), rollSpeed * rotationAmount);
+            plane.quaternion.multiply(rollQuaternion);
         }
         if (keysPressed['d']) {
-            plane.rotation.z -= rollSpeed * rotationAmount;
-            isRolling = true;
+            // Roll in the opposite direction
+            rollQuaternion.setFromAxisAngle(new THREE.Vector3(0, 0, 1), -rollSpeed * rotationAmount);
+            plane.quaternion.multiply(rollQuaternion);
         }
 
-        // Auto-stabilization for roll - only if enabled and not actively rolling
-        if (autoStabilizationEnabled && !isRolling && plane.rotation.z !== 0) {
-            // Calculate auto-stabilization force based on current roll angle
-            // The further from level, the stronger the correction
-            const stabilizationSpeed = 0.3; // Adjust for faster/slower auto-level
-            const stabilizationForce = Math.sign(plane.rotation.z) *
-                Math.min(Math.abs(plane.rotation.z) * 0.05, rollSpeed * stabilizationSpeed) *
-                rotationAmount;
-
-            // Apply correction toward level flight (0 rotation)
-            plane.rotation.z -= stabilizationForce;
-
-            // Prevent oscillation by setting to 0 if very close
-            if (Math.abs(plane.rotation.z) < 0.01) {
-                plane.rotation.z = 0;
-            }
+        // Pitch control (up/down) - Related to the plane's local X axis
+        if (keysPressed['arrowup']) {
+            // Pitch down around the plane's local X axis
+            pitchQuaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -pitchSpeed * rotationAmount);
+            plane.quaternion.multiply(pitchQuaternion);
+        }
+        if (keysPressed['arrowdown']) {
+            // Pitch up around the plane's local X axis
+            pitchQuaternion.setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitchSpeed * rotationAmount);
+            plane.quaternion.multiply(pitchQuaternion);
         }
 
-        // Yaw control (left/right turn)
+        // Yaw control (left/right turn) - Related to the plane's local Y axis
         if (keysPressed['arrowleft']) {
-            plane.rotation.y += yawSpeed * rotationAmount;
+            // Yaw left around the plane's local Y axis
+            yawQuaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yawSpeed * rotationAmount);
+            plane.quaternion.multiply(yawQuaternion);
         }
         if (keysPressed['arrowright']) {
-            plane.rotation.y -= yawSpeed * rotationAmount;
+            // Yaw right around the plane's local Y axis
+            yawQuaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -yawSpeed * rotationAmount);
+            plane.quaternion.multiply(yawQuaternion);
         }
     } else {
         // --- GROUND CONTROLS ---
@@ -820,9 +746,12 @@ function updatePlaneMovement() {
             plane.rotation.y -= yawSpeed * 0.5 * rotationAmount;
         }
 
-        // Reset pitch and roll when on ground
-        plane.rotation.x = 0;
-        plane.rotation.z = 0;
+        // Reset orientation when on ground
+        if (plane.rotation.x !== 0 || plane.rotation.z !== 0) {
+            // Reset to level flight orientation
+            plane.rotation.x = 0;
+            plane.rotation.z = 0;
+        }
     }
 
     // --- MOVEMENT ---
@@ -837,13 +766,12 @@ function updatePlaneMovement() {
     // Move plane in the forward direction
     plane.position.add(forwardVector);
 
-    // --- FLIGHT PHYSICS ---
+    // --- SIMPLIFIED FLIGHT PHYSICS ---
 
     if (isAirborne) {
-        // Simple lift calculation based on speed and pitch
+        // Simple lift calculation based on speed
         const liftFactor = 0.01;
-        const pitchInfluence = Math.sin(plane.rotation.x);
-        const lift = speed * liftFactor - pitchInfluence * 0.05;
+        const lift = speed * liftFactor;
 
         // Apply lift to plane's position
         plane.position.y += lift * deltaTime * 60;
@@ -859,8 +787,10 @@ function updatePlaneMovement() {
                 }
                 isAirborne = false;
                 console.log("Landing!");
-                plane.rotation.x = 0;
-                plane.rotation.z = 0;
+
+                // Reset to level flight orientation
+                const resetRotation = new THREE.Euler(0, plane.rotation.y, 0);
+                plane.quaternion.setFromEuler(resetRotation);
             }
         }
     } else {
@@ -966,14 +896,6 @@ function addInstructions() {
                 <div>Right Click + Drag: Pan camera</div>
                 <div>Scroll: Zoom in/out</div>
                 <div style="color:#FFD700">Camera returns behind plane when released</div>
-            </div>
-        </div>
-        
-        <div style="margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.2);">
-            <strong style="color:#00BFFF;">Auto-Stabilization:</strong>
-            <div style="margin:5px 0 8px 10px;font-size:13px;">
-                The plane will automatically level out when you release roll/pitch controls.<br>
-                Press <span style="color:#FFD700;font-weight:bold;">T</span> key to toggle on/off.
             </div>
         </div>
     `;
@@ -1248,36 +1170,4 @@ function addSoundToggle() {
     });
 
     document.body.appendChild(soundToggle);
-}
-
-// Add auto-stabilization toggle button
-function addAutoStabilizationToggle() {
-    const autoStabToggle = document.createElement('div');
-    autoStabToggle.id = 'auto-stab-toggle';
-    autoStabToggle.style.position = 'absolute';
-    autoStabToggle.style.top = '10px';
-    autoStabToggle.style.right = '120px'; // Position to the left of sound toggle
-    autoStabToggle.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-    autoStabToggle.style.color = 'white';
-    autoStabToggle.style.padding = '8px 12px';
-    autoStabToggle.style.fontFamily = 'Arial, sans-serif';
-    autoStabToggle.style.fontSize = '12px';
-    autoStabToggle.style.borderRadius = '5px';
-    autoStabToggle.style.cursor = 'pointer';
-    autoStabToggle.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
-    autoStabToggle.innerHTML = '✈️ Auto-Stabilization On';
-
-    autoStabToggle.addEventListener('click', function () {
-        autoStabilizationEnabled = !autoStabilizationEnabled;
-
-        if (autoStabilizationEnabled) {
-            this.innerHTML = '✈️ Auto-Stabilization On';
-            showNotification("Auto-Stabilization Enabled", "info");
-        } else {
-            this.innerHTML = '🛩️ Auto-Stabilization Off';
-            showNotification("Auto-Stabilization Disabled", "warning");
-        }
-    });
-
-    document.body.appendChild(autoStabToggle);
 } 
