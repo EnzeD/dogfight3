@@ -700,6 +700,9 @@ function updatePlaneMovement() {
         const yawQuaternion = new THREE.Quaternion();
         const rollQuaternion = new THREE.Quaternion();
 
+        // Check if roll keys are pressed
+        const isRolling = keysPressed['a'] || keysPressed['q'] || keysPressed['d'] || keysPressed['arrowup'] || keysPressed['arrowdown'] || keysPressed['arrowleft'] || keysPressed['arrowright'];
+
         // Roll control (left/right tilt) - Simple direct input
         if (keysPressed['a'] || keysPressed['q']) {
             // Roll axis is always the plane's local Z axis
@@ -710,6 +713,52 @@ function updatePlaneMovement() {
             // Roll in the opposite direction
             rollQuaternion.setFromAxisAngle(new THREE.Vector3(0, 0, 1), -rollSpeed * rotationAmount);
             plane.quaternion.multiply(rollQuaternion);
+        }
+
+        // Auto horizontal stabilization (roll only)
+        if (!isRolling) {
+            // Extract current roll angle to determine stabilization direction
+            // First convert quaternion to euler angles
+            const euler = new THREE.Euler().setFromQuaternion(plane.quaternion, 'YXZ');
+            const currentRollAngle = euler.z; // Z is roll in our coordinate system
+
+            if (Math.abs(currentRollAngle) > 0.01) { // Only apply stabilization if roll is significant
+                // Calculate stabilization strength with improved dynamics
+                // Stronger correction for larger angles using quadratic scaling
+                const baseFactor = 0.08; // Increased from 0.03 for faster correction
+                const maxStrength = 0.025; // Increased from 0.01 for faster movement
+
+                // Quadratic curve gives faster initial response but smooth final approach
+                const normalizedAngle = Math.min(Math.abs(currentRollAngle) / (Math.PI / 4), 1.0);
+                const quadraticFactor = normalizedAngle * normalizedAngle * 1.5 + normalizedAngle * 0.5;
+
+                // Apply curve and clamp to max strength
+                const stabilizationStrength = Math.min(
+                    quadraticFactor * baseFactor,
+                    maxStrength
+                ) * rotationAmount;
+
+                // Create roll correction quaternion
+                const rollCorrection = new THREE.Quaternion();
+                // Rotate in opposite direction of current roll
+                rollCorrection.setFromAxisAngle(
+                    new THREE.Vector3(0, 0, 1),
+                    -Math.sign(currentRollAngle) * stabilizationStrength
+                );
+
+                // Apply stabilization
+                plane.quaternion.multiply(rollCorrection);
+
+                // Snap to exact vertical if very close
+                if (Math.abs(currentRollAngle) < 0.03) {
+                    // Get current orientation but zero out the roll component
+                    const targetEuler = new THREE.Euler(euler.x, euler.y, 0, 'YXZ');
+                    const targetQuaternion = new THREE.Quaternion().setFromEuler(targetEuler);
+
+                    // Blend toward perfect vertical (90% current, 10% target)
+                    plane.quaternion.slerp(targetQuaternion, 0.1);
+                }
+            }
         }
 
         // Pitch control (up/down) - Related to the plane's local X axis
@@ -896,6 +945,13 @@ function addInstructions() {
                 <div>Right Click + Drag: Pan camera</div>
                 <div>Scroll: Zoom in/out</div>
                 <div style="color:#FFD700">Camera returns behind plane when released</div>
+            </div>
+            
+            <div style="margin-top:12px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.2);">
+                <strong style="color:#00BFFF;">Flight Assistance:</strong>
+                <div style="margin:5px 0 8px 10px;font-size:13px;">
+                    The plane will automatically level its wings when roll controls are released.
+                </div>
             </div>
         </div>
     `;
