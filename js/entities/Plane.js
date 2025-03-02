@@ -278,13 +278,13 @@ export default class Plane extends Entity {
         // Aileron animation (roll)
         if (this.leftAileron && this.rightAileron) {
             if (keysPressed['a'] || keysPressed['q']) {
-                // Rolling left: left aileron up, right aileron down
-                this.leftAileron.rotation.x = Math.min(this.leftAileron.rotation.x + 0.1, 0.5);
-                this.rightAileron.rotation.x = Math.max(this.rightAileron.rotation.x - 0.1, -0.5);
-            } else if (keysPressed['d']) {
-                // Rolling right: left aileron down, right aileron up
+                // Rolling left: left aileron down, right aileron up (inverted behavior)
                 this.leftAileron.rotation.x = Math.max(this.leftAileron.rotation.x - 0.1, -0.5);
                 this.rightAileron.rotation.x = Math.min(this.rightAileron.rotation.x + 0.1, 0.5);
+            } else if (keysPressed['d']) {
+                // Rolling right: left aileron up, right aileron down (inverted behavior)
+                this.leftAileron.rotation.x = Math.min(this.leftAileron.rotation.x + 0.1, 0.5);
+                this.rightAileron.rotation.x = Math.max(this.rightAileron.rotation.x - 0.1, -0.5);
             } else {
                 // Return to neutral
                 this.leftAileron.rotation.x *= 0.8;
@@ -295,11 +295,11 @@ export default class Plane extends Entity {
         // Elevator animation (pitch)
         if (this.elevators) {
             if (keysPressed['arrowup']) {
-                // Pitch down: elevators down
-                this.elevators.rotation.x = Math.max(this.elevators.rotation.x - 0.1, -0.5);
-            } else if (keysPressed['arrowdown']) {
-                // Pitch up: elevators up
+                // Pitch down: elevators up
                 this.elevators.rotation.x = Math.min(this.elevators.rotation.x + 0.1, 0.5);
+            } else if (keysPressed['arrowdown']) {
+                // Pitch up: elevators down
+                this.elevators.rotation.x = Math.max(this.elevators.rotation.x - 0.1, -0.5);
             } else {
                 // Return to neutral
                 this.elevators.rotation.x *= 0.8;
