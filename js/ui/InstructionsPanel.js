@@ -47,7 +47,8 @@ export default class InstructionsPanel {
                 <li>↓ - Pitch up</li>
                 <li>← - Yaw left</li>
                 <li>→ - Yaw right</li>
-                <li>Space - Toggle auto-stabilization</li>
+                <li>F - Toggle auto-stabilization</li>
+                <li>Space - Fire ammo</li>
             </ul>
             <p><strong>Camera Controls:</strong></p>
             <ul style="padding-left: 20px;">

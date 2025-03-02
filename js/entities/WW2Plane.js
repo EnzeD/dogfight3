@@ -1,6 +1,7 @@
 // WW2 Plane class for creating a WW2-style aircraft
 import * as THREE from 'three';
 import Plane from './Plane.js';
+import AmmoSystem from './AmmoSystem.js';
 
 export default class WW2Plane extends Plane {
     constructor(scene, eventBus) {
@@ -23,6 +24,9 @@ export default class WW2Plane extends Plane {
             this.fuselageHeight / 5, // Wing height - matches wings.position.y in createMesh
             -0.5                     // Wing Z position - matches wings.position.z in createMesh
         );
+
+        // Initialize ammo system
+        this.ammoSystem = new AmmoSystem(scene, eventBus);
     }
 
     /**
@@ -346,5 +350,48 @@ export default class WW2Plane extends Plane {
         this.scene.add(this.mesh);
 
         console.log('WW2 plane mesh created and added to scene');
+    }
+
+    /**
+     * Fire ammo from both wings
+     */
+    fireAmmo() {
+        // Create velocity vector in the direction the plane is facing
+        const velocity = new THREE.Vector3();
+        // Get forward direction of the plane and multiply by speed
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.mesh.quaternion);
+        velocity.copy(forward).multiplyScalar(this.speed);
+
+        this.ammoSystem.fireBullets(this.mesh, velocity);
+    }
+
+    /**
+     * Update WW2 plane each frame
+     * @param {number} deltaTime - Time since last update in seconds
+     * @param {Object} inputState - Current input state
+     */
+    update(deltaTime, inputState) {
+        // Call the parent update method
+        super.update(deltaTime, inputState);
+
+        // Update ammo system
+        this.ammoSystem.update(deltaTime);
+
+        // Check for firing
+        if (inputState.keysPressed[' ']) {
+            this.fireAmmo();
+        }
+    }
+
+    /**
+     * Clean up resources
+     */
+    dispose() {
+        super.dispose();
+
+        // Clean up ammo system
+        if (this.ammoSystem) {
+            this.ammoSystem.dispose();
+        }
     }
 } 

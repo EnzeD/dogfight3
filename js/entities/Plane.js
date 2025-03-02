@@ -462,10 +462,6 @@ export default class Plane extends Entity {
      * @param {number} deltaTime - Time since last frame in seconds
      */
     updateWingTrails(deltaTime) {
-        // Debug if the plane is airborne
-        if (!this.isAirborne && this.speed > 0) {
-            console.log("Not airborne yet, speed:", this.speed, "minTakeoffSpeed:", this.minTakeoffSpeed);
-        }
 
         // Get speed as percentage (0-1)
         const speedFactor = this.speed / this.maxSpeed;

@@ -28,7 +28,8 @@ export default class InputManager {
             'arrowright': 'yawRight',
 
             // Additional controls
-            ' ': 'toggleAutoStabilization',
+            'f': 'toggleAutoStabilization',
+            ' ': 'fireAmmo',
             'c': 'toggleCameraMode'
         };
     }
