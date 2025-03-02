@@ -7,6 +7,7 @@ import Clouds from './Clouds.js';
 import Camera from './Camera.js';
 import Trees from './Trees.js';  // Import the new Trees class
 import Villages from './Villages.js';  // Import the new Villages class
+import Skyscrapers from './Skyscrapers.js';  // Import the new Skyscrapers class
 
 export default class SceneManager {
     constructor(eventBus) {
@@ -26,6 +27,7 @@ export default class SceneManager {
         this.fog = null; // Store reference to the fog
         this.trees = null; // Store reference to the trees
         this.villages = null; // Store reference to the villages
+        this.skyscrapers = null; // Store reference to the skyscrapers
 
         // Main actor (plane)
         this.mainActor = null;
@@ -54,11 +56,12 @@ export default class SceneManager {
         this.clouds = new Clouds(this.scene, this.eventBus);
         this.trees = new Trees(this.scene, this.eventBus); // Initialize trees
         this.villages = new Villages(this.scene, this.eventBus, this.runway); // Pass runway to villages
+        this.skyscrapers = new Skyscrapers(this.scene, this.eventBus); // Initialize skyscrapers
 
         // Create and setup camera (after renderer is created)
         this.camera = new Camera(this.scene, this.renderer.domElement, this.eventBus);
 
-        console.log('SceneManager initialized');
+        console.log('SceneManager initialized with CBD area added');
     }
 
     /**
@@ -174,6 +177,11 @@ export default class SceneManager {
         // Update villages if needed
         if (this.villages) {
             this.villages.update(deltaTime);
+        }
+
+        // Update skyscrapers if needed
+        if (this.skyscrapers) {
+            this.skyscrapers.update(deltaTime);
         }
 
         // Update camera to follow the main actor

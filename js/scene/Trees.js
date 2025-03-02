@@ -28,7 +28,7 @@ export default class Trees {
     init() {
         this.createTreeTypes();
         this.placeTrees();
-        console.log('Trees initialized with 5 different types');
+        console.log('Trees initialized with 5 different types (shadows disabled)');
     }
 
     /**
@@ -108,7 +108,7 @@ export default class Trees {
         const trunkGeometry = new THREE.CylinderGeometry(0.2, 0.4, 3, 8);
         const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
         trunk.position.y = 1.5;
-        trunk.castShadow = true;
+        trunk.castShadow = false;
         trunk.receiveShadow = true;
         tree.add(trunk);
 
@@ -122,7 +122,7 @@ export default class Trees {
             const coneGeometry = new THREE.ConeGeometry(radius, height, 8);
             const cone = new THREE.Mesh(coneGeometry, foliageMaterial);
             cone.position.y = yPos;
-            cone.castShadow = true;
+            cone.castShadow = false;
             cone.receiveShadow = true;
             tree.add(cone);
         }
@@ -140,7 +140,7 @@ export default class Trees {
         const trunkGeometry = new THREE.CylinderGeometry(0.5, 0.7, 4, 10);
         const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
         trunk.position.y = 2;
-        trunk.castShadow = true;
+        trunk.castShadow = false;
         trunk.receiveShadow = true;
         tree.add(trunk);
 
@@ -157,7 +157,7 @@ export default class Trees {
             const foliageGeometry = new THREE.SphereGeometry(pos.scale, 8, 8);
             const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
             foliage.position.set(pos.x, pos.y, pos.z);
-            foliage.castShadow = true;
+            foliage.castShadow = false;
             foliage.receiveShadow = true;
             tree.add(foliage);
         });
@@ -184,7 +184,7 @@ export default class Trees {
         const trunkCurve = new THREE.CatmullRomCurve3(trunkCurvePoints);
         const trunkGeometry = new THREE.TubeGeometry(trunkCurve, 20, 0.25, 8, false);
         const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-        trunk.castShadow = true;
+        trunk.castShadow = false;
         trunk.receiveShadow = true;
         tree.add(trunk);
 
@@ -209,7 +209,7 @@ export default class Trees {
             const frondGeometry = new THREE.ExtrudeGeometry(frondShape, extrudeSettings);
             const frond = new THREE.Mesh(frondGeometry, foliageMaterial);
             frond.scale.set(1, 1, 0.1);
-            frond.castShadow = true;
+            frond.castShadow = false;
             frond.receiveShadow = true;
 
             // Rotate and position frond
@@ -237,7 +237,7 @@ export default class Trees {
         const trunkGeometry = new THREE.CylinderGeometry(0.15, 0.3, 6, 8);
         const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
         trunk.position.y = 3;
-        trunk.castShadow = true;
+        trunk.castShadow = false;
         trunk.receiveShadow = true;
         tree.add(trunk);
 
@@ -246,7 +246,7 @@ export default class Trees {
         foliageGeometry.scale(1, 1.5, 1);
         const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
         foliage.position.y = 6;
-        foliage.castShadow = true;
+        foliage.castShadow = false;
         foliage.receiveShadow = true;
         tree.add(foliage);
 
@@ -266,7 +266,7 @@ export default class Trees {
             );
 
             branch.rotation.z = Math.PI / 2 - angle;
-            branch.castShadow = true;
+            branch.castShadow = false;
 
             tree.add(branch);
         }
@@ -284,7 +284,7 @@ export default class Trees {
         const trunkGeometry = new THREE.CylinderGeometry(0.4, 0.7, 5, 8);
         const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
         trunk.position.y = 2.5;
-        trunk.castShadow = true;
+        trunk.castShadow = false;
         trunk.receiveShadow = true;
         tree.add(trunk);
 
@@ -293,7 +293,7 @@ export default class Trees {
         canopyGeometry.scale(1, 0.7, 1);
         const canopy = new THREE.Mesh(canopyGeometry, foliageMaterial);
         canopy.position.y = 5.5;
-        canopy.castShadow = true;
+        canopy.castShadow = false;
         canopy.receiveShadow = true;
         tree.add(canopy);
 
@@ -315,7 +315,7 @@ export default class Trees {
             const branchCurve = new THREE.CatmullRomCurve3(branchCurvePoints);
             const branchGeometry = new THREE.TubeGeometry(branchCurve, 20, 0.05, 4, false);
             const branch = new THREE.Mesh(branchGeometry, foliageMaterial);
-            branch.castShadow = true;
+            branch.castShadow = false;
             branch.receiveShadow = true;
             tree.add(branch);
         }
@@ -352,7 +352,8 @@ export default class Trees {
                     const z = Math.random() * (area.zMax - area.zMin) + area.zMin;
 
                     // Random scale variation (0.7 to 1.3 of original size)
-                    const scale = 0.7 + Math.random() * 0.6;
+                    // Multiplied by 3 to make trees 3 times bigger
+                    const scale = (0.7 + Math.random() * 0.6) * 3;
                     tree.scale.set(scale, scale, scale);
 
                     // Random rotation
@@ -371,7 +372,7 @@ export default class Trees {
             }
         });
 
-        console.log(`Placed ${this.trees.length} trees in the scene`);
+        console.log(`Placed ${this.trees.length} trees in the scene (shadows disabled, 3x larger)`);
     }
 
     /**
