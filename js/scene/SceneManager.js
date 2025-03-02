@@ -6,6 +6,7 @@ import Runway from './Runway.js';
 import Clouds from './Clouds.js';
 import Camera from './Camera.js';
 import Trees from './Trees.js';  // Import the new Trees class
+import Villages from './Villages.js';  // Import the new Villages class
 
 export default class SceneManager {
     constructor(eventBus) {
@@ -24,6 +25,7 @@ export default class SceneManager {
         this.sun = null; // Store reference to the sun light
         this.fog = null; // Store reference to the fog
         this.trees = null; // Store reference to the trees
+        this.villages = null; // Store reference to the villages
 
         // Main actor (plane)
         this.mainActor = null;
@@ -51,6 +53,7 @@ export default class SceneManager {
         this.runway = new Runway(this.scene);
         this.clouds = new Clouds(this.scene, this.eventBus);
         this.trees = new Trees(this.scene, this.eventBus); // Initialize trees
+        this.villages = new Villages(this.scene, this.eventBus, this.runway); // Pass runway to villages
 
         // Create and setup camera (after renderer is created)
         this.camera = new Camera(this.scene, this.renderer.domElement, this.eventBus);
@@ -64,7 +67,7 @@ export default class SceneManager {
     createFog() {
         // Add exponential fog - less intensive than linear fog
         // Parameters: color, density
-        this.fog = new THREE.FogExp2(0xCFE8FF, 0.0002); // Further reduced from 0.0008 for extreme distance viewing
+        this.fog = new THREE.FogExp2(0xCFE8FF, 0.0004); // Further reduced from 0.0008 for extreme distance viewing
         this.scene.fog = this.fog;
         console.log('Scene fog created with extended view distance');
     }
@@ -166,6 +169,11 @@ export default class SceneManager {
         // Update trees if needed
         if (this.trees) {
             this.trees.update(deltaTime);
+        }
+
+        // Update villages if needed
+        if (this.villages) {
+            this.villages.update(deltaTime);
         }
 
         // Update camera to follow the main actor

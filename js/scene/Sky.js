@@ -18,7 +18,7 @@ export default class Sky {
      */
     createSky() {
         // Create a large box geometry
-        const skyGeometry = new THREE.BoxGeometry(5000, 5000, 5000);
+        const skyGeometry = new THREE.BoxGeometry(10000, 10000, 10000);
 
         // Create a gradient material with blue at top and lighter blue at bottom
         const skyMaterial = new THREE.MeshBasicMaterial({
