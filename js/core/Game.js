@@ -1,4 +1,5 @@
 // Core Game Controller
+import * as THREE from 'three';
 import SceneManager from '../scene/SceneManager.js';
 import InputManager from './InputManager.js';
 import AudioManager from '../audio/AudioManager.js';
@@ -26,6 +27,10 @@ export default class Game {
         this.fps = 0;
         this.lastFpsUpdateTime = 0;
 
+        // Initialize array to hold all planes (player and enemies)
+        this.planes = [];
+        this.enemyPlanes = [];
+
         // Initialize the game
         this.init();
     }
@@ -41,9 +46,14 @@ export default class Game {
         // Create the player's plane (after scene is initialized)
         console.log('Creating player plane...');
         const planeFactory = new PlaneFactory(this.sceneManager.scene, this.eventBus);
-        this.plane = planeFactory.createWW2Plane();
-        console.log('Player plane created:', this.plane);
-        this.sceneManager.setMainActor(this.plane);
+        this.playerPlane = planeFactory.createWW2Plane();
+        this.planes.push(this.playerPlane);
+        console.log('Player plane created:', this.playerPlane);
+        this.sceneManager.setMainActor(this.playerPlane);
+
+        // Create an enemy plane
+        console.log('Creating enemy plane...');
+        this.createEnemyPlane(planeFactory, new THREE.Vector3(20, 30, -20));
 
         // Initialize audio (after plane is created)
         this.audioManager.init();
@@ -58,6 +68,25 @@ export default class Game {
         this.uiManager.showInstructions();
     }
 
+    /**
+     * Creates an enemy plane at the specified position
+     * @param {PlaneFactory} planeFactory - The factory to use for creating planes
+     * @param {THREE.Vector3} position - The position to place the enemy plane
+     */
+    createEnemyPlane(planeFactory, position) {
+        const enemyPlane = planeFactory.createEnemyPlane();
+
+        // Set initial position
+        enemyPlane.mesh.position.copy(position);
+
+        // Store the enemy plane
+        this.enemyPlanes.push(enemyPlane);
+        this.planes.push(enemyPlane);
+
+        console.log('Enemy plane created at position:', position);
+        return enemyPlane;
+    }
+
     animate(currentTime = 0) {
         // Schedule next frame
         requestAnimationFrame(this.animate.bind(this));
@@ -68,15 +97,16 @@ export default class Game {
 
         // Update FPS counter
         this.frameCount++;
-        if (currentTime - this.lastFpsUpdateTime >= 1000) {
-            this.fps = Math.round(this.frameCount * 1000 / (currentTime - this.lastFpsUpdateTime));
+
+        if (currentTime - this.lastFpsUpdateTime > 1000) {
+            this.fps = Math.round((this.frameCount * 1000) / (currentTime - this.lastFpsUpdateTime));
             this.frameCount = 0;
             this.lastFpsUpdateTime = currentTime;
             // Dispatch FPS update event
             this.eventBus.emit('fps.update', this.fps);
         }
 
-        // Update all game systems
+        // Update game state
         this.update();
 
         // Render the scene
@@ -84,19 +114,29 @@ export default class Game {
     }
 
     update() {
-        // Update the plane first
-        if (this.plane) {
-            this.plane.update(this.deltaTime, this.inputManager.getInputState());
+        // Update the player plane
+        if (this.playerPlane) {
+            this.playerPlane.update(this.deltaTime, this.inputManager.getInputState());
+        }
+
+        // Update enemy planes
+        for (const enemyPlane of this.enemyPlanes) {
+            if (this.playerPlane) {
+                // Pass player position to enemy AI
+                enemyPlane.update(this.deltaTime, null, this.playerPlane.mesh.position);
+            } else {
+                enemyPlane.update(this.deltaTime, null);
+            }
         }
 
         // Update scene elements (camera, environment, etc.)
         this.sceneManager.update(this.deltaTime);
 
         // Update audio based on game state
-        this.audioManager.update(this.plane);
+        this.audioManager.update(this.playerPlane);
 
         // Update UI elements
-        this.uiManager.update(this.plane, this.fps);
+        this.uiManager.update(this.playerPlane, this.fps);
     }
 
     onWindowResize() {

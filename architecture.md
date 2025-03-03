@@ -27,11 +27,15 @@ This document describes the modular architecture implemented for the WW2 Dogfigh
     - Ground.js (ground plane)
     - Runway.js (runway)
     - Clouds.js (cloud generation and animation)
+    - Trees.js (tree generation and placement)
+    - Villages.js (village generation and placement)
+    - Skyscrapers.js (skyscraper generation and placement)
   /entities
     - Entity.js (base entity class)
     - Plane.js (base plane class)
     - WW2Plane.js (specific plane implementation)
     - PlaneFactory.js (factory for creating planes)
+    - AmmoSystem.js (ammunition and bullet management)
   /ui
     - UIManager.js (UI management)
     - InstructionsPanel.js (game instructions)
@@ -41,6 +45,7 @@ This document describes the modular architecture implemented for the WW2 Dogfigh
     - AudioManager.js (audio system)
   /utils
     - MathUtils.js (math helper functions)
+  - main.js (entry point)
 ```
 
 ## Core Components
@@ -54,6 +59,7 @@ The central controller for the game. It initializes all other systems, manages t
 - Manage the game loop (animation frame)
 - Update all components each frame
 - Handle window resize events
+- Track and report performance metrics (FPS)
 
 ### EventBus.js
 
@@ -83,9 +89,10 @@ Manages the 3D scene, including creation, rendering, and updates.
 **Responsibilities**:
 - Create and manage the Three.js scene
 - Create and manage the renderer
-- Initialize scene elements (sky, ground, runway, clouds)
+- Initialize scene elements (sky, ground, runway, clouds, trees, villages, skyscrapers)
 - Update scene elements
 - Render the scene
+- Track the main actor (player's plane)
 
 ### Camera.js
 
@@ -105,6 +112,16 @@ These components manage specific elements of the 3D environment.
 - Create and manage their respective 3D meshes
 - Update their state (e.g., cloud animation)
 - Respond to events (if needed)
+
+### Trees.js, Villages.js, Skyscrapers.js
+
+These components add rich environmental details to the scene.
+
+**Responsibilities**:
+- Generate procedural content for the environment
+- Create and manage complex 3D models and instances
+- Place objects logically in the world (avoiding runway, etc.)
+- Optimize rendering through instancing and LOD techniques
 
 ## Entity Components
 
@@ -126,6 +143,7 @@ Base class for all aircraft, extending Entity.js.
 - Handle player input for flight controls
 - Manage plane state (speed, altitude, etc.)
 - Update control surfaces based on input
+- Collision detection
 
 ### WW2Plane.js
 
@@ -134,6 +152,7 @@ Specific implementation of a WW2-style aircraft, extending Plane.js.
 **Responsibilities**:
 - Create the 3D model for the WW2 plane
 - Define plane-specific properties
+- Handle plane-specific behavior
 
 ### PlaneFactory.js
 
@@ -142,6 +161,17 @@ Factory for creating different types of planes.
 **Responsibilities**:
 - Create plane instances based on type
 - Initialize planes with proper settings
+
+### AmmoSystem.js
+
+Manages ammunition and bullet physics for planes.
+
+**Responsibilities**:
+- Create and manage bullet objects
+- Handle bullet physics and collision detection
+- Maintain object pools for performance
+- Track bullet lifetimes and clean up expired bullets
+- Implement firing mechanics with cooldown times
 
 ## UI Components
 
@@ -174,6 +204,8 @@ Manages all game audio.
 - Load and play sounds
 - Update sound parameters based on game state
 - Handle audio controls (mute, volume)
+- Manage positional audio for 3D sound effects
+- Handle audio transitions and fading
 
 ## Utility Components
 
@@ -183,6 +215,18 @@ Provides common math functions used throughout the game.
 
 **Responsibilities**:
 - Provide static utility methods for math operations
+- Implement complex math algorithms needed for flight mechanics
+
+## Main Entry Point
+
+### main.js
+
+The entry point for the game application.
+
+**Responsibilities**:
+- Check for device compatibility
+- Initialize the Game
+- Handle mobile device detection and messaging
 
 ## Communication Between Components
 
@@ -207,6 +251,12 @@ Components communicate with each other primarily through the EventBus, which imp
    - Game passes plane state to AudioManager
    - AudioManager updates sound parameters based on plane state
 
+4. **Weapons System**:
+   - Input triggers weapon firing
+   - AmmoSystem creates and manages bullets
+   - AmmoSystem updates bullet positions
+   - AmmoSystem handles bullet collisions
+
 ## Benefits of This Architecture
 
 1. **Decoupled Components**: Changes to one component don't affect others.
@@ -220,7 +270,7 @@ Components communicate with each other primarily through the EventBus, which imp
 The modular architecture makes it easy to add new features:
 
 1. **New Plane Types**: Add new plane classes that extend Plane.js.
-2. **Weapons Systems**: Add new components for weapons and targeting.
-3. **Enemy AI**: Add AI components for enemy planes.
-4. **Mission System**: Add components for mission objectives and progression.
-5. **Multiplayer**: Add networking components for multiplayer gameplay. 
+2. **Enemy AI**: Add AI components for enemy planes.
+3. **Mission System**: Add components for mission objectives and progression.
+4. **Multiplayer**: Add networking components for multiplayer gameplay.
+5. **Weather Effects**: Add dynamic weather system components. 
