@@ -3,18 +3,52 @@ const WebSocket = require('ws');
 const http = require('http');
 const https = require('https');
 const fs = require('fs');
+const path = require('path');
+
+// SSL certificate configuration
+const SSL_KEY_PATH = process.env.SSL_KEY_PATH || path.join(__dirname, 'ssl', 'privkey.pem');
+const SSL_CERT_PATH = process.env.SSL_CERT_PATH || path.join(__dirname, 'ssl', 'fullchain.pem');
 
 // Create both HTTP and HTTPS servers
 const httpServer = http.createServer();
 
-// WebSocket server configuration
+let httpsServer;
+try {
+    // Try to load SSL certificates if they exist
+    if (fs.existsSync(SSL_KEY_PATH) && fs.existsSync(SSL_CERT_PATH)) {
+        const sslOptions = {
+            key: fs.readFileSync(SSL_KEY_PATH),
+            cert: fs.readFileSync(SSL_CERT_PATH)
+        };
+        httpsServer = https.createServer(sslOptions);
+        console.log('SSL certificates loaded successfully');
+    }
+} catch (error) {
+    console.warn('Failed to load SSL certificates:', error.message);
+    console.log('Server will run in HTTP-only mode');
+}
+
+// WebSocket server configuration for HTTP
 const wss = new WebSocket.Server({
     server: httpServer,
-    // Allow connections from any origin
     verifyClient: ({ origin, req, secure }) => {
         return true; // Accept all connections for now
     }
 });
+
+// WebSocket server configuration for HTTPS (if available)
+let wssSecure;
+if (httpsServer) {
+    wssSecure = new WebSocket.Server({
+        server: httpsServer,
+        verifyClient: ({ origin, req, secure }) => {
+            return true; // Accept all connections for now
+        }
+    });
+
+    // Attach the same connection handler to secure WebSocket server
+    wssSecure.on('connection', handleConnection);
+}
 
 // Store all connected clients
 const clients = new Map();
@@ -27,8 +61,15 @@ console.log('WebSocket server starting...');
 
 // Start HTTP server
 httpServer.listen(8080, () => {
-    console.log('WebSocket server started on port 8080');
+    console.log('WebSocket server started on HTTP port 8080');
 });
+
+// Start HTTPS server if available
+if (httpsServer) {
+    httpsServer.listen(8443, () => {
+        console.log('WebSocket server started on HTTPS port 8443');
+    });
+}
 
 // Optimization: Reuse JSON strings for common messages
 const createPlayerUpdateMessage = (clientId, position, rotation, speed) =>
@@ -49,7 +90,8 @@ const createFireMessage = (clientId, position, direction, velocity) =>
         velocity
     });
 
-wss.on('connection', (ws) => {
+// Move connection handler to a separate function
+function handleConnection(ws) {
     // Assign a unique ID to this client
     const clientId = nextId++;
     const clientData = {
@@ -156,4 +198,7 @@ wss.on('connection', (ws) => {
             }
         });
     });
-}); 
+}
+
+// Attach the connection handler to the HTTP WebSocket server
+wss.on('connection', handleConnection); 

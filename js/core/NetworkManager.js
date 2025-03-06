@@ -28,10 +28,13 @@ export default class NetworkManager {
      * @param {Object} data - Connection data including server URL
      */
     connect(data = {}) {
-        // Determine protocol based on page protocol
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        // Use VPS IP address
-        const serverUrl = data.serverUrl || `${protocol}//141.95.17.225:8080`;
+        // Determine protocol and port based on page protocol
+        const isSecure = window.location.protocol === 'https:';
+        const protocol = isSecure ? 'wss:' : 'ws:';
+        const port = isSecure ? '8443' : '8080';
+
+        // Use VPS IP address with appropriate port
+        const serverUrl = data.serverUrl || `${protocol}//141.95.17.225:${port}`;
 
         try {
             console.log(`Connecting to multiplayer server at ${serverUrl}...`);
