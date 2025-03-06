@@ -26,27 +26,27 @@ export default class EnemyPlane extends WW2Plane {
         this.waypointQueue = []; // Queue of waypoints to follow
         this.minWaypoints = 3; // Minimum number of waypoints to have in queue
         this.maxWaypoints = 5; // Maximum number of waypoints to keep in queue
-        this.waypointReachedThreshold = 15; // How close the plane needs to get to a waypoint
-        this.idleSpeed = 0.55; // Speed during IDLE mode (0.0 to 1.0)
-        this.idleAltitudeMin = 60; // Minimum altitude for idle flight
-        this.idleAltitudeMax = 200; // Maximum altitude for idle flight
-        this.idleAreaSize = 300; // Size of the patrol area (square)
-        this.waypointChangeInterval = 3; // Force waypoint change every X seconds to avoid getting stuck
+        this.waypointReachedThreshold = 20; // How close the plane needs to get to a waypoint (increased from 15)
+        this.idleSpeed = 0.65; // Speed during IDLE mode (increased from 0.55)
+        this.idleAltitudeMin = 120; // Minimum altitude for idle flight (increased from 60)
+        this.idleAltitudeMax = 320; // Maximum altitude for idle flight (increased from 200)
+        this.idleAreaSize = 800; // Size of the patrol area (increased from 300)
+        this.waypointChangeInterval = 5; // Force waypoint change every X seconds (increased from 3)
         this.lastWaypointChangeTime = 0;
 
         // Game boundaries (prevent flying too far)
         this.worldBounds = {
-            minX: -1500,
-            maxX: 1500,
+            minX: -2000,
+            maxX: 2000,
             minY: this.idleAltitudeMin,
-            maxY: 300,
-            minZ: -1500,
-            maxZ: 1500
+            maxY: 500,
+            minZ: -2000,
+            maxZ: 2000
         };
 
         // Smoothing parameters
-        this.turnSpeed = 0.7; // How quickly the plane turns (0.0 to 1.0)
-        this.bankFactor = 0.8; // How much the plane banks during turns (0.0 to 1.0)
+        this.turnSpeed = 0.5; // How quickly the plane turns (decreased from 0.7 for smoother turns)
+        this.bankFactor = 0.6; // How much the plane banks during turns (decreased from 0.8)
 
         // AI behavior debug
         this.showDebugInfo = false;
@@ -101,8 +101,13 @@ export default class EnemyPlane extends WW2Plane {
                 ).normalize();
 
                 // Add some randomness to direction but keep it somewhat consistent
-                const randomAngle = (Math.random() - 0.5) * Math.PI * 0.5; // +/- 45 degrees
-                const randomElevation = (Math.random() - 0.5) * Math.PI * 0.3; // +/- 27 degrees
+                // Wider angle range for more human-like unpredictability
+                const randomAngle = (Math.random() - 0.5) * Math.PI * 0.7; // +/- 63 degrees
+
+                // Use variable elevation changes with bias toward level flight
+                // This simulates more human-like flight patterns
+                const elevationBias = Math.random() > 0.7 ? 0.6 : 0.2; // Occasionally make steeper turns
+                const randomElevation = (Math.random() - 0.5) * Math.PI * elevationBias;
 
                 // Create rotation matrix for heading (y-axis)
                 const rotationY = new THREE.Matrix4().makeRotationY(randomAngle);
@@ -122,8 +127,8 @@ export default class EnemyPlane extends WW2Plane {
                 currentDirection.z = Math.sin(randomAngle) * Math.cos(randomElevation);
             }
 
-            // Calculate distance for this segment (60-120 units)
-            const segmentDistance = 60 + Math.random() * 60;
+            // Calculate distance for this segment - more variable distances for natural behavior
+            const segmentDistance = 100 + Math.random() * 120; // 100-220 units (previously 60-120)
 
             // Create the new waypoint by moving in the calculated direction
             newWaypoint = new THREE.Vector3(
@@ -132,23 +137,32 @@ export default class EnemyPlane extends WW2Plane {
                 referencePos.z + currentDirection.z * segmentDistance
             );
 
-            // Ensure altitude is within bounds
-            newWaypoint.y = Math.max(
-                this.idleAltitudeMin,
-                Math.min(this.idleAltitudeMax, newWaypoint.y)
-            );
+            // Ensure altitude is within bounds, with gradual adjustments for realism
+            // Apply a smoothing factor to make altitude changes more gradual
+            if (newWaypoint.y < this.idleAltitudeMin) {
+                // If below min altitude, curve upward gently
+                const altDiff = this.idleAltitudeMin - newWaypoint.y;
+                newWaypoint.y = this.idleAltitudeMin + (Math.random() * altDiff * 0.5);
+            } else if (newWaypoint.y > this.idleAltitudeMax) {
+                // If above max altitude, curve downward gently
+                const altDiff = newWaypoint.y - this.idleAltitudeMax;
+                newWaypoint.y = this.idleAltitudeMax - (Math.random() * altDiff * 0.5);
+            }
 
             attempts++;
         } while (!this.isWithinWorldBounds(newWaypoint) && attempts < 10);
 
         // If we couldn't find a valid waypoint after 10 attempts,
-        // just pick a point at the same altitude but in a random direction
+        // pick a point with a more conservative approach
         if (attempts >= 10) {
             const randomAngle = Math.random() * Math.PI * 2;
+            const randomAltitude = this.idleAltitudeMin +
+                (this.idleAltitudeMax - this.idleAltitudeMin) * (0.3 + Math.random() * 0.5); // 30-80% of range
+
             newWaypoint = new THREE.Vector3(
-                referencePos.x + Math.cos(randomAngle) * 80,
-                this.idleAltitudeMin + Math.random() * (this.idleAltitudeMax - this.idleAltitudeMin),
-                referencePos.z + Math.sin(randomAngle) * 80
+                referencePos.x + Math.cos(randomAngle) * 140, // Increased from 80
+                randomAltitude, // More defined altitude range
+                referencePos.z + Math.sin(randomAngle) * 140  // Increased from 80
             );
 
             // Clamp to world boundaries
@@ -196,6 +210,26 @@ export default class EnemyPlane extends WW2Plane {
         // Check if we need to replenish waypoints
         const currentTime = performance.now() / 1000;
 
+        // Safety check - if we're getting too close to the ground, generate emergency waypoint above
+        if (this.mesh.position.y < this.idleAltitudeMin + 30) {
+            // If we're too low, clear the queue and add a single "climb" waypoint
+            this.waypointQueue = [];
+
+            // Create a waypoint directly above with a safe altitude
+            const safeAltitude = this.idleAltitudeMin + 50 + Math.random() * 30;
+            const emergencyWaypoint = new THREE.Vector3(
+                this.mesh.position.x,
+                safeAltitude,
+                this.mesh.position.z
+            );
+
+            this.waypointQueue.push(emergencyWaypoint);
+
+            if (this.showDebugInfo) {
+                console.log(`Enemy plane emergency altitude correction to ${safeAltitude.toFixed(2)}`);
+            }
+        }
+
         // If we've reached the current waypoint, remove it
         if (this.waypointQueue.length > 0 && this.reachedWaypoint()) {
             this.waypointQueue.shift(); // Remove the first waypoint
@@ -205,8 +239,19 @@ export default class EnemyPlane extends WW2Plane {
         }
 
         // Generate new waypoints if we're running low or if we're stuck for too long
+        const timeInWaypoint = currentTime - this.lastWaypointChangeTime;
         if (this.waypointQueue.length < this.minWaypoints ||
-            (currentTime - this.lastWaypointChangeTime) > this.waypointChangeInterval) {
+            timeInWaypoint > this.waypointChangeInterval) {
+
+            // If we've been stuck trying to reach the same waypoint for too long,
+            // it might be unreachable - clear the first waypoint
+            if (this.waypointQueue.length > 0 && timeInWaypoint > this.waypointChangeInterval * 1.5) {
+                this.waypointQueue.shift();
+                if (this.showDebugInfo) {
+                    console.log(`Enemy plane abandoned unreachable waypoint`);
+                }
+            }
+
             // Generate a new waypoint to add to the queue
             this.generateNewWaypoint();
 
@@ -246,25 +291,34 @@ export default class EnemyPlane extends WW2Plane {
         const dotRight = right.dot(targetDirection); // Direction of turn (-1 is left, 1 is right)
         const dotUp = up.dot(targetDirection); // Direction of pitch (-1 is down, 1 is up)
 
+        // Add slight randomness to inputs to simulate human imperfection
+        const humanJitter = () => (Math.random() - 0.5) * 0.15; // +/- 0.075 input variation
+
         // Calculate control inputs
-        // Since we're mimicking player control, we'll use a scale of -1 to 1 for these values
-        const rollInput = -dotRight * this.bankFactor; // Bank into turns
-        const pitchInput = dotUp * this.turnSpeed; // Pitch to align with target direction
-        const yawInput = dotRight * this.turnSpeed; // Yaw to align with target direction
+        // Reduced input strength for more gradual turns
+        const rollInput = -dotRight * this.bankFactor + humanJitter() * Math.abs(dotRight);
+        const pitchInput = dotUp * this.turnSpeed + humanJitter() * Math.abs(dotUp);
+
+        // Reduced yaw for more realistic flight (planes primarily turn with roll+pitch)
+        const yawInput = dotRight * this.turnSpeed * 0.3 + humanJitter() * 0.05;
+
+        // Sometimes delay full throttle application - human pilots don't always use 100% throttle
+        // Use a time-varying throttle that subtly changes based on a sine wave
+        const timeNow = performance.now() / 1000;
+        const throttleVariation = Math.sin(timeNow * 0.2) * 0.1; // +/- 10% throttle variation
+        const baseThrottle = Math.min(1.0, this.idleSpeed + Math.max(0, 0.1 - Math.abs(dotForward - 1) * 0.2));
+        const throttleInput = baseThrottle + throttleVariation;
 
         // Artificial inputs for the plane's controls
         const artificialInputs = {
-            roll: rollInput,
-            pitch: pitchInput,
-            yaw: yawInput,
-            throttle: this.idleSpeed
+            roll: Math.max(-1, Math.min(1, rollInput)),
+            pitch: Math.max(-1, Math.min(1, pitchInput)),
+            yaw: Math.max(-1, Math.min(1, yawInput)),
+            throttle: Math.max(0.4, Math.min(1, throttleInput))
         };
 
         // Apply the inputs to simulate player control
         this.applyArtificialInputs(artificialInputs, deltaTime);
-
-        // The position update is now handled in applyArtificialInputs
-        // which sets this.velocity correctly based on direction and speed
 
         // Move the plane forward in the direction it's facing
         const forwardDirection = new THREE.Vector3(0, 0, -1);
