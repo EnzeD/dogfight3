@@ -57,6 +57,10 @@ export default class InstructionsPanel {
                 <li>Scroll - Zoom in/out</li>
                 <li>C - Toggle camera mode</li>
             </ul>
+            <p><strong>Game Controls:</strong></p>
+            <ul style="padding-left: 20px;">
+                <li>E - Spawn 20 enemy planes</li>
+            </ul>
             <p style="margin-bottom: 0; font-style: italic; text-align: center;">
                 Click this panel to close
             </p>

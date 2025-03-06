@@ -104,6 +104,13 @@ export default class Game {
         this.eventBus.on('game.pause', () => this.pauseGame());
         this.eventBus.on('game.resume', () => this.resumeGame());
 
+        // Listen for input actions
+        this.eventBus.on('input.action', (data) => {
+            if (data.action === 'spawnEnemies' && data.state === 'down') {
+                this.spawnMultipleEnemies(20);
+            }
+        });
+
         // Start the game loop
         this.animate();
 
@@ -163,6 +170,48 @@ export default class Game {
 
         console.log('Enemy plane created at position:', position);
         return enemyPlane;
+    }
+
+    /**
+     * Creates multiple enemy planes at random positions around the player
+     * @param {number} count - Number of enemy planes to create
+     */
+    spawnMultipleEnemies(count = 20) {
+        // Only allow in single player mode
+        if (this.isMultiplayer) {
+            console.log('Cannot spawn enemies in multiplayer mode');
+            return;
+        }
+
+        console.log(`Spawning ${count} enemy planes...`);
+        const planeFactory = new PlaneFactory(this.sceneManager.scene, this.eventBus);
+
+        // Get player position as reference
+        const playerPos = this.playerPlane.mesh.position.clone();
+
+        // Spawn enemies in a distributed pattern around the player
+        for (let i = 0; i < count; i++) {
+            // Calculate random position around player
+            // Random radius between 150 and 400 units
+            const radius = 150 + Math.random() * 250;
+            // Random angle around player (full circle)
+            const angle = Math.random() * Math.PI * 2;
+            // Random height between 100 and 300 units above player
+            const height = playerPos.y + 100 + Math.random() * 200;
+
+            // Calculate position
+            const x = playerPos.x + Math.cos(angle) * radius;
+            const z = playerPos.z + Math.sin(angle) * radius;
+
+            // Create enemy plane at this position
+            this.createEnemyPlane(planeFactory, new THREE.Vector3(x, height, z));
+        }
+
+        // Notify player
+        this.eventBus.emit('notification', {
+            message: `${count} enemy planes have entered the area!`,
+            duration: 3000
+        });
     }
 
     /**

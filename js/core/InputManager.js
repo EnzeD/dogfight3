@@ -30,7 +30,8 @@ export default class InputManager {
             // Additional controls
             'f': 'toggleAutoStabilization',
             ' ': 'fireAmmo',
-            'c': 'toggleCameraMode'
+            'c': 'toggleCameraMode',
+            'e': 'spawnEnemies'    // Add enemy spawn shortcut
         };
     }
 
