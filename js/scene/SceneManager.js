@@ -10,8 +10,9 @@ import Villages from './Villages.js';  // Import the new Villages class
 import Skyscrapers from './Skyscrapers.js';  // Import the new Skyscrapers class
 
 export default class SceneManager {
-    constructor(eventBus) {
+    constructor(eventBus, qualitySettings) {
         this.eventBus = eventBus;
+        this.qualitySettings = qualitySettings;
 
         // Three.js components
         this.scene = null;
@@ -31,6 +32,9 @@ export default class SceneManager {
 
         // Main actor (plane)
         this.mainActor = null;
+
+        // Get current quality settings
+        this.settings = this.qualitySettings.getCurrentSettings();
     }
 
     init() {
@@ -53,15 +57,15 @@ export default class SceneManager {
         this.sky = new Sky(this.scene, this.sun); // Pass the sun to the sky
         this.ground = new Ground(this.scene);
         this.runway = new Runway(this.scene);
-        this.clouds = new Clouds(this.scene, this.eventBus);
-        this.trees = new Trees(this.scene, this.eventBus); // Initialize trees
-        this.villages = new Villages(this.scene, this.eventBus, this.runway); // Pass runway to villages
-        this.skyscrapers = new Skyscrapers(this.scene, this.eventBus); // Initialize skyscrapers
+        this.clouds = new Clouds(this.scene, this.eventBus, this.qualitySettings);
+        this.trees = new Trees(this.scene, this.eventBus, this.qualitySettings); // Pass quality settings
+        this.villages = new Villages(this.scene, this.eventBus, this.runway, this.qualitySettings); // Pass quality settings
+        this.skyscrapers = new Skyscrapers(this.scene, this.eventBus, this.qualitySettings); // Pass quality settings
 
         // Create and setup camera (after renderer is created)
         this.camera = new Camera(this.scene, this.renderer.domElement, this.eventBus);
 
-        console.log('SceneManager initialized with CBD area added');
+        console.log(`SceneManager initialized with quality: ${this.qualitySettings.getQuality()}`);
     }
 
     /**
@@ -70,9 +74,10 @@ export default class SceneManager {
     createFog() {
         // Add exponential fog - less intensive than linear fog
         // Parameters: color, density
-        this.fog = new THREE.FogExp2(0xCFE8FF, 0.0004); // Further reduced from 0.0008 for extreme distance viewing
+        const fogDensity = this.settings.fogDensity || 0.0004;
+        this.fog = new THREE.FogExp2(0xCFE8FF, fogDensity);
         this.scene.fog = this.fog;
-        console.log('Scene fog created with extended view distance');
+        console.log(`Scene fog created with density: ${fogDensity}`);
     }
 
     /**
@@ -209,6 +214,26 @@ export default class SceneManager {
 
             // Update renderer
             this.renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    }
+
+    /**
+     * Handle game pause
+     */
+    pauseGame() {
+        // Potentially reduce rendering during pause
+        if (this.renderer) {
+            this.renderer.setAnimationLoop(null);
+        }
+    }
+
+    /**
+     * Handle game resume
+     */
+    resumeGame() {
+        // Restore rendering
+        if (this.renderer) {
+            this.renderer.setAnimationLoop(() => this.eventBus.emit('animation.frame'));
         }
     }
 } 

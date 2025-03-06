@@ -2,9 +2,10 @@
 import * as THREE from 'three';
 
 export default class Skyscrapers {
-    constructor(scene, eventBus) {
+    constructor(scene, eventBus, qualitySettings) {
         this.scene = scene;
         this.eventBus = eventBus;
+        this.qualitySettings = qualitySettings;
 
         // Collection for skyscraper instances
         this.skyscrapers = [];
@@ -17,6 +18,16 @@ export default class Skyscrapers {
             landmark: null // Add landmark skyscraper type
         };
 
+        // Get quality settings
+        const settings = this.qualitySettings.getCurrentSettings();
+        const skyscraperSettings = settings.skyscrapers || {};
+
+        // Store settings
+        this.buildingCount = skyscraperSettings.count || 10; // Default to medium
+        this.segments = skyscraperSettings.segments || 6; // Default to medium
+
+        console.log(`Creating skyscrapers with quality settings: count=${this.buildingCount}, segments=${this.segments}`);
+
         // Initialize skyscrapers
         this.init();
     }
@@ -27,7 +38,7 @@ export default class Skyscrapers {
     init() {
         this.createSkyscraperTypes();
         this.placeSkyscrapers();
-        console.log('CBD initialized with 15 skyscrapers including a landmark tower');
+        console.log(`CBD initialized with ${this.skyscrapers.length} skyscrapers`);
     }
 
     /**
@@ -361,7 +372,33 @@ export default class Skyscrapers {
     }
 
     /**
-     * Place skyscrapers in the scene in a CBD area
+     * Create building components with quality-based detail
+     * @param {number} width - Width of the building component
+     * @param {number} height - Height of the building component
+     * @param {number} depth - Depth of the building component
+     * @param {THREE.Material} material - Material for the component
+     * @returns {THREE.Mesh} The created mesh
+     */
+    createBuildingComponent(width, height, depth, material) {
+        // Use quality-based segment count
+        const geometry = new THREE.BoxGeometry(
+            width,
+            height,
+            depth,
+            Math.max(1, Math.floor(this.segments * width / 20)), // Scale segments with size
+            Math.max(1, Math.floor(this.segments * height / 50)),
+            Math.max(1, Math.floor(this.segments * depth / 20))
+        );
+
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+
+        return mesh;
+    }
+
+    /**
+     * Place skyscrapers in the CBD area
      */
     placeSkyscrapers() {
         // Find a suitable CBD location that avoids the runway 
@@ -383,8 +420,8 @@ export default class Skyscrapers {
             type: 'landmark'
         });
 
-        // Place remaining 14 skyscrapers in the CBD
-        for (let i = 0; i < 14; i++) {
+        // Place remaining skyscrapers in the CBD (based on quality)
+        for (let i = 0; i < this.buildingCount; i++) {
             // Get random building type
             const type = types[Math.floor(Math.random() * types.length)];
             const skyscraperTemplate = this.skyscraperTypes[type];
@@ -395,7 +432,7 @@ export default class Skyscrapers {
 
                 // Calculate position with spacing so buildings don't overlap
                 // This creates a rough grid layout for the CBD
-                const gridSize = 4; // 4x4 grid, allowing for 16 buildings max (we use 14 + landmark)
+                const gridSize = 4; // 4x4 grid
                 const cellSize = 80; // 80 units between building centers
 
                 // Calculate grid position (0-3 for x and z)
@@ -416,14 +453,14 @@ export default class Skyscrapers {
                     z = landmarkZ + Math.sin(angle) * 100 + (Math.random() * 20 - 10);
                 }
 
-                // Random rotation (slight variations)
-                skyscraper.rotation.y = Math.random() * Math.PI * 2; // Full rotation for more variety
+                // Random rotation
+                skyscraper.rotation.y = Math.random() * Math.PI * 2;
 
-                // Position skyscraper on the ground
+                // Position building
                 skyscraper.position.set(x, 0, z);
                 skyscraper.userData = { type: 'skyscraper', subtype: type }; // Add metadata
 
-                // Add to scene and keep track of it
+                // Add to scene and store reference
                 this.scene.add(skyscraper);
                 this.skyscrapers.push({
                     mesh: skyscraper,
@@ -432,7 +469,7 @@ export default class Skyscrapers {
             }
         }
 
-        console.log(`Placed ${this.skyscrapers.length} skyscrapers in the CBD area at position (${landmarkX}, ${landmarkZ})`);
+        console.log(`Placed ${this.skyscrapers.length} skyscrapers in CBD with quality level: ${this.qualitySettings.getQuality()}`);
     }
 
     /**

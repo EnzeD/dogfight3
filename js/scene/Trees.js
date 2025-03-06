@@ -2,9 +2,10 @@
 import * as THREE from 'three';
 
 export default class Trees {
-    constructor(scene, eventBus) {
+    constructor(scene, eventBus, qualitySettings) {
         this.scene = scene;
         this.eventBus = eventBus;
+        this.qualitySettings = qualitySettings;
 
         // Collections for tree instances
         this.trees = [];
@@ -18,6 +19,16 @@ export default class Trees {
             willow: null
         };
 
+        // Get quality settings
+        const settings = this.qualitySettings.getCurrentSettings();
+        this.quality = settings.trees || {};
+
+        // Store segment detail based on quality
+        this.segments = this.quality.segments || 6; // Default to medium
+        this.foliageDetail = this.quality.foliageDetail || 2; // Default to medium
+
+        console.log(`Creating trees with quality settings: segments=${this.segments}, foliageDetail=${this.foliageDetail}`);
+
         // Initialize trees
         this.init();
     }
@@ -28,7 +39,7 @@ export default class Trees {
     init() {
         this.createTreeTypes();
         this.placeTrees();
-        console.log('Trees initialized with 5 different types (shadows disabled)');
+        console.log(`Trees initialized with ${this.trees.length} instances`);
     }
 
     /**
@@ -105,24 +116,43 @@ export default class Trees {
         const tree = new THREE.Group();
 
         // Create trunk
-        const trunkGeometry = new THREE.CylinderGeometry(0.2, 0.4, 3, 8);
+        const trunkHeight = 15;
+        const trunkRadius = 0.5;
+
+        // Use quality-based segment count for trunk
+        const trunkGeometry = new THREE.CylinderGeometry(trunkRadius * 0.7, trunkRadius, trunkHeight, this.segments);
         const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-        trunk.position.y = 1.5;
-        trunk.castShadow = false;
+
+        trunk.position.y = trunkHeight / 2;
+        trunk.castShadow = true;
         trunk.receiveShadow = true;
         tree.add(trunk);
 
-        // Create foliage layers (cones)
-        const foliageLayers = 4;
-        for (let i = 0; i < foliageLayers; i++) {
-            const radius = 2 - (i * 0.4);
-            const height = 1.5 + (i * 0.2);
-            const yPos = 3 + (i * 1.2);
+        // Create pine foliage layers (cones stacked on top of each other)
+        const layerCount = 4;
+        const baseRadius = 6;
+        const topRadius = 1;
 
-            const coneGeometry = new THREE.ConeGeometry(radius, height, 8);
+        for (let i = 0; i < layerCount; i++) {
+            const layerHeight = 6;
+            const ratio = 1 - (i / layerCount);
+            const layerRadius = baseRadius * ratio + topRadius * (1 - ratio);
+
+            // Use quality-based segment count for foliage
+            const coneGeometry = new THREE.ConeGeometry(
+                layerRadius,
+                layerHeight,
+                this.segments,
+                this.foliageDetail
+            );
+
             const cone = new THREE.Mesh(coneGeometry, foliageMaterial);
-            cone.position.y = yPos;
-            cone.castShadow = false;
+
+            // Position cones from bottom to top
+            const layerPosition = trunkHeight * 0.6 + (layerHeight * 0.6 * i);
+            cone.position.y = layerPosition;
+
+            cone.castShadow = true;
             cone.receiveShadow = true;
             tree.add(cone);
         }
@@ -328,17 +358,21 @@ export default class Trees {
      */
     placeTrees() {
         // Define areas where trees should be placed
-        // This is a simplified version - you might want to make this more advanced
+        // Get counts from quality settings
+        const treeCountSettings = this.quality.count || {};
+
         const areas = [
-            { type: 'pine', count: 30, xMin: -1000, xMax: 1000, zMin: -1000, zMax: -500 },
-            { type: 'oak', count: 25, xMin: 500, xMax: 1000, zMin: -300, zMax: 300 },
-            { type: 'palm', count: 15, xMin: -200, xMax: 200, zMin: 600, zMax: 1000 },
-            { type: 'birch', count: 20, xMin: -1000, xMax: -500, zMin: 100, zMax: 600 },
-            { type: 'willow', count: 10, xMin: 300, xMax: 600, zMin: 400, zMax: 700 }
+            { type: 'pine', count: treeCountSettings.pine || 15, xMin: -1000, xMax: 1000, zMin: -1000, zMax: -500 },
+            { type: 'oak', count: treeCountSettings.oak || 12, xMin: 500, xMax: 1000, zMin: -300, zMax: 300 },
+            { type: 'palm', count: treeCountSettings.palm || 8, xMin: -200, xMax: 200, zMin: 600, zMax: 1000 },
+            { type: 'birch', count: treeCountSettings.birch || 10, xMin: -1000, xMax: -500, zMin: 100, zMax: 600 },
+            { type: 'willow', count: treeCountSettings.willow || 5, xMin: 300, xMax: 600, zMin: 400, zMax: 700 }
         ];
 
         // Place trees based on defined areas
         areas.forEach(area => {
+            console.log(`Placing ${area.count} ${area.type} trees`);
+
             for (let i = 0; i < area.count; i++) {
                 // Get the tree type template
                 const treeTemplate = this.treeTypes[area.type];
@@ -372,7 +406,7 @@ export default class Trees {
             }
         });
 
-        console.log(`Placed ${this.trees.length} trees in the scene (shadows disabled, 3x larger)`);
+        console.log(`Placed ${this.trees.length} trees in the scene with quality level: ${this.qualitySettings.getQuality()}`);
     }
 
     /**

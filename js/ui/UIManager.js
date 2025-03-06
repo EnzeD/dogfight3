@@ -2,15 +2,20 @@
 import InstructionsPanel from './InstructionsPanel.js';
 import FlightInfo from './FlightInfo.js';
 import Notifications from './Notifications.js';
+import DebugPanel from './DebugPanel.js';
+import SettingsMenu from './SettingsMenu.js';
 
 export default class UIManager {
-    constructor(eventBus) {
+    constructor(eventBus, qualitySettings) {
         this.eventBus = eventBus;
+        this.qualitySettings = qualitySettings;
 
         // UI components
         this.instructionsPanel = null;
         this.flightInfo = null;
         this.notifications = null;
+        this.debugPanel = null;
+        this.settingsMenu = null;
 
         // Multiplayer UI elements
         this.multiplayerIndicator = null;
@@ -24,6 +29,8 @@ export default class UIManager {
         this.instructionsPanel = new InstructionsPanel(this.eventBus);
         this.flightInfo = new FlightInfo(this.eventBus);
         this.notifications = new Notifications(this.eventBus);
+        this.debugPanel = new DebugPanel(this.eventBus);
+        this.settingsMenu = new SettingsMenu(this.eventBus, this.qualitySettings);
 
         // Create multiplayer indicator (hidden by default)
         this.createMultiplayerUI();
@@ -117,6 +124,16 @@ export default class UIManager {
 
         this.eventBus.on('network.disconnect', () => {
             this.updateMultiplayerStatus('Disconnected', false);
+        });
+
+        // Pause game when settings menu is shown
+        this.eventBus.on('settings.shown', () => {
+            this.eventBus.emit('game.pause');
+        });
+
+        // Resume game when settings menu is hidden
+        this.eventBus.on('settings.hidden', () => {
+            this.eventBus.emit('game.resume');
         });
     }
 

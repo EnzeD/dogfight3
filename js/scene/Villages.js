@@ -2,10 +2,11 @@
 import * as THREE from 'three';
 
 export default class Villages {
-    constructor(scene, eventBus, runway) {
+    constructor(scene, eventBus, runway, qualitySettings) {
         this.scene = scene;
         this.eventBus = eventBus;
         this.runway = runway; // Reference to the runway
+        this.qualitySettings = qualitySettings;
         this.villages = []; // Will store village data
         this.houses = []; // Will store all house meshes
         this.streets = []; // Will store all street meshes
@@ -13,9 +14,13 @@ export default class Villages {
         // House prototypes - will be cloned to create instances
         this.housePrototypes = [];
 
-        // Village parameters
-        this.villageCount = 3; // Number of villages to generate
-        this.housesPerVillage = 15; // Average houses per village
+        // Get quality settings
+        const settings = this.qualitySettings.getCurrentSettings();
+        const villageSettings = settings.villages || {};
+
+        // Village parameters - adjust based on quality
+        this.villageCount = villageSettings.count || 2; // Default to medium
+        this.housesPerVillage = villageSettings.housesPerVillage || 10; // Default to medium
         this.villageRadius = 800; // Maximum distance from center for villages
         this.streetWidth = 10;
 
@@ -23,6 +28,8 @@ export default class Villages {
         this.runwayBufferDistance = 300; // Distance to keep away from runway
         this.runwayWidth = 50; // Default runway width
         this.runwayLength = 1000; // Default runway length
+
+        console.log(`Creating villages with quality settings: count=${this.villageCount}, houses=${this.housesPerVillage}`);
 
         // Initialize after next frame to ensure runway is properly initialized
         setTimeout(() => this.init(), 0);
@@ -183,7 +190,7 @@ export default class Villages {
                 continue; // Skip this location and try again
             }
 
-            const villageSize = this.housesPerVillage + Math.floor(Math.random() * 10 - 5);
+            const villageSize = this.housesPerVillage + Math.floor(Math.random() * 4 - 2);
 
             // Create the village layout
             this.createVillageLayout(villageX, villageZ, villageSize);
