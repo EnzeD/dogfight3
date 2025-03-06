@@ -27,6 +27,9 @@ export default class Plane extends Entity {
         this.deceleration = 0.002;
         this.isAirborne = false;
 
+        // Flag to track first flight info update
+        this._hasEmittedFirstUpdate = false;
+
         // Control surfaces
         this.propeller = null;
         this.leftAileron = null;
@@ -323,12 +326,22 @@ export default class Plane extends Entity {
 
     /**
      * Emit flight info update event
+     * NOTE: This event is no longer used for UI updates, as the UIManager
+     * now directly reads plane data. This is kept for other systems like audio
+     * that might need flight info.
      */
     emitFlightInfoUpdate() {
         // Get altitude (y position)
         const altitude = Math.max(0, this.mesh.position.y);
 
         // Get speed as percentage of max speed
+        // Force the speed to 0 at the start of the game
+        // (We might have a bug where the player's speed is set high initially)
+        if (!this._hasEmittedFirstUpdate) {
+            this.speed = 0;
+            this._hasEmittedFirstUpdate = true;
+        }
+
         const speedPercent = (this.speed / this.maxSpeed) * 100;
 
         // Emit flight info update event
@@ -338,7 +351,7 @@ export default class Plane extends Entity {
             isAirborne: this.isAirborne,
             autoStabilization: this.autoStabilizationEnabled,
             chemtrails: this.trailsEnabled
-        });
+        }, 'player'); // Identify this as coming from the player plane
     }
 
     /**

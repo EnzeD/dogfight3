@@ -103,8 +103,15 @@ export default class UIManager {
      */
     setupEventListeners() {
         // Listen for flight info updates
-        this.eventBus.on('flight.info.update', (data) => {
-            this.flightInfo.update(data);
+        this.eventBus.on('flight.info.update', (data, source) => {
+            console.log(`Flight info update from source: ${source || 'unknown'}`);
+
+            // Only show flight info for the player's plane, not the enemy planes
+            if (!source || source === 'player') {
+                // NOTE: We're now using the direct update method in the update() function
+                // This event handler is kept as a backup but shouldn't be needed
+                this.flightInfo.update(data);
+            }
         });
 
         // Listen for FPS updates
@@ -191,6 +198,27 @@ export default class UIManager {
      * @param {number} fps - Current FPS
      */
     update(plane, fps) {
-        // No updates needed here as individual components update via events
+        // Explicitly update flight info with player plane data
+        if (plane && this.flightInfo) {
+            // Get altitude (y position)
+            const altitude = Math.max(0, plane.mesh.position.y);
+
+            // Get speed as percentage of max speed
+            const speedPercent = (plane.speed / plane.maxSpeed) * 100;
+
+            // Directly update the flight info
+            this.flightInfo.update({
+                speed: speedPercent,
+                altitude: altitude,
+                isAirborne: plane.isAirborne,
+                autoStabilization: plane.autoStabilizationEnabled,
+                chemtrails: plane.trailsEnabled
+            });
+        }
+
+        // Update FPS display
+        if (this.flightInfo) {
+            this.flightInfo.updateFPS(fps);
+        }
     }
 } 

@@ -11,7 +11,7 @@ export default class FlightInfo {
         this.fpsValue = null;
         this.autoStabValue = null;
         this.boostValue = null; // Added boost indicator
-        this.takeoffSpeed = 20; // Minimum speed percentage required for takeoff
+        this.takeoffSpeed = 10; // Minimum speed percentage required for takeoff (changed from 20 to 10)
 
         // Create the panel
         this.createPanel();

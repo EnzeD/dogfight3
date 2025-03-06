@@ -29,11 +29,12 @@ export default class EventBus {
      * Emit an event with data
      * @param {string} event - Event name
      * @param {any} data - Data to pass to listeners
+     * @param {string} source - Optional source identifier for the event
      */
-    emit(event, data) {
+    emit(event, data, source) {
         if (this.listeners[event]) {
             this.listeners[event].forEach(callback => {
-                callback(data);
+                callback(data, source);
             });
         }
     }

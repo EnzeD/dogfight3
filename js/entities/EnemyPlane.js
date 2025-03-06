@@ -500,4 +500,26 @@ export default class EnemyPlane extends WW2Plane {
             this.ammoSystem.fireBullets(this.mesh, velocity);
         }
     }
+
+    /**
+     * Override emitFlightInfoUpdate to identify the source as 'enemy'
+     * NOTE: This event is not used for UI updates since we now directly
+     * read player plane data in the UIManager.
+     */
+    emitFlightInfoUpdate() {
+        // Get altitude (y position)
+        const altitude = Math.max(0, this.mesh.position.y);
+
+        // Get speed as percentage of max speed
+        const speedPercent = (this.speed / this.maxSpeed) * 100;
+
+        // Emit flight info update event
+        this.eventBus.emit('flight.info.update', {
+            speed: speedPercent,
+            altitude: altitude,
+            isAirborne: this.isAirborne,
+            autoStabilization: this.autoStabilizationEnabled,
+            chemtrails: this.trailsEnabled
+        }, 'enemy'); // Identify this as coming from an enemy plane
+    }
 } 
