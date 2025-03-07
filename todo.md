@@ -11,6 +11,7 @@ Mobile
 
 Converge the fires in one point
 Improve the motor sound
+Low poly Mountains and hallmarks
 
 
 ## Bugs
