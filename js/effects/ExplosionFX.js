@@ -299,4 +299,40 @@ export default class ExplosionFX {
 
         this.activeExplosions = [];
     }
+
+    /**
+     * Stop ongoing explosions and clean up immediately
+     * Called when a plane is completely removed from the scene
+     */
+    stopAndCleanup() {
+        // First dispose any active explosions
+        for (const explosion of this.activeExplosions) {
+            // Remove from scene
+            this.scene.remove(explosion.group);
+
+            // Dispose geometries and materials
+            if (explosion.core) {
+                explosion.core.geometry.dispose();
+                explosion.core.material.dispose();
+            }
+
+            if (explosion.blast) {
+                explosion.blast.geometry.dispose();
+                explosion.blast.material.dispose();
+            }
+
+            if (explosion.smokeRing) {
+                explosion.smokeRing.geometry.dispose();
+                explosion.smokeRing.material.dispose();
+            }
+
+            for (const debris of explosion.debris) {
+                debris.mesh.geometry.dispose();
+                debris.mesh.material.dispose();
+            }
+        }
+
+        // Clear the array
+        this.activeExplosions = [];
+    }
 } 

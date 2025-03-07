@@ -119,6 +119,22 @@ export default class Camera {
     }
 
     /**
+     * Handle window resize events
+     */
+    onResize() {
+        // Update camera aspect ratio to match window dimensions
+        this.aspectRatio = window.innerWidth / window.innerHeight;
+        this.updateAspect(this.aspectRatio);
+
+        // Update controls if needed
+        if (this.controls) {
+            this.controls.update();
+        }
+
+        console.log('Camera resized to match new window dimensions');
+    }
+
+    /**
      * Get the camera object
      * @returns {THREE.Camera} The camera
      */

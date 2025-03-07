@@ -451,6 +451,11 @@ export default class EnemyPlane extends WW2Plane {
             // Update smoke particles
             this.smokeFX.update(deltaTime);
         }
+
+        // Update hit effects during free-fall to ensure they animate out properly
+        if (this.ammoSystem && this.ammoSystem.hitEffect) {
+            this.ammoSystem.hitEffect.update(deltaTime);
+        }
     }
 
     /**
@@ -562,6 +567,17 @@ export default class EnemyPlane extends WW2Plane {
 
         if (this.explosionFX) {
             this.explosionFX.stopAndCleanup();
+        }
+
+        // Clean up ammo system and associated hit effects
+        if (this.ammoSystem) {
+            // Stop and clean up hit effects first
+            if (this.ammoSystem.hitEffect) {
+                this.ammoSystem.hitEffect.stopAndCleanup();
+            }
+
+            // Then dispose of the full ammo system
+            this.ammoSystem.dispose();
         }
 
         // Remove the mesh from the scene

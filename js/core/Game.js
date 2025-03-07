@@ -76,16 +76,18 @@ export default class Game {
         console.log('Creating player plane...');
         this.createPlayerPlane();
 
+        // Check multiplayer mode after player plane creation
+        this.checkMultiplayerMode();
+
         // Only create an AI enemy in single player mode
         if (!this.isMultiplayer) {
-            console.log('Creating enemy plane...');
+            console.log('Creating enemy plane in single player mode...');
             // Position the enemy plane directly in front of the player for easy testing
             const planeFactory = new PlaneFactory(this.sceneManager.scene, this.eventBus);
             this.createEnemyPlane(planeFactory, new THREE.Vector3(0, 30, -50));
+        } else {
+            console.log('Multiplayer mode active - No AI enemies will be created');
         }
-
-        // Initialize multiplayer if enabled by URL param
-        this.checkMultiplayerMode();
 
         // Initialize audio (after plane is created)
         this.audioManager.init();
@@ -180,6 +182,12 @@ export default class Game {
             // Create a new player plane
             this.createPlayerPlane();
 
+            // Update network manager with new player plane reference in multiplayer mode
+            if (this.isMultiplayer && this.networkManager) {
+                console.log('Updating NetworkManager with new player plane reference after respawn');
+                this.networkManager.updatePlayerPlaneReference(this.playerPlane);
+            }
+
             // Show notification
             this.eventBus.emit('notification', {
                 message: 'Game restarted! Good luck!',
@@ -208,6 +216,20 @@ export default class Game {
 
             // Create network manager
             this.networkManager = new NetworkManager(this.eventBus, this.playerPlane);
+
+            // Listen for remote plane creation to register with ammo system
+            this.eventBus.on('network.plane.created', (remotePlane) => {
+                // Add remote plane to planes array for collision detection
+                if (remotePlane && !this.planes.includes(remotePlane)) {
+                    console.log('Adding remote plane to collision detection');
+                    this.planes.push(remotePlane);
+
+                    // Register with ammo system if available
+                    if (this.playerPlane && this.playerPlane.ammoSystem) {
+                        this.playerPlane.ammoSystem.addPlane(remotePlane);
+                    }
+                }
+            });
 
             // Connect to server
             const serverUrl = urlParams.get('server') || 'ws://141.95.17.225:8080';
@@ -263,6 +285,11 @@ export default class Game {
         // Only allow in single player mode
         if (this.isMultiplayer) {
             console.log('Cannot spawn enemies in multiplayer mode');
+            this.eventBus.emit('notification', {
+                message: 'Enemy spawning is disabled in multiplayer mode',
+                type: 'warning',
+                duration: 3000
+            });
             return;
         }
 
@@ -293,6 +320,7 @@ export default class Game {
         // Notify player
         this.eventBus.emit('notification', {
             message: `${count} enemy planes have entered the area!`,
+            type: 'info',
             duration: 3000
         });
     }

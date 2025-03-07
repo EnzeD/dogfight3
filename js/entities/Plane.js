@@ -790,16 +790,31 @@ export default class Plane extends Entity {
     /**
      * Apply damage to the plane
      * @param {number} amount - Amount of damage to apply
+     * @param {THREE.Vector3} impactPosition - Optional position where the damage occurred
      */
-    damage(amount) {
+    damage(amount, impactPosition) {
         if (this.isDestroyed) return; // Already destroyed, no more damage
+
+        console.log(`Plane taking ${amount} damage, current health: ${this.currentHealth}`);
 
         const oldHealth = this.currentHealth;
         this.currentHealth = Math.max(0, this.currentHealth - amount);
 
-        // Emit damage event
+        // Log health change more clearly
+        console.log(`Health reduced from ${oldHealth} to ${this.currentHealth} (${amount} damage)`);
+
+        // Emit damage event with more information
         this.eventBus.emit('plane.damage', {
             amount: amount,
+            oldHealth: oldHealth,
+            newHealth: this.currentHealth,
+            maxHealth: this.maxHealth,
+            plane: this,  // Pass the plane object for reference
+            impactPosition: impactPosition // Include impact position if available
+        }, this === this.eventBus.playerPlane ? 'player' : 'enemy');
+
+        // Emit a general health update event for UI components
+        this.eventBus.emit('plane.health.update', {
             oldHealth: oldHealth,
             newHealth: this.currentHealth,
             maxHealth: this.maxHealth
@@ -808,6 +823,13 @@ export default class Plane extends Entity {
         // Check if destroyed
         if (oldHealth > 0 && this.currentHealth <= 0) {
             this.destroy();
+        } else if (impactPosition && this === this.eventBus.playerPlane && this.currentHealth > 0) {
+            // Only create hit effects if the plane is still alive after taking damage
+            console.log("Creating hit effect on local player at impact position");
+            this.eventBus.emit('effect.hit', {
+                position: impactPosition,
+                playSound: true
+            });
         }
     }
 
@@ -845,21 +867,25 @@ export default class Plane extends Entity {
     destroy() {
         if (this.isDestroyed) return; // Already destroyed
 
+        console.log(`Plane destroyed: ${this === this.eventBus.playerPlane ? 'player' : 'enemy'}`);
+
         this.isDestroyed = true;
         this.currentHealth = 0;
 
         // Emit destroyed event
         this.eventBus.emit('plane.destroyed', {
             position: this.mesh.position.clone(),
-            rotation: this.mesh.rotation.clone()
+            rotation: this.mesh.rotation.clone(),
+            plane: this  // Pass the plane object for reference
         }, this === this.eventBus.playerPlane ? 'player' : 'enemy');
+
+        // Play explosion sound
+        this.eventBus.emit('sound.play', { sound: 'explosion' });
 
         // Disable wing trails
         if (this.wingTrails && this.wingTrails.left && this.wingTrails.right) {
             this.wingTrails.left.mesh.visible = false;
             this.wingTrails.right.mesh.visible = false;
         }
-
-        console.log(`Plane destroyed: ${this === this.eventBus.playerPlane ? 'player' : 'enemy'}`);
     }
 } 

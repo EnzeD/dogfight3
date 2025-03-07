@@ -28,8 +28,8 @@ export default class AmmoSystem {
         // Collection of hitbox visualizers (for debugging)
         this.hitboxVisualizers = {};
 
-        // Initialize hit effect system
-        this.hitEffect = new HitEffect(scene);
+        // Initialize hit effect system with eventBus
+        this.hitEffect = new HitEffect(scene, eventBus);
 
         // Create bullet material and geometry (reused for performance)
         // Create a more elongated, laser-like appearance
@@ -169,6 +169,11 @@ export default class AmmoSystem {
                     // Get collision position (exact bullet position for better visuals)
                     const collisionPosition = bullet.mesh.position.clone();
 
+                    // Log collision
+                    console.log(`Bullet collision detected! Distance: ${distance.toFixed(2)}, Threshold: ${this.collisionRadius}`);
+                    console.log(`Collision position: ${collisionPosition.x.toFixed(2)}, ${collisionPosition.y.toFixed(2)}, ${collisionPosition.z.toFixed(2)}`);
+                    console.log(`Plane is local player: ${plane === this.eventBus.playerPlane}`);
+
                     // Collision detected
                     collisions.push({
                         bullet: bullet,
@@ -176,14 +181,14 @@ export default class AmmoSystem {
                         position: collisionPosition
                     });
 
-                    // Apply damage to the plane
-                    plane.damage(this.bulletDamage);
+                    // Create hit effect at collision position
+                    this.hitEffect.triggerEffect(collisionPosition);
+
+                    // Apply damage to the plane with impact position
+                    plane.damage(this.bulletDamage, collisionPosition);
 
                     // Play hit sound
                     this.eventBus.emit('sound.play', { sound: 'hit' });
-
-                    // Create hit effect at collision position
-                    this.hitEffect.triggerEffect(collisionPosition);
 
                     // Mark bullet for removal
                     toRemove.push(i);
@@ -192,6 +197,11 @@ export default class AmmoSystem {
                     break;
                 }
             }
+        }
+
+        // Log collision count for debugging
+        if (collisions.length > 0) {
+            console.log(`Found ${collisions.length} collisions this frame`);
         }
 
         // Remove bullets that hit something (in reverse order to avoid index issues)
@@ -412,8 +422,12 @@ export default class AmmoSystem {
         }
         this.hitboxVisualizers = {};
 
-        // Dispose of hit effect system
-        this.hitEffect.dispose();
+        // First immediately stop and clean up all hit effects
+        if (this.hitEffect) {
+            this.hitEffect.stopAndCleanup();
+            // Then dispose of hit effect system
+            this.hitEffect.dispose();
+        }
 
         this.bulletPool = [];
         this.bullets = [];

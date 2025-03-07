@@ -1,12 +1,23 @@
 {
-    "name": "dogfight3-server",
+    "name": "dogfight3-local-server",
     "version": "1.0.0",
-    "description": "Simple multiplayer server for Dogfight3 game",
+    "description": "Local WebSocket server for WW2 Dogfight Arena multiplayer testing",
     "main": "server.js",
     "scripts": {
-        "start": "node server.js"
+        "start": "node server.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
     },
+    "keywords": [
+        "websocket",
+        "multiplayer",
+        "game",
+        "server",
+        "dogfight"
+    ],
+    "author": "",
+    "license": "MIT",
     "dependencies": {
-        "ws": "^8.14.2"
+        "uuid": "^9.0.0",
+        "ws": "^8.13.0"
     }
 }

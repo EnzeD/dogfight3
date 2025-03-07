@@ -2,8 +2,9 @@
 import * as THREE from 'three';
 
 export default class HitEffect {
-    constructor(scene) {
+    constructor(scene, eventBus = null) {
         this.scene = scene;
+        this.eventBus = eventBus;
 
         // Pool of hit effect instances
         this.effectPool = [];
@@ -18,6 +19,49 @@ export default class HitEffect {
 
         // Initialize effect pool
         this.initEffectPool();
+
+        // Set up event listener if eventBus is provided
+        if (this.eventBus) {
+            this.setupEventListeners();
+        }
+    }
+
+    /**
+     * Set up event listeners for triggering effects
+     */
+    setupEventListeners() {
+        if (!this.eventBus) {
+            console.warn('HitEffect has no EventBus, cannot set up event listeners');
+            return;
+        }
+
+        this.eventBus.on('effect.hit', (data) => {
+            if (!data || !data.position) {
+                console.error('Hit effect event missing position data');
+                return;
+            }
+
+            console.log('Triggering hit effect via event at',
+                data.position.x.toFixed(2),
+                data.position.y.toFixed(2),
+                data.position.z.toFixed(2)
+            );
+
+            // Create the effect
+            this.triggerEffect(data.position);
+
+            // Play hit sound if not specified otherwise
+            if (data.playSound !== false) {
+                this.eventBus.emit('sound.play', {
+                    sound: 'hit',
+                    volume: 0.3,
+                    // Position the sound in 3D space
+                    position: data.position
+                });
+            }
+        });
+
+        console.log('HitEffect event listeners set up successfully');
     }
 
     /**
@@ -109,6 +153,8 @@ export default class HitEffect {
             console.warn('Hit effect pool exhausted');
             return null;
         }
+
+        console.log('Triggering hit effect at', position);
 
         // Activate the effect
         effect.active = true;
@@ -212,5 +258,31 @@ export default class HitEffect {
         }
 
         this.effectPool = [];
+    }
+
+    /**
+     * Stop all active effects and clean up immediately
+     * Called when a plane is completely removed from the scene or when effects need to be forcibly cleared
+     */
+    stopAndCleanup() {
+        for (const effect of this.effectPool) {
+            if (effect.active) {
+                // Deactivate and hide the effect
+                effect.active = false;
+                effect.group.visible = false;
+
+                // Reset any animations or properties
+                effect.flash.scale.set(1, 1, 1);
+                effect.glow.scale.set(1, 1, 1);
+
+                // Reset spark positions
+                effect.sparks.forEach(spark => {
+                    spark.position.set(0, 0, 0);
+                });
+            }
+        }
+
+        // Log cleanup for debugging
+        console.log('HitEffect: All effects cleaned up');
     }
 } 

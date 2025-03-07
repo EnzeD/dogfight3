@@ -66,6 +66,11 @@ export default class PlayerWW2Plane extends WW2Plane {
                 this.explosionFX.update(deltaTime);
             }
 
+            // Update hit effects to ensure they animate out properly
+            if (this.ammoSystem && this.ammoSystem.hitEffect) {
+                this.ammoSystem.hitEffect.update(deltaTime);
+            }
+
             // Still update propeller and flight info, but skip normal controls
             this.updatePropeller(deltaTime);
             this.emitFlightInfoUpdate();
@@ -240,15 +245,25 @@ export default class PlayerWW2Plane extends WW2Plane {
 
         // Clean up explosion effects if they're still active
         if (this.explosionFX) {
-            // We don't fully dispose the explosion system since it might be used again
-            // But we'll clear any active explosions
-            this.explosionFX.activeExplosions = [];
+            // Use the proper cleanup method instead of directly accessing the array
+            this.explosionFX.stopAndCleanup();
         }
 
         // Clean up smoke effects
         if (this.smokeFX) {
             // Clear all active particles immediately
             this.smokeFX.clearAllParticles();
+        }
+
+        // Clean up ammo system and associated hit effects
+        if (this.ammoSystem) {
+            // Stop and clean up hit effects first
+            if (this.ammoSystem.hitEffect) {
+                this.ammoSystem.hitEffect.stopAndCleanup();
+                console.log('Cleaned up hit effects for player plane');
+            }
+
+            // We don't dispose the ammo system entirely as it might be needed for restart
         }
 
         // Notify for debugging only
