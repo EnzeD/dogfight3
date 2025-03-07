@@ -4,6 +4,7 @@ import FlightInfo from './FlightInfo.js';
 import Notifications from './Notifications.js';
 import DebugPanel from './DebugPanel.js';
 import SettingsMenu from './SettingsMenu.js';
+import HealthDisplay from './HealthDisplay.js';
 
 export default class UIManager {
     constructor(eventBus, qualitySettings) {
@@ -16,6 +17,7 @@ export default class UIManager {
         this.notifications = null;
         this.debugPanel = null;
         this.settingsMenu = null;
+        this.healthDisplay = null;
 
         // Multiplayer UI elements
         this.multiplayerIndicator = null;
@@ -31,6 +33,7 @@ export default class UIManager {
         this.notifications = new Notifications(this.eventBus);
         this.debugPanel = new DebugPanel(this.eventBus);
         this.settingsMenu = new SettingsMenu(this.eventBus, this.qualitySettings);
+        this.healthDisplay = new HealthDisplay(this.eventBus);
 
         // Create multiplayer indicator (hidden by default)
         this.createMultiplayerUI();
@@ -223,6 +226,15 @@ export default class UIManager {
                 autoStabilization: plane.autoStabilizationEnabled,
                 chemtrails: plane.trailsEnabled
             });
+
+            // Update health display
+            if (this.healthDisplay) {
+                this.healthDisplay.update({
+                    health: plane.currentHealth,
+                    maxHealth: plane.maxHealth,
+                    isDestroyed: plane.isDestroyed
+                });
+            }
         }
 
         // Update FPS display

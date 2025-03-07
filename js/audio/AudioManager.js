@@ -206,7 +206,7 @@ export default class AudioManager {
         // Style the button
         enablerButton.style.position = 'absolute';
         enablerButton.style.top = '10px';
-        enablerButton.style.right = '10px';
+        enablerButton.style.right = '200px'; // Move to where sound toggle was
         enablerButton.style.padding = '10px 15px';
         enablerButton.style.backgroundColor = 'rgba(33, 150, 243, 0.8)';
         enablerButton.style.color = 'white';
@@ -240,7 +240,7 @@ export default class AudioManager {
         // Style the button
         soundToggle.style.position = 'absolute';
         soundToggle.style.top = '10px';
-        soundToggle.style.right = '200px'; // Increased to prevent overlap
+        soundToggle.style.right = '10px'; // Move to where enabler was
         soundToggle.style.padding = '10px 15px';
         soundToggle.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
         soundToggle.style.color = 'white';

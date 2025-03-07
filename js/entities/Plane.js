@@ -49,6 +49,11 @@ export default class Plane extends Entity {
         // This will be set in the WW2Plane class based on wheel position calculations
         this.groundHeight = 1.4;
 
+        // Combat properties
+        this.maxHealth = 100;
+        this.currentHealth = 100;
+        this.isDestroyed = false;
+
         // Listen for events
         this.setupEventListeners();
     }
@@ -102,6 +107,9 @@ export default class Plane extends Entity {
      * @param {Object} inputState - Current input state
      */
     update(deltaTime, inputState) {
+        // Skip updates if plane is destroyed
+        if (this.isDestroyed) return;
+
         // Update movement based on input
         this.updateMovement(deltaTime, inputState);
 
@@ -350,7 +358,9 @@ export default class Plane extends Entity {
             altitude: altitude,
             isAirborne: this.isAirborne,
             autoStabilization: this.autoStabilizationEnabled,
-            chemtrails: this.trailsEnabled
+            chemtrails: this.trailsEnabled,
+            health: this.currentHealth,
+            isDestroyed: this.isDestroyed
         }, 'player'); // Identify this as coming from the player plane
     }
 
@@ -743,5 +753,113 @@ export default class Plane extends Entity {
 
             trail.mesh.material._hasSimpleMaterial = true;
         }
+    }
+
+    /**
+     * Get the current health of the plane
+     * @returns {number} Current health value
+     */
+    getHealth() {
+        return this.currentHealth;
+    }
+
+    /**
+     * Set the health to a specific value
+     * @param {number} value - New health value
+     */
+    setHealth(value) {
+        const oldHealth = this.currentHealth;
+        this.currentHealth = Math.min(Math.max(value, 0), this.maxHealth);
+
+        // Check if health has changed
+        if (oldHealth !== this.currentHealth) {
+            // Emit health update event
+            this.eventBus.emit('plane.health.update', {
+                oldHealth: oldHealth,
+                newHealth: this.currentHealth,
+                maxHealth: this.maxHealth
+            }, this === this.eventBus.playerPlane ? 'player' : 'enemy');
+
+            // Check if plane is destroyed
+            if (oldHealth > 0 && this.currentHealth <= 0) {
+                this.destroy();
+            }
+        }
+    }
+
+    /**
+     * Apply damage to the plane
+     * @param {number} amount - Amount of damage to apply
+     */
+    damage(amount) {
+        if (this.isDestroyed) return; // Already destroyed, no more damage
+
+        const oldHealth = this.currentHealth;
+        this.currentHealth = Math.max(0, this.currentHealth - amount);
+
+        // Emit damage event
+        this.eventBus.emit('plane.damage', {
+            amount: amount,
+            oldHealth: oldHealth,
+            newHealth: this.currentHealth,
+            maxHealth: this.maxHealth
+        }, this === this.eventBus.playerPlane ? 'player' : 'enemy');
+
+        // Check if destroyed
+        if (oldHealth > 0 && this.currentHealth <= 0) {
+            this.destroy();
+        }
+    }
+
+    /**
+     * Heal the plane
+     * @param {number} amount - Amount of health to restore
+     */
+    heal(amount) {
+        if (this.isDestroyed) return; // Can't heal a destroyed plane
+
+        const oldHealth = this.currentHealth;
+        this.currentHealth = Math.min(this.maxHealth, this.currentHealth + amount);
+
+        // Only emit event if health actually changed
+        if (oldHealth !== this.currentHealth) {
+            this.eventBus.emit('plane.health.update', {
+                oldHealth: oldHealth,
+                newHealth: this.currentHealth,
+                maxHealth: this.maxHealth
+            }, this === this.eventBus.playerPlane ? 'player' : 'enemy');
+        }
+    }
+
+    /**
+     * Check if the plane is alive
+     * @returns {boolean} True if health is greater than 0
+     */
+    isAlive() {
+        return this.currentHealth > 0;
+    }
+
+    /**
+     * Destroy the plane
+     */
+    destroy() {
+        if (this.isDestroyed) return; // Already destroyed
+
+        this.isDestroyed = true;
+        this.currentHealth = 0;
+
+        // Emit destroyed event
+        this.eventBus.emit('plane.destroyed', {
+            position: this.mesh.position.clone(),
+            rotation: this.mesh.rotation.clone()
+        }, this === this.eventBus.playerPlane ? 'player' : 'enemy');
+
+        // Disable wing trails
+        if (this.wingTrails && this.wingTrails.left && this.wingTrails.right) {
+            this.wingTrails.left.mesh.visible = false;
+            this.wingTrails.right.mesh.visible = false;
+        }
+
+        console.log(`Plane destroyed: ${this === this.eventBus.playerPlane ? 'player' : 'enemy'}`);
     }
 } 

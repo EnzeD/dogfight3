@@ -31,7 +31,11 @@ export default class InputManager {
             'f': 'toggleAutoStabilization',
             ' ': 'fireAmmo',
             'c': 'toggleCameraMode',
-            'e': 'spawnEnemies'    // Add enemy spawn shortcut
+            'e': 'spawnEnemies',    // Add enemy spawn shortcut
+            'h': 'displayHealth',   // Health debug key
+            't': 'toggleTrails',    // Toggle wing trails
+            'j': 'debugDamage',     // Test damage system
+            'k': 'debugHeal'        // Test healing system
         };
     }
 

@@ -88,6 +88,11 @@ export default class InstructionsPanel {
         // Use setTimeout to ensure the transition works
         setTimeout(() => {
             this.panel.style.opacity = '1';
+
+            // Emit event that instructions are shown
+            if (this.eventBus) {
+                this.eventBus.emit('instructions.shown');
+            }
         }, 10);
     }
 
@@ -96,6 +101,11 @@ export default class InstructionsPanel {
      */
     hide() {
         this.panel.style.opacity = '0';
+
+        // Emit event that instructions are being hidden
+        if (this.eventBus) {
+            this.eventBus.emit('instructions.hidden');
+        }
 
         // Remove from DOM after transition
         setTimeout(() => {

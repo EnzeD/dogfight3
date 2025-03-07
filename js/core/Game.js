@@ -80,6 +80,9 @@ export default class Game {
         console.log('Player plane created:', this.playerPlane);
         this.sceneManager.setMainActor(this.playerPlane);
 
+        // Store reference to player plane in eventBus for proper event source identification
+        this.eventBus.playerPlane = this.playerPlane;
+
         // Only create an AI enemy in single player mode
         if (!this.isMultiplayer) {
             console.log('Creating enemy plane...');
@@ -108,6 +111,12 @@ export default class Game {
         this.eventBus.on('input.action', (data) => {
             if (data.action === 'spawnEnemies' && data.state === 'down') {
                 this.spawnMultipleEnemies(20);
+            } else if (data.action === 'displayHealth' && data.state === 'down') {
+                this.displayHealthDebug();
+            } else if (data.action === 'debugDamage' && data.state === 'down') {
+                this.debugDamagePlayer();
+            } else if (data.action === 'debugHeal' && data.state === 'down') {
+                this.debugHealPlayer();
             }
         });
 
@@ -372,6 +381,80 @@ export default class Game {
 
             // Resume scene rendering
             this.sceneManager.resumeGame();
+        }
+    }
+
+    /**
+     * Display health debug information
+     */
+    displayHealthDebug() {
+        if (this.playerPlane) {
+            const health = this.playerPlane.getHealth();
+            const maxHealth = this.playerPlane.maxHealth;
+            const percentage = Math.round((health / maxHealth) * 100);
+
+            this.eventBus.emit('notification', {
+                message: `Health: ${health}/${maxHealth} (${percentage}%)`,
+                type: 'info'
+            });
+
+            console.log(`Player health: ${health}/${maxHealth} (${percentage}%)`);
+            console.log(`Is alive: ${this.playerPlane.isAlive()}`);
+            console.log(`Is destroyed: ${this.playerPlane.isDestroyed}`);
+        }
+
+        // Debug enemy health if available
+        if (this.enemyPlanes && this.enemyPlanes.length > 0) {
+            for (let i = 0; i < this.enemyPlanes.length; i++) {
+                const enemy = this.enemyPlanes[i];
+                if (enemy) {
+                    const health = enemy.getHealth();
+                    const maxHealth = enemy.maxHealth;
+                    const percentage = Math.round((health / maxHealth) * 100);
+
+                    console.log(`Enemy ${i + 1} health: ${health}/${maxHealth} (${percentage}%)`);
+                    console.log(`Enemy ${i + 1} is alive: ${enemy.isAlive()}`);
+                    console.log(`Enemy ${i + 1} is destroyed: ${enemy.isDestroyed}`);
+                }
+            }
+        }
+    }
+
+    /**
+     * Apply debug damage to player for testing
+     */
+    debugDamagePlayer() {
+        if (this.playerPlane && this.playerPlane.isAlive()) {
+            // Apply 10 damage to player
+            const damageAmount = 10;
+            this.playerPlane.damage(damageAmount);
+
+            this.eventBus.emit('notification', {
+                message: `Debug: Applied ${damageAmount} damage to player`,
+                type: 'warning'
+            });
+
+            // Display updated health
+            this.displayHealthDebug();
+        }
+    }
+
+    /**
+     * Apply debug healing to player for testing
+     */
+    debugHealPlayer() {
+        if (this.playerPlane) {
+            // Heal player by 15 points
+            const healAmount = 15;
+            this.playerPlane.heal(healAmount);
+
+            this.eventBus.emit('notification', {
+                message: `Debug: Healed player by ${healAmount}`,
+                type: 'success'
+            });
+
+            // Display updated health
+            this.displayHealthDebug();
         }
     }
 } 
