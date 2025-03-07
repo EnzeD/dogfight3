@@ -140,7 +140,7 @@ export default class Game {
 
             // Add toggle for multiplayer connection
             document.addEventListener('keydown', (event) => {
-                if (event.key.toLowerCase() === 'm') {
+                if (event.key.toLowerCase() === 'p') {
                     if (this.networkManager.connected) {
                         this.eventBus.emit('network.disconnect');
                     } else {

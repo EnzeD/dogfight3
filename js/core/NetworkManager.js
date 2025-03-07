@@ -12,8 +12,8 @@ export default class NetworkManager {
         this.clientId = null;
         this.remotePlanes = new Map(); // Map of remote planes by client ID
         this.lastUpdateTime = 0;
-        this.updateInterval = 100; // Reduced from 50ms to 100ms (10 updates/second)
-        this.interpolationFactor = 0.1; // For smooth movement
+        this.updateInterval = 20; // Reduced from 50ms to 100ms (10 updates/second)
+        this.interpolationFactor = 0.05; // For smooth movement
 
         // Listen for connection events
         this.eventBus.on('network.connect', this.connect.bind(this));
@@ -71,6 +71,9 @@ export default class NetworkManager {
     handleConnection() {
         console.log('Connected to multiplayer server');
         this.connected = true;
+
+        // Emit a specific connected event that UI can listen for
+        this.eventBus.emit('network.connected');
 
         this.eventBus.emit('notification', {
             message: 'Connected to multiplayer server',

@@ -31,14 +31,14 @@ export default class AudioManager {
         // Add sound toggle button
         this.addSoundToggle();
 
-        // Try to autoplay
-        this.attemptAutoplay();
+        // Don't attempt autoplay - removed to prevent automatic sound starting
+        // this.attemptAutoplay();
 
         console.log('AudioManager initialized');
     }
 
     /**
-     * Attempt to autoplay audio
+     * Attempt to autoplay audio - this is now only called when explicitly requested
      */
     attemptAutoplay() {
         // Only try once
@@ -63,10 +63,8 @@ export default class AudioManager {
         document.addEventListener('keydown', autoplayHandler);
         document.addEventListener('touchstart', autoplayHandler);
 
-        // Try to start audio immediately (may be blocked by browser)
-        setTimeout(() => {
-            this.startAudio();
-        }, 1000);
+        // No longer try to start audio immediately
+        // We'll wait for explicit user interaction
     }
 
     /**
@@ -207,7 +205,7 @@ export default class AudioManager {
 
         // Style the button
         enablerButton.style.position = 'absolute';
-        enablerButton.style.bottom = '10px';
+        enablerButton.style.top = '10px';
         enablerButton.style.right = '10px';
         enablerButton.style.padding = '10px 15px';
         enablerButton.style.backgroundColor = 'rgba(33, 150, 243, 0.8)';
@@ -218,9 +216,10 @@ export default class AudioManager {
         enablerButton.style.fontFamily = 'Arial, sans-serif';
         enablerButton.style.fontSize = '14px';
         enablerButton.style.zIndex = '1000';
+        enablerButton.style.boxShadow = '0 2px 5px rgba(0, 0, 0, 0.3)';
 
         // Set button text
-        enablerButton.textContent = 'Enable Audio';
+        enablerButton.textContent = 'Click to Enable Audio';
 
         // Add click event
         enablerButton.addEventListener('click', () => {
@@ -240,23 +239,22 @@ export default class AudioManager {
 
         // Style the button
         soundToggle.style.position = 'absolute';
-        soundToggle.style.bottom = '10px';
-        soundToggle.style.right = '120px';
-        soundToggle.style.width = '40px';
-        soundToggle.style.height = '40px';
-        soundToggle.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        soundToggle.style.top = '10px';
+        soundToggle.style.right = '200px'; // Increased to prevent overlap
+        soundToggle.style.padding = '10px 15px';
+        soundToggle.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
         soundToggle.style.color = 'white';
         soundToggle.style.border = 'none';
-        soundToggle.style.borderRadius = '50%';
+        soundToggle.style.borderRadius = '5px';
         soundToggle.style.cursor = 'pointer';
-        soundToggle.style.fontSize = '20px';
-        soundToggle.style.display = 'flex';
-        soundToggle.style.alignItems = 'center';
-        soundToggle.style.justifyContent = 'center';
+        soundToggle.style.fontFamily = 'Arial, sans-serif';
+        soundToggle.style.fontSize = '14px';
         soundToggle.style.zIndex = '1000';
+        soundToggle.style.boxShadow = '0 2px 5px rgba(0, 0, 0, 0.3)';
+        soundToggle.style.whiteSpace = 'nowrap'; // Prevent text wrapping
 
-        // Set button text
-        soundToggle.innerHTML = '🔊';
+        // Set button text - include mute key information
+        soundToggle.innerHTML = '🔊 <small>(or press \'M\')</small>';
 
         // Add click event
         soundToggle.addEventListener('click', () => {

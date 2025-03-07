@@ -19,7 +19,7 @@ export default class Notifications {
 
         // Style the container
         this.container.style.position = 'absolute';
-        this.container.style.top = '10px';
+        this.container.style.top = '60px';
         this.container.style.right = '10px';
         this.container.style.width = '250px';
         this.container.style.zIndex = '1000';

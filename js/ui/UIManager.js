@@ -54,7 +54,7 @@ export default class UIManager {
                 <span class="status-text">Multiplayer: Disconnected</span>
             </div>
             <div class="multiplayer-info">
-                Press 'M' to toggle connection
+                Press 'P' to toggle connection
             </div>
         `;
 
@@ -63,15 +63,17 @@ export default class UIManager {
         style.textContent = `
             .multiplayer-indicator {
                 position: fixed;
-                bottom: 10px;
+                bottom: 60px;
                 right: 10px;
-                background-color: rgba(0, 0, 0, 0.5);
+                background-color: rgba(0, 0, 0, 0.7);
                 color: white;
-                padding: 10px;
+                padding: 12px;
                 border-radius: 5px;
                 font-family: Arial, sans-serif;
                 font-size: 14px;
                 display: none;
+                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+                z-index: 999;
             }
             .multiplayer-status {
                 display: flex;
@@ -84,9 +86,12 @@ export default class UIManager {
                 border-radius: 50%;
                 background-color: red;
                 margin-right: 8px;
+                box-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
+                transition: background-color 0.3s ease, box-shadow 0.3s ease;
             }
             .status-dot.connected {
                 background-color: #00ff00;
+                box-shadow: 0 0 8px rgba(0, 255, 0, 0.8);
             }
             .multiplayer-info {
                 font-size: 12px;
@@ -104,7 +109,7 @@ export default class UIManager {
     setupEventListeners() {
         // Listen for flight info updates
         this.eventBus.on('flight.info.update', (data, source) => {
-            console.log(`Flight info update from source: ${source || 'unknown'}`);
+            //console.log(`Flight info update from source: ${source || 'unknown'}`);
 
             // Only show flight info for the player's plane, not the enemy planes
             if (!source || source === 'player') {
@@ -127,6 +132,10 @@ export default class UIManager {
         // Listen for multiplayer connection events
         this.eventBus.on('network.connect', () => {
             this.updateMultiplayerStatus('Connecting...');
+        });
+
+        this.eventBus.on('network.connected', () => {
+            this.updateMultiplayerStatus('Connected', true);
         });
 
         this.eventBus.on('network.disconnect', () => {
