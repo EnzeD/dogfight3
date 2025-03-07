@@ -6,7 +6,6 @@ export default class AmmoSystem {
     constructor(scene, eventBus) {
         this.scene = scene;
         this.eventBus = eventBus;
-        this.audioManager = null; // Will be set by Game
 
         // Bullet properties
         this.bulletSpeed = 1500.0; // Increased from 1000.0 for even faster bullets
@@ -68,20 +67,6 @@ export default class AmmoSystem {
 
         // Debug flag for sound issues
         this.debugSound = false; // Turn off debug messages for production
-    }
-
-    // Define a setter for audioManager to also update the hitEffect
-    set audioManager(value) {
-        this._audioManager = value;
-        // Also set the audioManager for the hitEffect if it exists
-        if (this.hitEffect) {
-            this.hitEffect.audioManager = value;
-        }
-    }
-
-    // Define a getter for audioManager
-    get audioManager() {
-        return this._audioManager;
     }
 
     /**
@@ -202,22 +187,8 @@ export default class AmmoSystem {
                     // Apply damage to the plane with impact position
                     plane.damage(this.bulletDamage, collisionPosition);
 
-                    // Play hit sound directly from the AudioManager
-                    if (this._audioManager) {
-                        this._audioManager.playHitSound(collisionPosition, {
-                            volume: 0.3
-                        });
-                    } else {
-                        // Legacy fallback
-                        this.eventBus.emit('sound.play', {
-                            sound: 'hit',
-                            position: {
-                                x: collisionPosition.x,
-                                y: collisionPosition.y,
-                                z: collisionPosition.z
-                            }
-                        });
-                    }
+                    // Play hit sound
+                    this.eventBus.emit('sound.play', { sound: 'hit' });
 
                     // Mark bullet for removal
                     toRemove.push(i);
@@ -314,26 +285,11 @@ export default class AmmoSystem {
         this.createBullet(leftWingPos, leftBulletDirection, planeVelocity);
         this.createBullet(rightWingPos, rightBulletDirection, planeVelocity);
 
-        // Calculate a position between the two wing positions for the sound
-        const soundPosition = new THREE.Vector3().addVectors(leftWingPos, rightWingPos).multiplyScalar(0.5);
-
-        // Play gunfire sound directly from the AudioManager instead of emitting an event
-        // This ensures the sound is played directly at the point of bullet creation
-        if (this._audioManager) {
-            this._audioManager.playGunfireSound(soundPosition, {
-                volume: 0.5
-            });
-        } else {
-            // Legacy fallback if AudioManager hasn't been set
-            this.eventBus.emit('sound.play', {
-                sound: 'gunfire',
-                position: {
-                    x: soundPosition.x,
-                    y: soundPosition.y,
-                    z: soundPosition.z
-                }
-            });
+        // Play sound effect with debugging
+        if (this.debugSound) {
+            console.log('Attempting to play gunfire sound');
         }
+        this.eventBus.emit('sound.play', { sound: 'gunfire' });
     }
 
     /**

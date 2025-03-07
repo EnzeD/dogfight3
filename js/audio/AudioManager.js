@@ -1,13 +1,11 @@
 // Audio Manager for handling game audio
-import * as THREE from 'three';
-
 export default class AudioManager {
     constructor(eventBus) {
         this.eventBus = eventBus;
 
         // Audio context and nodes
         this.audioContext = null;
-        this.engineSound = null;
+        this.engineComponents = null;
         this.engineGainNode = null;
 
         // Audio state
@@ -85,16 +83,16 @@ export default class AudioManager {
             // Create effects chain for the engine sound
             this.engineLowpassFilter = this.audioContext.createBiquadFilter();
             this.engineLowpassFilter.type = 'lowpass';
-            this.engineLowpassFilter.frequency.value = 600; // Lower from 800
+            this.engineLowpassFilter.frequency.value = 800;
             this.engineLowpassFilter.Q.value = 1;
 
             this.engineHighpassFilter = this.audioContext.createBiquadFilter();
             this.engineHighpassFilter.type = 'highpass';
-            this.engineHighpassFilter.frequency.value = 60; // Lower from 80
+            this.engineHighpassFilter.frequency.value = 80;
 
             // Small amount of distortion for richness
             this.engineDistortion = this.audioContext.createWaveShaper();
-            this.engineDistortion.curve = this.makeDistortionCurve(7); // Increased from 5
+            this.engineDistortion.curve = this.makeDistortionCurve(5);
 
             // Engine vibration effect
             this.engineVibrato = this.audioContext.createGain();
@@ -151,24 +149,24 @@ export default class AudioManager {
         // Initialize core oscillator (primary engine sound)
         const core = this.engineComponents.core;
         core.oscillator.type = 'sawtooth';
-        core.oscillator.frequency.value = 55; // Lower from 60
-        core.gain.gain.value = 0.25; // Lower from 0.3
+        core.oscillator.frequency.value = 55;
+        core.gain.gain.value = 0.3;
         core.oscillator.connect(core.gain);
         core.gain.connect(this.engineGainNode);
 
         // Initialize whine oscillator (higher pitched component)
         const whine = this.engineComponents.whine;
         whine.oscillator.type = 'triangle';
-        whine.oscillator.frequency.value = 80; // Lower from 100/120
-        whine.gain.gain.value = 0.03; // Further reduced from 0.05
+        whine.oscillator.frequency.value = 85;
+        whine.gain.gain.value = 0.03;
         whine.oscillator.connect(whine.gain);
         whine.gain.connect(this.engineGainNode);
 
         // Initialize rumble oscillator (low frequency component)
         const rumble = this.engineComponents.rumble;
         rumble.oscillator.type = 'sine';
-        rumble.oscillator.frequency.value = 30; // Further lowered from 35
-        rumble.gain.gain.value = 0.6; // Increased from 0.4
+        rumble.oscillator.frequency.value = 30;
+        rumble.gain.gain.value = 0.6;
         rumble.oscillator.connect(rumble.gain);
         rumble.gain.connect(this.engineGainNode);
 
@@ -178,17 +176,17 @@ export default class AudioManager {
         noiseNode.buffer = this.createNoiseBuffer();
         noiseNode.loop = true;
         noise.node = noiseNode;
-        noise.gain.gain.value = 0.07; // Increased from 0.05
+        noise.gain.gain.value = 0.05;
         noiseNode.connect(noise.gain);
         noise.gain.connect(this.engineGainNode);
 
         // Setup LFO for subtle pitch variations
         this.engineLFO = this.audioContext.createOscillator();
         this.engineLFO.type = 'sine';
-        this.engineLFO.frequency.value = 4; // Slightly reduced from 4.5
+        this.engineLFO.frequency.value = 4.5;
 
         const lfoGain = this.audioContext.createGain();
-        lfoGain.gain.value = 5; // Increased from 3.5/2
+        lfoGain.gain.value = 5.0;
 
         this.engineLFO.connect(lfoGain);
 
@@ -292,8 +290,8 @@ export default class AudioManager {
             // Update LFO rate based on speed
             if (this.engineLFO) {
                 // LFO gets faster at higher speeds
-                const baseLfoRate = 2.5; // Reduced from 3
-                const maxLfoRate = 6; // Reduced from 7
+                const baseLfoRate = 3;
+                const maxLfoRate = 7;
                 this.engineLFO.frequency.value = baseLfoRate + (maxLfoRate - baseLfoRate) * speedFactor;
             }
 
@@ -301,14 +299,14 @@ export default class AudioManager {
             if (this.engineComponents.core) {
                 const core = this.engineComponents.core;
                 // Adjust frequency based on speed
-                const baseCoreFreq = 55; // Reduced from 60
-                const maxCoreFreq = 110; // Reduced from 120
+                const baseCoreFreq = 60;
+                const maxCoreFreq = 120;
                 const coreFreq = baseCoreFreq + (maxCoreFreq - baseCoreFreq) * speedFactor;
                 core.oscillator.frequency.setTargetAtTime(coreFreq, this.audioContext.currentTime, 0.1);
 
                 // Adjust volume based on speed
-                const minCoreVol = 0.15; // Reduced from 0.2
-                const maxCoreVol = 0.35; // Reduced from 0.4
+                const minCoreVol = 0.2;
+                const maxCoreVol = 0.4;
                 const coreVol = minCoreVol + (maxCoreVol - minCoreVol) * speedFactor;
                 core.gain.gain.setTargetAtTime(coreVol, this.audioContext.currentTime, 0.1);
             }
@@ -317,17 +315,16 @@ export default class AudioManager {
             if (this.engineComponents.whine) {
                 const whine = this.engineComponents.whine;
                 // Whine gets higher pitched with speed
-                const baseWhineFreq = 70; // Reduced from 80/120
-                const maxWhineFreq = 280; // Reduced from 350/500
+                const baseWhineFreq = 65;
+                const maxWhineFreq = 280;
                 const whineFreq = baseWhineFreq + (maxWhineFreq - baseWhineFreq) * (speedFactor * speedFactor);
                 whine.oscillator.frequency.setTargetAtTime(whineFreq, this.audioContext.currentTime, 0.1);
 
                 // Whine gets louder at high speeds
-                const minWhineVol = 0.02; // Reduced from 0.03/0.05
-                const maxWhineVol = 0.08; // Reduced from 0.12/0.2
+                const minWhineVol = 0.02;
+                const maxWhineVol = 0.08;
                 let whineVol = minWhineVol;
-                if (speedFactor > 0.7) { // Increased threshold from 0.6
-                    // Only increase whine volume at very high speeds
+                if (speedFactor > 0.7) {
                     const whineSpeedFactor = (speedFactor - 0.7) / 0.3;
                     whineVol = minWhineVol + (maxWhineVol - minWhineVol) * whineSpeedFactor;
                 }
@@ -338,16 +335,16 @@ export default class AudioManager {
             if (this.engineComponents.rumble) {
                 const rumble = this.engineComponents.rumble;
                 // Rumble frequency increases with speed
-                const baseRumbleFreq = 20; // Reduced from 25/30
-                const maxRumbleFreq = 45; // Reduced from 50/60
+                const baseRumbleFreq = 20;
+                const maxRumbleFreq = 45;
                 const rumbleFreq = baseRumbleFreq + (maxRumbleFreq - baseRumbleFreq) * speedFactor;
                 rumble.oscillator.frequency.setTargetAtTime(rumbleFreq, this.audioContext.currentTime, 0.1);
 
-                // Rumble is stronger and present throughout more of the speed range
-                const maxRumbleVol = 0.7; // Increased from 0.5/0.3
-                // Peak at around 40% speed but maintain more presence at higher speeds
-                const rumbleVolCurve = 1 - Math.abs(speedFactor - 0.4) * 0.5; // Reduced from 0.8/1.25
-                const rumbleVol = Math.max(0.3, maxRumbleVol * rumbleVolCurve); // Increased min from 0.2/0.1
+                // Even stronger rumble present throughout the speed range
+                const maxRumbleVol = 0.7;
+                // More consistent rumble across speed range
+                const rumbleVolCurve = 1 - Math.abs(speedFactor - 0.4) * 0.5;
+                const rumbleVol = Math.max(0.3, maxRumbleVol * rumbleVolCurve);
                 rumble.gain.gain.setTargetAtTime(rumbleVol, this.audioContext.currentTime, 0.1);
             }
 
@@ -355,15 +352,15 @@ export default class AudioManager {
             if (this.engineComponents.noise) {
                 const noise = this.engineComponents.noise;
                 // Noise increases with speed
-                const minNoiseVol = 0.03; // Increased from 0.02
-                const maxNoiseVol = 0.1; // Increased from 0.08
+                const minNoiseVol = 0.02;
+                const maxNoiseVol = 0.08;
                 const noiseVol = minNoiseVol + (maxNoiseVol - minNoiseVol) * speedFactor;
                 noise.gain.gain.setTargetAtTime(noiseVol, this.audioContext.currentTime, 0.1);
             }
 
             // Update filter frequencies
-            const baseLowpass = 300; // Reduced from 400
-            const maxLowpass = 1200; // Reduced from 1500
+            const baseLowpass = 400;
+            const maxLowpass = 1500;
             this.engineLowpassFilter.frequency.setTargetAtTime(
                 baseLowpass + (maxLowpass - baseLowpass) * speedFactor,
                 this.audioContext.currentTime,
@@ -371,18 +368,18 @@ export default class AudioManager {
             );
 
             // Overall engine volume
-            const minVolume = 0.07; // Increased from 0.05
-            const maxVolume = 0.17; // Increased from 0.15
+            const minVolume = 0.05;
+            const maxVolume = 0.15; // Slightly reduced to avoid being too loud
             const volume = minVolume + (maxVolume - minVolume) * speedFactor;
             this.engineGainNode.gain.setTargetAtTime(volume, this.audioContext.currentTime, 0.1);
 
-            // Add stronger vibrato effect that increases with speed
+            // Add vibrato effect that increases with speed
             // Makes engine sound "shake" more at higher speeds
-            const vibratoFreq = 2 + speedFactor * 15; // Increased from 12/10
+            const vibratoFreq = 1.8 + speedFactor * 14;
             const vibratoTime = this.audioContext.currentTime;
-            // Increased gain oscillation depth
+            // Further increased gain oscillation depth
             this.engineVibrato.gain.setValueAtTime(
-                1.0 + 0.25 * speedFactor * Math.sin(vibratoTime * vibratoFreq), // Increased from 0.15/0.05
+                1.0 + 0.25 * speedFactor * Math.sin(vibratoTime * vibratoFreq),
                 vibratoTime
             );
         }

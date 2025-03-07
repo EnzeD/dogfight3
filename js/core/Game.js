@@ -92,9 +92,6 @@ export default class Game {
         // Initialize audio (after plane is created)
         this.audioManager.init();
 
-        // Now that audio is initialized, provide AudioManager to components
-        this.provideAudioManagerToComponents();
-
         // Setup window resize handler
         window.addEventListener('resize', this.onWindowResize.bind(this));
 
@@ -115,47 +112,6 @@ export default class Game {
 
         // Show instructions
         this.uiManager.showInstructions();
-    }
-
-    /**
-     * Provides the AudioManager to all components that need it
-     */
-    provideAudioManagerToComponents() {
-        // Provide to player plane and its ammo system
-        if (this.playerPlane) {
-            this.playerPlane.audioManager = this.audioManager;
-
-            if (this.playerPlane.ammoSystem) {
-                this.playerPlane.ammoSystem.audioManager = this.audioManager;
-            }
-        }
-
-        // Provide to enemy planes and their ammo systems
-        if (this.enemyPlanes) {
-            this.enemyPlanes.forEach(enemyPlane => {
-                enemyPlane.audioManager = this.audioManager;
-
-                if (enemyPlane.ammoSystem) {
-                    enemyPlane.ammoSystem.audioManager = this.audioManager;
-                }
-            });
-        }
-
-        // Provide to NetworkManager for remote planes
-        if (this.networkManager) {
-            this.networkManager.audioManager = this.audioManager;
-
-            // Also provide to any existing remote planes
-            if (this.networkManager.remotePlanes) {
-                this.networkManager.remotePlanes.forEach(remotePlane => {
-                    remotePlane.audioManager = this.audioManager;
-
-                    if (remotePlane.ammoSystem) {
-                        remotePlane.ammoSystem.audioManager = this.audioManager;
-                    }
-                });
-            }
-        }
     }
 
     /**
@@ -249,43 +205,51 @@ export default class Game {
     }
 
     /**
-     * Check if multiplayer mode is enabled and initialize network manager if needed
+     * Check if multiplayer mode is enabled via URL parameter
      */
     checkMultiplayerMode() {
-        // Check URL parameters for multiplayer flag
         const urlParams = new URLSearchParams(window.location.search);
         this.isMultiplayer = urlParams.has('multiplayer');
 
         if (this.isMultiplayer) {
-            console.log('Multiplayer mode enabled');
-            this.uiManager.showMultiplayerStatus(true);
+            console.log('Initializing multiplayer mode');
 
-            // Initialize network manager
+            // Create network manager
             this.networkManager = new NetworkManager(this.eventBus, this.playerPlane);
 
-            // Connect to server
-            const playerName = urlParams.get('name') || 'Player' + Math.floor(Math.random() * 1000);
+            // Listen for remote plane creation to register with ammo system
+            this.eventBus.on('network.plane.created', (remotePlane) => {
+                // Add remote plane to planes array for collision detection
+                if (remotePlane && !this.planes.includes(remotePlane)) {
+                    console.log('Adding remote plane to collision detection');
+                    this.planes.push(remotePlane);
 
-            // Check for custom server URL parameter
-            const serverUrl = urlParams.get('server');
-            if (serverUrl) {
-                console.log(`Using custom server URL: ${serverUrl}`);
-            }
-
-            this.networkManager.connect({
-                name: playerName,
-                serverUrl: serverUrl
+                    // Register with ammo system if available
+                    if (this.playerPlane && this.playerPlane.ammoSystem) {
+                        this.playerPlane.ammoSystem.addPlane(remotePlane);
+                    }
+                }
             });
 
-            // Show notification
-            this.eventBus.emit('notification', {
-                message: 'Connecting to multiplayer server...',
-                type: 'info',
-                duration: 3000
+            // Connect to server
+            const serverUrl = urlParams.get('server') || 'ws://141.95.17.225:8080';
+            this.eventBus.emit('network.connect', { serverUrl });
+
+            // Add multiplayer UI indicators
+            this.uiManager.showMultiplayerStatus(true);
+
+            // Add toggle for multiplayer connection
+            document.addEventListener('keydown', (event) => {
+                if (event.key.toLowerCase() === 'p') {
+                    if (this.networkManager.connected) {
+                        this.eventBus.emit('network.disconnect');
+                    } else {
+                        this.eventBus.emit('network.connect', { serverUrl });
+                    }
+                }
             });
         } else {
-            console.log('Single player mode');
-            this.uiManager.showMultiplayerStatus(false);
+            console.log('Running in single player mode');
         }
     }
 

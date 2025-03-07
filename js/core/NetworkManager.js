@@ -14,11 +14,6 @@ export default class NetworkManager {
         this.lastUpdateTime = 0;
         this.updateInterval = 20; // Reduced from 50ms to 100ms (10 updates/second)
         this.interpolationFactor = 0.05; // For smooth movement
-        this._audioManager = null; // Will be set by Game
-
-        // Interpolation settings
-        this.interpolationBuffer = new Map(); // Store received positions for interpolation
-        this.interpolationDelay = 100; // ms of delay for interpolation buffer
 
         // Listen for connection events
         this.eventBus.on('network.connect', this.connect.bind(this));
@@ -33,16 +28,6 @@ export default class NetworkManager {
 
         // Set up damage handler for bullet collisions in multiplayer
         this.setupCollisionHandler();
-    }
-
-    // Define a setter for audioManager
-    set audioManager(value) {
-        this._audioManager = value;
-    }
-
-    // Define a getter for audioManager
-    get audioManager() {
-        return this._audioManager;
     }
 
     /**
@@ -196,22 +181,17 @@ export default class NetworkManager {
     }
 
     /**
-     * Handle plane destroyed event
+     * Handles a destroyed event from the event bus
      * @param {Object} data - Destroyed event data
-     * @param {string} source - Source of the event (local or remote)
+     * @param {string} source - Source of the event (player/enemy)
      */
     handleDestroyedEvent(data, source) {
-        // Only send to server if this is a local event
-        if (source !== 'remote' && this.socket && this.socket.readyState === WebSocket.OPEN) {
-            // Send destroyed event to server
-            this.socket.send(JSON.stringify({
-                type: 'destroyed',
-                data: {
-                    id: this.clientId,
-                    position: data.position
-                }
-            }));
-        }
+        // Only handle player destruction events in multiplayer
+        if (source !== 'player' || !this.connected) return;
+
+        console.log('Player plane destroyed in multiplayer');
+
+        // Will be updated in next position update
     }
 
     /**
@@ -446,63 +426,25 @@ export default class NetworkManager {
     }
 
     /**
-     * Handle remote player destroyed event
+     * Handle a remote player being destroyed
      * @param {Object} data - Destroyed event data
      */
     handleRemotePlayerDestroyed(data) {
-        if (!data.id) return;
-
-        if (data.id === this.clientId) {
-            // Local player was destroyed
-            return;
-        }
-
-        // Get the remote plane that was destroyed
         const remotePlane = this.remotePlanes.get(data.id);
-        if (!remotePlane) return;
+        if (!remotePlane || remotePlane.isDestroyed) return;
 
-        // Get the plane's position for sound and effects
-        const planePosition = new THREE.Vector3();
-        remotePlane.mesh.getWorldPosition(planePosition);
+        console.log(`Remote player ${data.id} was destroyed`);
 
-        // Play explosion sound with position data
-        if (this._audioManager) {
-            this._audioManager.playExplosionSound(planePosition, {
-                volume: 0.8
-            });
-        } else {
-            // Legacy fallback
-            this.eventBus.emit('sound.play', {
-                sound: 'explosion',
-                volume: 0.8,
-                position: {
-                    x: planePosition.x,
-                    y: planePosition.y,
-                    z: planePosition.z
-                }
-            });
-        }
+        // Destroy the plane
+        remotePlane.destroy();
 
-        // Set plane state
-        remotePlane.health = 0;
-        remotePlane.destroyed = true;
+        // Play explosion sound
+        this.eventBus.emit('sound.play', { sound: 'explosion', volume: 0.8 });
 
-        // Dispatch event for visual effects
-        this.eventBus.emit('plane.destroyed', {
-            plane: remotePlane,
-            planeId: data.id,
-            networkEvent: true,
-            position: {
-                x: planePosition.x,
-                y: planePosition.y,
-                z: planePosition.z
-            }
-        });
-
-        // Add notification
+        // Show notification
         this.eventBus.emit('notification', {
-            message: `${data.name || 'Remote player'} was destroyed!`,
-            type: 'danger',
+            message: `Remote player was shot down!`,
+            type: 'warning',
             duration: 3000
         });
     }
@@ -592,18 +534,23 @@ export default class NetworkManager {
     }
 
     /**
-     * Create a remote plane for a player
-     * @param {PlaneFactory} planeFactory - The plane factory to use
-     * @param {Object} playerData - The player data from the server
-     * @returns {Object} The created remote plane
+     * Create a plane for a remote player
+     * @param {PlaneFactory} planeFactory - Factory for creating planes
+     * @param {Object} playerData - Player data including ID and position
      */
     createRemotePlane(planeFactory, playerData) {
-        console.log('Creating remote plane for player:', playerData);
+        // Skip if this is our own plane
+        if (playerData.id === this.clientId) return;
 
-        // Create a new plane for the remote player
-        const remotePlane = planeFactory.createWW2Plane();
+        // Skip if we already have this plane
+        if (this.remotePlanes.has(playerData.id)) return;
 
-        // Set initial position and rotation from server data
+        console.log(`Creating plane for remote player ${playerData.id}`);
+
+        // Create a new enemy plane
+        const remotePlane = planeFactory.createEnemyPlane();
+
+        // Set initial position and rotation
         if (playerData.position) {
             remotePlane.mesh.position.set(
                 playerData.position.x,
@@ -620,31 +567,24 @@ export default class NetworkManager {
             );
         }
 
-        // Set remote plane properties
-        remotePlane.isRemote = true;
-        remotePlane.playerId = playerData.id;
-        remotePlane.playerName = playerData.name || 'Remote Player';
-
-        // Store last known values for interpolation
-        remotePlane.lastPosition = remotePlane.mesh.position.clone();
-        remotePlane.lastRotation = remotePlane.mesh.rotation.clone();
-        remotePlane.lastSpeed = playerData.speed || 0;
-        remotePlane.targetPosition = remotePlane.mesh.position.clone();
-        remotePlane.targetRotation = remotePlane.mesh.rotation.clone();
-        remotePlane.interpolationTime = 0;
-
-        // Add to remote planes map
-        this.remotePlanes.set(playerData.id, remotePlane);
-
-        // Create ammo system for the remote plane if needed
-        if (!remotePlane.ammoSystem) {
-            remotePlane.ammoSystem = new AmmoSystem(this.playerPlane.scene, this.eventBus);
+        // Set initial health if available
+        if (playerData.health !== undefined) {
+            remotePlane.setHealth(playerData.health);
         }
 
-        // Emit event for other systems to react to the new remote plane
+        // Set destroyed state if available
+        if (playerData.isDestroyed === true) {
+            remotePlane.destroy();
+        }
+
+        // Store the remote plane
+        this.remotePlanes.set(playerData.id, remotePlane);
+
+        // Emit event for collision registration
         this.eventBus.emit('network.plane.created', remotePlane);
 
-        return remotePlane;
+        // Debug log
+        console.log(`Remote plane for ${playerData.id} created and registered`);
     }
 
     /**
@@ -944,27 +884,7 @@ export default class NetworkManager {
         }
 
         // Play gunfire sound for remote planes (only for other players, not yourself)
-        // Include position data for 3D audio
-        const planePosition = new THREE.Vector3();
-        remotePlane.mesh.getWorldPosition(planePosition);
-
-        // Use direct AudioManager call if available
-        if (this.audioManager) {
-            this.audioManager.playGunfireSound(planePosition, {
-                volume: 0.3
-            });
-        } else {
-            // Legacy fallback
-            this.eventBus.emit('sound.play', {
-                sound: 'gunfire',
-                volume: 0.3,
-                position: {
-                    x: planePosition.x,
-                    y: planePosition.y,
-                    z: planePosition.z
-                }
-            });
-        }
+        this.eventBus.emit('sound.play', { sound: 'gunfire', volume: 0.3 });
     }
 
     /**
@@ -1028,29 +948,23 @@ export default class NetworkManager {
      * @param {Object} data - Hit effect data
      */
     handleRemoteHitEffect(data) {
-        if (!data.target || !data.position) return;
+        // Skip if this is our own hit effect
+        if (data.id === this.clientId) return;
 
-        // Create an effect at the position where the hit occurred
-        this.eventBus.emit('effects.hit', {
-            position: data.position
-        });
+        console.log('Received remote hit effect');
 
-        // Play hit sound with position data
-        if (this.audioManager) {
+        // Create the position vector from the data
+        if (data.position) {
             const position = new THREE.Vector3(
                 data.position.x,
                 data.position.y,
                 data.position.z
             );
-            this.audioManager.playHitSound(position, {
-                volume: 0.3
-            });
-        } else {
-            // Legacy fallback
-            this.eventBus.emit('sound.play', {
-                sound: 'hit',
-                volume: 0.3,
-                position: data.position  // The position data is already in the correct format
+
+            // Emit the effect event
+            this.eventBus.emit('effect.hit', {
+                position: position,
+                playSound: true
             });
         }
     }

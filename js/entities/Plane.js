@@ -8,7 +8,6 @@ export default class Plane extends Entity {
         super(scene);
 
         this.eventBus = eventBus;
-        this._audioManager = null; // Will be set by Game
 
         // Flight mechanics variables
         this.speed = 0;
@@ -29,7 +28,7 @@ export default class Plane extends Entity {
         this.isAirborne = false;
 
         // Flag to track first flight info update
-        this.hasEmittedFirstFlightInfo = false;
+        this._hasEmittedFirstUpdate = false;
 
         // Control surfaces
         this.propeller = null;
@@ -57,16 +56,6 @@ export default class Plane extends Entity {
 
         // Listen for events
         this.setupEventListeners();
-    }
-
-    // Define a setter for audioManager
-    set audioManager(value) {
-        this._audioManager = value;
-    }
-
-    // Define a getter for audioManager
-    get audioManager() {
-        return this._audioManager;
     }
 
     /**
@@ -356,9 +345,9 @@ export default class Plane extends Entity {
         // Get speed as percentage of max speed
         // Force the speed to 0 at the start of the game
         // (We might have a bug where the player's speed is set high initially)
-        if (!this.hasEmittedFirstFlightInfo) {
+        if (!this._hasEmittedFirstUpdate) {
             this.speed = 0;
-            this.hasEmittedFirstFlightInfo = true;
+            this._hasEmittedFirstUpdate = true;
         }
 
         const speedPercent = (this.speed / this.maxSpeed) * 100;
@@ -801,7 +790,7 @@ export default class Plane extends Entity {
     /**
      * Apply damage to the plane
      * @param {number} amount - Amount of damage to apply
-     * @param {THREE.Vector3} impactPosition - Position of the impact
+     * @param {THREE.Vector3} impactPosition - Optional position where the damage occurred
      */
     damage(amount, impactPosition) {
         if (this.isDestroyed) return; // Already destroyed, no more damage
@@ -834,21 +823,12 @@ export default class Plane extends Entity {
         // Check if destroyed
         if (oldHealth > 0 && this.currentHealth <= 0) {
             this.destroy();
-        } else if (impactPosition && this.currentHealth > 0) {
+        } else if (impactPosition && this === this.eventBus.playerPlane && this.currentHealth > 0) {
             // Only create hit effects if the plane is still alive after taking damage
-            console.log("Creating hit effect at impact position");
-
-            // Play hit sound directly if AudioManager is available
-            if (this._audioManager && impactPosition) {
-                this._audioManager.playHitSound(impactPosition, {
-                    volume: 0.3
-                });
-            }
-
-            // Still emit the effect event for visual effects
+            console.log("Creating hit effect on local player at impact position");
             this.eventBus.emit('effect.hit', {
                 position: impactPosition,
-                playSound: !this._audioManager // Only play sound via event if AudioManager not available
+                playSound: true
             });
         }
     }
@@ -899,24 +879,8 @@ export default class Plane extends Entity {
             plane: this  // Pass the plane object for reference
         }, this === this.eventBus.playerPlane ? 'player' : 'enemy');
 
-        // Play explosion sound directly if AudioManager is available
-        if (this._audioManager) {
-            const position = new THREE.Vector3();
-            this.mesh.getWorldPosition(position);
-            this._audioManager.playExplosionSound(position, {
-                volume: 0.8
-            });
-        } else {
-            // Legacy fallback
-            this.eventBus.emit('sound.play', {
-                sound: 'explosion',
-                position: {
-                    x: this.mesh.position.x,
-                    y: this.mesh.position.y,
-                    z: this.mesh.position.z
-                }
-            });
-        }
+        // Play explosion sound
+        this.eventBus.emit('sound.play', { sound: 'explosion' });
 
         // Disable wing trails
         if (this.wingTrails && this.wingTrails.left && this.wingTrails.right) {
