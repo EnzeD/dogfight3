@@ -35,7 +35,9 @@ export default class InputManager {
             'h': 'displayHealth',   // Health debug key
             't': 'toggleTrails',    // Toggle wing trails
             'j': 'debugDamage',     // Test damage system
-            'k': 'debugHeal'        // Test healing system
+            'k': 'debugHeal',       // Test healing system
+            'r': 'restartGame',     // Restart game after player death
+            'b': 'toggleHitboxes'   // Toggle hitbox visualization
         };
     }
 

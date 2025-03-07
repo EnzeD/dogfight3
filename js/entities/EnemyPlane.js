@@ -1,10 +1,26 @@
 // Enemy Plane class extending WW2Plane with AI capabilities
 import * as THREE from 'three';
 import WW2Plane from './WW2Plane.js';
+import SmokeFX from '../effects/SmokeFX.js';
+import ExplosionFX from '../effects/ExplosionFX.js';
 
 export default class EnemyPlane extends WW2Plane {
     constructor(scene, eventBus) {
         super(scene, eventBus);
+
+        // Add smoke effect system for low health
+        this.smokeFX = new SmokeFX(scene);
+
+        // Add explosion effect system for destruction
+        this.explosionFX = new ExplosionFX(scene);
+
+        // Physics properties for free fall
+        this.freeFall = {
+            active: false,
+            velocity: new THREE.Vector3(),
+            angularVelocity: new THREE.Vector3(),
+            gravity: 9.8 // m/s²
+        };
 
         // AI state properties
         this.aiState = 'IDLE'; // Current AI state: 'IDLE', 'CHASE', or 'ATTACK'
@@ -17,7 +33,7 @@ export default class EnemyPlane extends WW2Plane {
 
         // Always start as airborne (enemies spawn in the air)
         this.isAirborne = true;
-        this.speed = this.maxSpeed * 0.55; // Start at 70% speed
+        this.speed = this.maxSpeed * 0.25; // Start at 0.25 (25% of max speed) as requested
 
         // Track if we've already customized the wing trails
         this.wingTrailsCustomized = false;
@@ -27,12 +43,20 @@ export default class EnemyPlane extends WW2Plane {
         this.minWaypoints = 3; // Minimum number of waypoints to have in queue
         this.maxWaypoints = 5; // Maximum number of waypoints to keep in queue
         this.waypointReachedThreshold = 20; // How close the plane needs to get to a waypoint (increased from 15)
-        this.idleSpeed = 0.65; // Speed during IDLE mode (increased from 0.55)
-        this.idleAltitudeMin = 120; // Minimum altitude for idle flight (increased from 60)
+        this.idleSpeed = 0.25; // Start at 0.25 speed as requested
+        this.maxIdleSpeed = 0.65; // Maximum speed is 0.65 as requested
+        this.idleAltitudeMin = 120;
         this.idleAltitudeMax = 320; // Maximum altitude for idle flight (increased from 200)
         this.idleAreaSize = 800; // Size of the patrol area (increased from 300)
         this.waypointChangeInterval = 5; // Force waypoint change every X seconds (increased from 3)
         this.lastWaypointChangeTime = 0;
+
+        // Human-like behavior parameters
+        this.speedVariationCounter = 0;
+        this.speedVariationInterval = Math.random() * 10 + 5; // 5-15 seconds between speed changes
+        this.currentSpeedTarget = this.idleSpeed;
+        this.speedAcceleration = 0.01; // How quickly speed changes
+        this.speedVariationRange = { min: 0.25, max: 0.65 }; // The range we'll vary speed in
 
         // Game boundaries (prevent flying too far)
         this.worldBounds = {
@@ -47,6 +71,7 @@ export default class EnemyPlane extends WW2Plane {
         // Smoothing parameters
         this.turnSpeed = 0.5; // How quickly the plane turns (decreased from 0.7 for smoother turns)
         this.bankFactor = 0.6; // How much the plane banks during turns (decreased from 0.8)
+        this.humanErrorFactor = 0.15; // Add human error for more realistic flight
 
         // AI behavior debug
         this.showDebugInfo = false;
@@ -207,6 +232,9 @@ export default class EnemyPlane extends WW2Plane {
      * @param {number} deltaTime - Time since last update in seconds
      */
     updateIdleState(deltaTime) {
+        // Update human-like speed variations
+        this.updateHumanLikeSpeed(deltaTime);
+
         // Check if we need to replenish waypoints
         const currentTime = performance.now() / 1000;
 
@@ -233,6 +261,12 @@ export default class EnemyPlane extends WW2Plane {
         // If we've reached the current waypoint, remove it
         if (this.waypointQueue.length > 0 && this.reachedWaypoint()) {
             this.waypointQueue.shift(); // Remove the first waypoint
+
+            // Occasionally change speed when reaching a waypoint (more human-like)
+            if (Math.random() < 0.4) { // 40% chance to change speed at waypoints
+                this.currentSpeedTarget = this.getRandomSpeedInRange();
+            }
+
             if (this.showDebugInfo) {
                 console.log(`Enemy plane reached waypoint, ${this.waypointQueue.length} waypoints remaining`);
             }
@@ -267,12 +301,59 @@ export default class EnemyPlane extends WW2Plane {
                 .subVectors(this.waypointQueue[0], this.mesh.position)
                 .normalize();
 
+            // Add slight human-like randomness to the targeting
+            if (Math.random() < 0.05) { // Occasionally make small flight corrections
+                const randomDeviation = new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.05,
+                    (Math.random() - 0.5) * 0.05,
+                    (Math.random() - 0.5) * 0.05
+                );
+                directionToWaypoint.add(randomDeviation).normalize();
+            }
+
             // Fly toward waypoint
             this.flyTowardDirection(directionToWaypoint, deltaTime);
         } else {
             // If no waypoints, generate a new path
             this.generateInitialPath();
         }
+    }
+
+    /**
+     * Update speed with human-like variations
+     * @param {number} deltaTime - Time since last update in seconds
+     */
+    updateHumanLikeSpeed(deltaTime) {
+        // Update speed variation counter
+        this.speedVariationCounter += deltaTime;
+
+        // Check if it's time for a speed change
+        if (this.speedVariationCounter >= this.speedVariationInterval) {
+            // Reset counter
+            this.speedVariationCounter = 0;
+            // Set new interval (5-15 seconds)
+            this.speedVariationInterval = Math.random() * 10 + 5;
+            // Set new target speed within our range
+            this.currentSpeedTarget = this.getRandomSpeedInRange();
+        }
+
+        // Gradually adjust speed toward target (acceleration/deceleration)
+        if (Math.abs(this.speed - this.currentSpeedTarget) > 0.01) {
+            if (this.speed < this.currentSpeedTarget) {
+                this.speed = Math.min(this.currentSpeedTarget, this.speed + this.speedAcceleration * deltaTime);
+            } else {
+                this.speed = Math.max(this.currentSpeedTarget, this.speed - this.speedAcceleration * deltaTime);
+            }
+        }
+    }
+
+    /**
+     * Get a random speed within the specified range
+     * @returns {number} A random speed value
+     */
+    getRandomSpeedInRange() {
+        return this.speedVariationRange.min +
+            Math.random() * (this.speedVariationRange.max - this.speedVariationRange.min);
     }
 
     /**
@@ -292,7 +373,7 @@ export default class EnemyPlane extends WW2Plane {
         const dotUp = up.dot(targetDirection); // Direction of pitch (-1 is down, 1 is up)
 
         // Add slight randomness to inputs to simulate human imperfection
-        const humanJitter = () => (Math.random() - 0.5) * 0.15; // +/- 0.075 input variation
+        const humanJitter = () => (Math.random() - 0.5) * this.humanErrorFactor; // Human error input variation
 
         // Calculate control inputs
         // Reduced input strength for more gradual turns
@@ -306,7 +387,9 @@ export default class EnemyPlane extends WW2Plane {
         // Use a time-varying throttle that subtly changes based on a sine wave
         const timeNow = performance.now() / 1000;
         const throttleVariation = Math.sin(timeNow * 0.2) * 0.1; // +/- 10% throttle variation
-        const baseThrottle = Math.min(1.0, this.idleSpeed + Math.max(0, 0.1 - Math.abs(dotForward - 1) * 0.2));
+
+        // Base throttle on current target speed instead of fixed value
+        const baseThrottle = Math.min(1.0, this.currentSpeedTarget + Math.max(0, 0.1 - Math.abs(dotForward - 1) * 0.2));
         const throttleInput = baseThrottle + throttleVariation;
 
         // Artificial inputs for the plane's controls
@@ -436,53 +519,117 @@ export default class EnemyPlane extends WW2Plane {
      * @param {THREE.Vector3} playerPosition - Position of the player's plane
      */
     update(deltaTime, inputState, playerPosition) {
-        // We don't use inputState for AI control, so we don't need to create a dummy one
-        // The parent class methods that need inputState are overridden in this class
+        // Handle free fall physics if the plane is destroyed
+        if (this.isDestroyed && this.freeFall.active) {
+            this.updateFreeFall(deltaTime);
 
-        // Customize wing trails if not already done
+            // Continue updating the explosion effects
+            if (this.explosionFX) {
+                this.explosionFX.update(deltaTime);
+            }
+
+            return; // Skip normal update logic
+        }
+
+        // Keep customizing wing trails
         this.customizeWingTrails();
 
-        // Update based on current AI state
+        // Update plane behavior based on AI state
         switch (this.aiState) {
             case 'IDLE':
                 this.updateIdleState(deltaTime);
                 break;
             case 'CHASE':
-                // Will be implemented in Phase 3
-                this.updateIdleState(deltaTime); // Fallback to IDLE behavior for now
+                // Chase behavior will be implemented later
+                this.updateIdleState(deltaTime);
                 break;
             case 'ATTACK':
-                // Will be implemented in Phase 4
-                this.updateIdleState(deltaTime); // Fallback to IDLE behavior for now
+                // Attack behavior will be implemented later
+                this.updateIdleState(deltaTime);
                 break;
+            default:
+                this.updateIdleState(deltaTime);
         }
 
-        // Apply gravity if airborne
-        if (this.isAirborne) {
-            this.applyGravity(deltaTime);
-        } else {
-            // Keep the plane on the ground when not airborne
-            if (this.mesh.position.y > this.groundHeight) {
-                this.mesh.position.y = Math.max(this.groundHeight, this.mesh.position.y - 0.1 * deltaTime * 60);
-            }
-        }
-
-        // Update propeller animation
+        // Update propeller animation for visual feedback
         this.updatePropeller(deltaTime);
 
-        // Update control surfaces - we use our custom implementation that doesn't need inputState
+        // Animate control surfaces based on recent inputs
         this.updateControlSurfaces();
 
-        // Update wing trails
-        this.updateWingTrails(deltaTime);
-
-        // Update ammo system - Important for multiplayer bullets to move!
-        if (this.ammoSystem) {
-            this.ammoSystem.update(deltaTime);
+        // Update wing trails if enabled
+        if (this.trailsEnabled && this.wingTrails.left && this.wingTrails.right) {
+            this.updateWingTrails();
         }
 
-        // Emit flight info update event (engine sound, HUD, etc.)
+        // Update smoke effects for low health
+        if (this.smokeFX) {
+            // Calculate health percentage
+            const healthPercent = this.currentHealth / this.maxHealth;
+
+            // Emit smoke when health is low
+            this.smokeFX.emitSmoke(this, healthPercent, deltaTime);
+
+            // Update smoke particles
+            this.smokeFX.update(deltaTime);
+        }
+
+        // Update explosion effects if active
+        if (this.explosionFX) {
+            this.explosionFX.update(deltaTime);
+        }
+
+        // Emit flight information updates as usual
         this.emitFlightInfoUpdate();
+    }
+
+    /**
+     * Handle free fall physics for destroyed plane
+     * @param {number} deltaTime - Time since last frame in seconds
+     */
+    updateFreeFall(deltaTime) {
+        // Apply gravity to velocity
+        this.freeFall.velocity.y -= this.freeFall.gravity * deltaTime;
+
+        // Apply velocity to position
+        this.mesh.position.x += this.freeFall.velocity.x * deltaTime;
+        this.mesh.position.y += this.freeFall.velocity.y * deltaTime;
+        this.mesh.position.z += this.freeFall.velocity.z * deltaTime;
+
+        // Apply angular velocity (rotation)
+        this.mesh.rotation.x += this.freeFall.angularVelocity.x * deltaTime;
+        this.mesh.rotation.y += this.freeFall.angularVelocity.y * deltaTime;
+        this.mesh.rotation.z += this.freeFall.angularVelocity.z * deltaTime;
+
+        // Check for ground impact
+        if (this.mesh.position.y < this.groundHeight) {
+            // Stop at ground level
+            this.mesh.position.y = this.groundHeight;
+
+            // Reduce velocity dramatically (impact)
+            this.freeFall.velocity.multiplyScalar(0.3);
+            this.freeFall.velocity.y = 0;
+
+            // Reduce angular velocity (friction)
+            this.freeFall.angularVelocity.multiplyScalar(0.7);
+        }
+
+        // Update propeller even in free fall (but slowly)
+        if (this.propeller) {
+            this.propeller.rotation.z += 0.1 * deltaTime;
+        }
+
+        // Continue updating smoke effects during free-fall
+        if (this.smokeFX) {
+            // Use a fixed health percentage for consistent smoke during free-fall
+            const freeFailSmokeIntensity = 0.1; // 10% health = heavy smoke
+
+            // Emit smoke from the falling plane
+            this.smokeFX.emitSmoke(this, freeFailSmokeIntensity, deltaTime);
+
+            // Update smoke particles
+            this.smokeFX.update(deltaTime);
+        }
     }
 
     /**
@@ -521,5 +668,176 @@ export default class EnemyPlane extends WW2Plane {
             autoStabilization: this.autoStabilizationEnabled,
             chemtrails: this.trailsEnabled
         }, 'enemy'); // Identify this as coming from an enemy plane
+    }
+
+    /**
+     * Override dispose to clean up resources
+     */
+    dispose() {
+        // Dispose smoke effects
+        if (this.smokeFX) {
+            this.smokeFX.dispose();
+            this.smokeFX = null;
+        }
+
+        // Dispose explosion effects
+        if (this.explosionFX) {
+            this.explosionFX.dispose();
+            this.explosionFX = null;
+        }
+
+        // Call parent dispose method
+        super.dispose();
+    }
+
+    /**
+     * Override the destroy method to add explosion and free fall
+     */
+    destroy() {
+        // Don't call super.destroy() since we want to customize behavior
+
+        // Skip if already destroyed
+        if (this.isDestroyed) return;
+
+        // Set destroyed state
+        this.isDestroyed = true;
+        this.currentHealth = 0;
+
+        // Create a large explosion at the plane's position
+        if (this.explosionFX) {
+            this.explosionFX.createExplosion(this.mesh.position.clone());
+
+            // Play explosion sound
+            if (this.eventBus) {
+                this.eventBus.emit('sound.play', { sound: 'explosion' });
+            }
+        }
+
+        // Initialize free fall physics
+        // Calculate current plane velocity
+        const forwardDirection = new THREE.Vector3(0, 0, -1).applyQuaternion(this.mesh.quaternion);
+        this.freeFall.velocity.copy(forwardDirection.multiplyScalar(this.speed * 0.5)); // Reduce forward momentum
+
+        // Add random angular velocity for tumbling
+        this.freeFall.angularVelocity.set(
+            (Math.random() - 0.5) * 2,  // Random X rotation
+            (Math.random() - 0.5) * 0.5, // Less Y rotation (yaw)
+            (Math.random() - 0.5) * 3   // More Z rotation (roll)
+        );
+
+        // Activate free fall physics
+        this.freeFall.active = true;
+
+        // No longer stop smoke - we want it to continue
+        // if (this.smokeFX) {
+        //     this.smokeFX.stopAndCleanup();
+        // }
+
+        // Disable wing trails
+        if (this.wingTrails && this.wingTrails.left && this.wingTrails.right) {
+            this.wingTrails.left.mesh.visible = false;
+            this.wingTrails.right.mesh.visible = false;
+        }
+
+        // Emit destroyed event with additional free fall info
+        this.eventBus.emit('plane.destroyed', {
+            position: this.mesh.position.clone(),
+            rotation: this.mesh.rotation.clone(),
+            freeFall: true
+        }, 'enemy');
+
+        console.log('Enemy plane destroyed and entering free fall');
+
+        // Set up timer to completely remove the plane after 10 seconds
+        setTimeout(() => {
+            this.removeFromScene();
+        }, 10000);
+    }
+
+    /**
+     * Remove the plane completely from the scene
+     */
+    removeFromScene() {
+        console.log('Removing destroyed enemy plane from scene');
+
+        // Make the plane invisible
+        if (this.mesh) {
+            this.mesh.visible = false;
+        }
+
+        // Clean up explosion effects if they're still active
+        if (this.explosionFX) {
+            // We don't fully dispose the explosion system since it might be used again
+            // But we'll clear any active explosions
+            this.explosionFX.activeExplosions = [];
+        }
+
+        // Clean up smoke effects
+        if (this.smokeFX) {
+            // Clear all active particles immediately
+            this.smokeFX.clearAllParticles();
+        }
+
+        // Notify for debugging/development
+        this.eventBus.emit('notification', {
+            message: 'Enemy plane removed',
+            type: 'info'
+        });
+    }
+
+    /**
+     * Update wing trails
+     * Override the parent's implementation to allow for custom trail activation threshold (0.35)
+     * @param {number} deltaTime - Time since last frame in seconds
+     */
+    updateWingTrails(deltaTime) {
+        // Get speed as percentage (0-1)
+        const speedFactor = this.speed / this.maxSpeed;
+
+        // Only generate trails if:
+        // 1. The plane is airborne
+        // 2. Speed is at least 35% of max speed (speedFactor >= 0.35) - customized for enemy planes
+        // 3. Trails are initialized and enabled
+        if (!this.isAirborne || speedFactor < 0.35 || !this.wingTrails.left || !this.wingTrails.right || !this.trailsEnabled) {
+            // If trails exist and we're below threshold speed, hide them
+            if (this.wingTrails.left && this.wingTrails.right && speedFactor < 0.35) {
+                this.wingTrails.left.mesh.visible = false;
+                this.wingTrails.right.mesh.visible = false;
+            }
+            return;
+        }
+
+        // Make sure trails are visible
+        this.wingTrails.left.mesh.visible = this.trailsEnabled;
+        this.wingTrails.right.mesh.visible = this.trailsEnabled;
+
+        // Calculate opacity based on speed:
+        // - At 35% speed: 0% opacity
+        // - At 100% speed: 50% opacity
+        // Normalize the speed factor to this range
+        const normalizedSpeedFactor = (speedFactor - 0.35) / 0.65; // 0 at 35% speed, 1 at 100% speed
+        const opacity = normalizedSpeedFactor * 0.5; // 0.5 max opacity
+
+        // Calculate width based on speed
+        const width = this.trailBaseWidth + (speedFactor * 0.2); // Width increases slightly with speed
+
+        // Determine how often to add new points based on speed
+        // Higher speed = less frequent updates to create longer trails
+        const updateFrequency = Math.max(1, Math.floor(10 - speedFactor * 8));
+
+        // Only add points periodically to control density
+        if (Math.floor(performance.now() / 20) % updateFrequency !== 0) {
+            return;
+        }
+
+        // Get camera position vector from scene - need this to make ribbons face the camera
+        const cameraPosition = new THREE.Vector3(0, 10, 20);
+        if (this.scene && this.scene.camera) {
+            cameraPosition.copy(this.scene.camera.position);
+        }
+
+        // Update each trail
+        this.updateSingleTrail('left', opacity, speedFactor, width, cameraPosition);
+        this.updateSingleTrail('right', opacity, speedFactor, width, cameraPosition);
     }
 } 

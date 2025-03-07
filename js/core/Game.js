@@ -74,19 +74,14 @@ export default class Game {
 
         // Create the player's plane (after scene is initialized)
         console.log('Creating player plane...');
-        const planeFactory = new PlaneFactory(this.sceneManager.scene, this.eventBus);
-        this.playerPlane = planeFactory.createWW2Plane();
-        this.planes.push(this.playerPlane);
-        console.log('Player plane created:', this.playerPlane);
-        this.sceneManager.setMainActor(this.playerPlane);
-
-        // Store reference to player plane in eventBus for proper event source identification
-        this.eventBus.playerPlane = this.playerPlane;
+        this.createPlayerPlane();
 
         // Only create an AI enemy in single player mode
         if (!this.isMultiplayer) {
             console.log('Creating enemy plane...');
-            this.createEnemyPlane(planeFactory, new THREE.Vector3(20, 30, -20));
+            // Position the enemy plane directly in front of the player for easy testing
+            const planeFactory = new PlaneFactory(this.sceneManager.scene, this.eventBus);
+            this.createEnemyPlane(planeFactory, new THREE.Vector3(0, 30, -50));
         }
 
         // Initialize multiplayer if enabled by URL param
@@ -98,6 +93,9 @@ export default class Game {
         // Setup window resize handler
         window.addEventListener('resize', this.onWindowResize.bind(this));
 
+        // Setup input action handler
+        this.setupInputActionHandler();
+
         // Listen for debug visibility changes
         this.eventBus.on('debug.visibility', (isVisible) => {
             this.debugEnabled = isVisible;
@@ -107,9 +105,46 @@ export default class Game {
         this.eventBus.on('game.pause', () => this.pauseGame());
         this.eventBus.on('game.resume', () => this.resumeGame());
 
-        // Listen for input actions
+        // Start the game loop
+        this.animate();
+
+        // Show instructions
+        this.uiManager.showInstructions();
+    }
+
+    /**
+     * Creates the player plane and initializes related systems
+     */
+    createPlayerPlane() {
+        const planeFactory = new PlaneFactory(this.sceneManager.scene, this.eventBus);
+        this.playerPlane = planeFactory.createWW2Plane();
+        this.planes.push(this.playerPlane);
+        console.log('Player plane created:', this.playerPlane);
+        this.sceneManager.setMainActor(this.playerPlane);
+
+        // Position the player plane for testing combat
+        this.playerPlane.mesh.position.set(0, 30, 30); // Elevated and at a good distance
+        this.playerPlane.isAirborne = true; // Start airborne
+        this.playerPlane.speed = 0.5; // Set initial speed
+
+        // Store reference to player plane in eventBus for proper event source identification
+        this.eventBus.playerPlane = this.playerPlane;
+
+        // Register planes with ammo system for collision detection
+        if (this.playerPlane.ammoSystem) {
+            console.log('Registering planes with ammo system for collision detection');
+            this.playerPlane.ammoSystem.setPlanes(this.planes);
+        }
+    }
+
+    /**
+     * Sets up input action handlers
+     */
+    setupInputActionHandler() {
         this.eventBus.on('input.action', (data) => {
-            if (data.action === 'spawnEnemies' && data.state === 'down') {
+            if (data.action === 'restartGame' && data.state === 'down') {
+                this.restartGame();
+            } else if (data.action === 'spawnEnemies' && data.state === 'down') {
                 this.spawnMultipleEnemies(20);
             } else if (data.action === 'displayHealth' && data.state === 'down') {
                 this.displayHealthDebug();
@@ -117,14 +152,48 @@ export default class Game {
                 this.debugDamagePlayer();
             } else if (data.action === 'debugHeal' && data.state === 'down') {
                 this.debugHealPlayer();
+            } else if (data.action === 'toggleHitboxes' && data.state === 'down') {
+                this.toggleHitboxes();
             }
         });
+    }
 
-        // Start the game loop
-        this.animate();
+    /**
+     * Restart the game after player death
+     */
+    restartGame() {
+        console.log('Restarting game...');
 
-        // Show instructions
-        this.uiManager.showInstructions();
+        // Check if player exists and is destroyed
+        if (this.playerPlane && this.playerPlane.isDestroyed) {
+            // Properly clean up the old player plane
+            const oldPlane = this.playerPlane;
+
+            // Force removal of the old plane
+            if (oldPlane.removeFromScene) {
+                oldPlane.removeFromScene();
+            }
+
+            // Remove from planes array
+            this.planes = this.planes.filter(plane => plane !== oldPlane);
+
+            // Create a new player plane
+            this.createPlayerPlane();
+
+            // Show notification
+            this.eventBus.emit('notification', {
+                message: 'Game restarted! Good luck!',
+                type: 'success'
+            });
+
+            // Reset camera mode if needed
+            if (this.sceneManager && this.sceneManager.camera) {
+                this.sceneManager.camera.freeFallMode = false;
+                this.sceneManager.camera.cinematicMode = false;
+            }
+        } else {
+            console.log('Game restart requested but player is not destroyed or does not exist');
+        }
     }
 
     /**
@@ -176,6 +245,11 @@ export default class Game {
         // Store the enemy plane
         this.enemyPlanes.push(enemyPlane);
         this.planes.push(enemyPlane);
+
+        // Add to ammo system for collision detection
+        if (this.playerPlane && this.playerPlane.ammoSystem) {
+            this.playerPlane.ammoSystem.addPlane(enemyPlane);
+        }
 
         console.log('Enemy plane created at position:', position);
         return enemyPlane;
@@ -455,6 +529,21 @@ export default class Game {
 
             // Display updated health
             this.displayHealthDebug();
+        }
+    }
+
+    /**
+     * Toggle hitbox visualization
+     */
+    toggleHitboxes() {
+        if (this.playerPlane && this.playerPlane.ammoSystem) {
+            this.playerPlane.ammoSystem.toggleHitboxes();
+
+            // Show notification
+            this.eventBus.emit('notification', {
+                message: `Hitboxes ${this.playerPlane.ammoSystem.showHitboxes ? 'Shown' : 'Hidden'}`,
+                type: 'info'
+            });
         }
     }
 } 

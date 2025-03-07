@@ -11,7 +11,7 @@ export default class Plane extends Entity {
 
         // Flight mechanics variables
         this.speed = 0;
-        this.maxSpeed = 3.5;
+        this.maxSpeed = 1.5;
         // Wing trails properties
         this.wingTrails = {
             left: null,
@@ -24,7 +24,7 @@ export default class Plane extends Entity {
 
         this.minTakeoffSpeed = 0.3;
         this.acceleration = 0.001;
-        this.deceleration = 0.002;
+        this.deceleration = 0.01;
         this.isAirborne = false;
 
         // Flag to track first flight info update

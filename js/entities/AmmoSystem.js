@@ -1,5 +1,6 @@
 // Ammo System for handling bullets
 import * as THREE from 'three';
+import HitEffect from '../effects/HitEffect.js';
 
 export default class AmmoSystem {
     constructor(scene, eventBus) {
@@ -7,18 +8,32 @@ export default class AmmoSystem {
         this.eventBus = eventBus;
 
         // Bullet properties
-        this.bulletSpeed = 1000.0; // Increased from 10.0 to 80.0 for much faster "laser-like" bullets
-        this.bulletLifetime = 2000; // ms
+        this.bulletSpeed = 1500.0; // Increased from 1000.0 for even faster bullets
+        this.bulletLifetime = 200; // Reduced from 2000ms to 750 for shorter lifetime
         this.bulletSize = 0.08;
         this.fireCooldown = 80; // ms between shots (5x faster than original 80ms)
         this.lastFireTime = 0;
+        this.bulletDamage = 10; // Damage amount per bullet hit
 
         // Store active bullets
         this.bullets = [];
 
+        // Collision detection properties
+        this.collisionRadius = 8.0; // Changed from 12.0 to 8.0 for a more balanced hitbox
+        this.showHitboxes = false; // Toggle for debugging hitboxes
+
+        // Reference to planes for collision detection
+        this.planes = [];
+
+        // Collection of hitbox visualizers (for debugging)
+        this.hitboxVisualizers = {};
+
+        // Initialize hit effect system
+        this.hitEffect = new HitEffect(scene);
+
         // Create bullet material and geometry (reused for performance)
         // Create a more elongated, laser-like appearance
-        this.bulletGeometry = new THREE.CylinderGeometry(0.16, 0.16, 1.7, 18);
+        this.bulletGeometry = new THREE.CylinderGeometry(0.20, 0.20, 2.0, 18);
         // Fix orientation: rotate around Z-axis instead of X-axis to align with forward direction
         this.bulletGeometry.rotateZ(Math.PI / 2);
         this.bulletGeometry.rotateY(Math.PI / 2);
@@ -27,13 +42,13 @@ export default class AmmoSystem {
         this.bulletMaterial = new THREE.MeshBasicMaterial({
             color: 0xFFFF00,
             transparent: true,
-            opacity: 0.9,
+            opacity: 1.0,
             emissive: 0xFFFF00,
-            emissiveIntensity: 2
+            emissiveIntensity: 3
         });
 
         // Optional: Create a secondary glow effect
-        this.bulletGlowGeometry = new THREE.CylinderGeometry(0.07, 0.07, 0.5, 8);
+        this.bulletGlowGeometry = new THREE.CylinderGeometry(0.10, 0.10, 0.8, 8);
         this.bulletGlowGeometry.rotateZ(Math.PI / 2); // Fix orientation here too
         this.bulletGlowMaterial = new THREE.MeshBasicMaterial({
             color: 0xFFAA00, // Slightly orange/yellow
@@ -80,6 +95,123 @@ export default class AmmoSystem {
     }
 
     /**
+     * Set planes array for collision detection
+     * @param {Array} planes - Array of planes to check for collisions
+     */
+    setPlanes(planes) {
+        this.planes = planes;
+
+        // Create hitbox visualizers for all planes
+        for (const plane of planes) {
+            this.createHitboxVisualizer(plane);
+        }
+    }
+
+    /**
+     * Add a plane to collision detection
+     * @param {Plane} plane - Plane to add to collision detection
+     */
+    addPlane(plane) {
+        if (!this.planes.includes(plane)) {
+            this.planes.push(plane);
+            this.createHitboxVisualizer(plane);
+        }
+    }
+
+    /**
+     * Remove a plane from collision detection
+     * @param {Plane} plane - Plane to remove from collision detection
+     */
+    removePlane(plane) {
+        const index = this.planes.indexOf(plane);
+        if (index !== -1) {
+            this.planes.splice(index, 1);
+        }
+    }
+
+    /**
+     * Check collisions between bullets and planes
+     * @returns {Array} Collisions that occurred
+     */
+    checkCollisions() {
+        const collisions = [];
+        const toRemove = [];
+
+        // Skip if no planes to check
+        if (!this.planes || this.planes.length === 0) {
+            return collisions;
+        }
+
+        // Check each bullet against each plane
+        for (let i = 0; i < this.bullets.length; i++) {
+            const bullet = this.bullets[i];
+
+            // Skip inactive bullets
+            if (!bullet.active) continue;
+
+            // Store bullet origin plane for excluding self-collisions
+            const bulletSourcePlane = bullet.sourcePlane;
+
+            for (const plane of this.planes) {
+                // Skip if plane is destroyed
+                if (!plane.isAlive()) continue;
+
+                // Skip if bullet belongs to this plane (prevent shooting yourself)
+                if (bulletSourcePlane === plane) continue;
+
+                // Get plane position (assume plane mesh has position property)
+                const planePosition = plane.mesh.position;
+
+                // Simple distance-based collision detection
+                const distance = bullet.mesh.position.distanceTo(planePosition);
+
+                if (distance < this.collisionRadius) {
+                    // Get collision position (exact bullet position for better visuals)
+                    const collisionPosition = bullet.mesh.position.clone();
+
+                    // Collision detected
+                    collisions.push({
+                        bullet: bullet,
+                        plane: plane,
+                        position: collisionPosition
+                    });
+
+                    // Apply damage to the plane
+                    plane.damage(this.bulletDamage);
+
+                    // Play hit sound
+                    this.eventBus.emit('sound.play', { sound: 'hit' });
+
+                    // Create hit effect at collision position
+                    this.hitEffect.triggerEffect(collisionPosition);
+
+                    // Mark bullet for removal
+                    toRemove.push(i);
+
+                    // Break inner loop as this bullet has hit something
+                    break;
+                }
+            }
+        }
+
+        // Remove bullets that hit something (in reverse order to avoid index issues)
+        for (let i = toRemove.length - 1; i >= 0; i--) {
+            const index = toRemove[i];
+            const bullet = this.bullets[index];
+
+            // Deactivate the bullet and its glow
+            bullet.active = false;
+            bullet.mesh.visible = false;
+            bullet.glowMesh.visible = false;
+
+            // Remove from active bullets array
+            this.bullets.splice(index, 1);
+        }
+
+        return collisions;
+    }
+
+    /**
      * Fire bullets from both wings
      * @param {THREE.Object3D} plane - The plane mesh
      * @param {THREE.Vector3} planeVelocity - The plane's velocity vector
@@ -119,19 +251,29 @@ export default class AmmoSystem {
         leftWingPos.addVectors(planePos, leftWingLocal);
         rightWingPos.addVectors(planePos, rightWingLocal);
 
-        // Get bullet direction (forward vector of plane)
-        const bulletDirection = new THREE.Vector3(0, 0, -1).applyQuaternion(planeQuat).normalize();
+        // Get central forward direction (for convergence focal point)
+        const centerDirection = new THREE.Vector3(0, 0, -1).applyQuaternion(planeQuat).normalize();
 
         // Forward offset - move spawn point ahead of the wing
         const forwardOffset = 3.0; // Units in front of the wing tips
 
         // Apply forward offset to spawn positions
-        leftWingPos.addScaledVector(bulletDirection, forwardOffset);
-        rightWingPos.addScaledVector(bulletDirection, forwardOffset);
+        leftWingPos.addScaledVector(centerDirection, forwardOffset);
+        rightWingPos.addScaledVector(centerDirection, forwardOffset);
 
-        // Create bullets at wing positions
-        this.createBullet(leftWingPos, bulletDirection, planeVelocity);
-        this.createBullet(rightWingPos, bulletDirection, planeVelocity);
+        // Convergence distance - where bullets will meet
+        const convergenceDistance = 300; // Increased from 100 to 300 units for a much farther convergence point
+
+        // Calculate focal point where bullets should converge
+        const focalPoint = planePos.clone().addScaledVector(centerDirection, convergenceDistance);
+
+        // Calculate direction vectors from wing positions to focal point
+        const leftBulletDirection = focalPoint.clone().sub(leftWingPos).normalize();
+        const rightBulletDirection = focalPoint.clone().sub(rightWingPos).normalize();
+
+        // Create bullets at wing positions with converging directions
+        this.createBullet(leftWingPos, leftBulletDirection, planeVelocity);
+        this.createBullet(rightWingPos, rightBulletDirection, planeVelocity);
 
         // Play sound effect with debugging
         if (this.debugSound) {
@@ -158,6 +300,10 @@ export default class AmmoSystem {
         // Activate the bullet
         bullet.active = true;
         bullet.creationTime = performance.now();
+
+        // Store reference to source plane for collision detection
+        // This assumes the plane mesh was passed to fireBullets
+        bullet.sourcePlane = this.currentSourcePlane;
 
         // Set main bullet
         bullet.mesh.visible = true;
@@ -215,6 +361,15 @@ export default class AmmoSystem {
             }
         }
 
+        // Check for collisions with planes
+        this.checkCollisions();
+
+        // Update hit effects
+        this.hitEffect.update(deltaTime);
+
+        // Update hitbox visualizers
+        this.updateHitboxVisualizers();
+
         // Remove expired bullets (in reverse order to avoid index issues)
         for (let i = toRemove.length - 1; i >= 0; i--) {
             const index = toRemove[i];
@@ -246,7 +401,78 @@ export default class AmmoSystem {
         this.bulletGlowGeometry.dispose();
         this.bulletGlowMaterial.dispose();
 
+        // Dispose of hitbox visualizers
+        for (const planeId in this.hitboxVisualizers) {
+            const visualizer = this.hitboxVisualizers[planeId];
+            if (visualizer.mesh) {
+                this.scene.remove(visualizer.mesh);
+                visualizer.mesh.geometry.dispose();
+                visualizer.mesh.material.dispose();
+            }
+        }
+        this.hitboxVisualizers = {};
+
+        // Dispose of hit effect system
+        this.hitEffect.dispose();
+
         this.bulletPool = [];
         this.bullets = [];
+    }
+
+    /**
+     * Create a hitbox visualizer for a plane
+     * @param {Object} plane - The plane to create a hitbox for
+     */
+    createHitboxVisualizer(plane) {
+        // Create a low-poly sphere as the hitbox visualizer
+        const geometry = new THREE.IcosahedronGeometry(this.collisionRadius, 1);
+        const material = new THREE.MeshBasicMaterial({
+            color: 0xFF0000,
+            transparent: true,
+            opacity: 0.3,
+            wireframe: true
+        });
+
+        const hitboxMesh = new THREE.Mesh(geometry, material);
+        hitboxMesh.visible = this.showHitboxes;
+        this.scene.add(hitboxMesh);
+
+        // Store the visualizer with the plane ID as the key
+        const planeId = plane.id || Math.random().toString(36).substr(2, 9);
+        this.hitboxVisualizers[planeId] = {
+            mesh: hitboxMesh,
+            plane: plane
+        };
+
+        return hitboxMesh;
+    }
+
+    /**
+     * Update the positions of all hitbox visualizers
+     */
+    updateHitboxVisualizers() {
+        if (!this.showHitboxes) return;
+
+        for (const planeId in this.hitboxVisualizers) {
+            const visualizer = this.hitboxVisualizers[planeId];
+            if (visualizer.plane && visualizer.plane.mesh) {
+                visualizer.mesh.position.copy(visualizer.plane.mesh.position);
+            }
+        }
+    }
+
+    /**
+     * Toggle the visibility of hitbox visualizers
+     * @param {boolean} show - Whether to show or hide the hitboxes
+     */
+    toggleHitboxes(show) {
+        this.showHitboxes = show !== undefined ? show : !this.showHitboxes;
+
+        for (const planeId in this.hitboxVisualizers) {
+            const visualizer = this.hitboxVisualizers[planeId];
+            if (visualizer.mesh) {
+                visualizer.mesh.visible = this.showHitboxes;
+            }
+        }
     }
 } 

@@ -206,7 +206,7 @@ export default class AudioManager {
         // Style the button
         enablerButton.style.position = 'absolute';
         enablerButton.style.top = '10px';
-        enablerButton.style.right = '200px'; // Move to where sound toggle was
+        enablerButton.style.right = '10px';
         enablerButton.style.padding = '10px 15px';
         enablerButton.style.backgroundColor = 'rgba(33, 150, 243, 0.8)';
         enablerButton.style.color = 'white';
@@ -240,7 +240,7 @@ export default class AudioManager {
         // Style the button
         soundToggle.style.position = 'absolute';
         soundToggle.style.top = '10px';
-        soundToggle.style.right = '10px'; // Move to where enabler was
+        soundToggle.style.right = '200px'; // Increased to prevent overlap
         soundToggle.style.padding = '10px 15px';
         soundToggle.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
         soundToggle.style.color = 'white';
@@ -416,6 +416,241 @@ export default class AudioManager {
     }
 
     /**
+     * Create hit sound effect
+     * @returns {AudioBufferSourceNode} The hit sound source
+     */
+    createHitSound() {
+        if (!this.audioContext || !this.isAudioStarted) return null;
+
+        try {
+            // Create an audio buffer source
+            const hitSound = this.audioContext.createOscillator();
+            const hitGain = this.audioContext.createGain();
+
+            // Configure oscillator for a "hit" sound
+            hitSound.type = 'square';
+            hitSound.frequency.setValueAtTime(120, this.audioContext.currentTime);
+            hitSound.frequency.exponentialRampToValueAtTime(40, this.audioContext.currentTime + 0.1);
+
+            // Configure gain node (for volume envelope)
+            hitGain.gain.setValueAtTime(0.7, this.audioContext.currentTime);
+            hitGain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.15);
+
+            // Add distortion for a "hit" character
+            const distortion = this.audioContext.createWaveShaper();
+            distortion.curve = this.makeDistortionCurve(100);
+
+            // Create a low-pass filter for a "thud" quality
+            const lowpass = this.audioContext.createBiquadFilter();
+            lowpass.type = 'lowpass';
+            lowpass.frequency.setValueAtTime(800, this.audioContext.currentTime);
+            lowpass.frequency.exponentialRampToValueAtTime(100, this.audioContext.currentTime + 0.1);
+
+            // Connect the nodes
+            hitSound.connect(distortion);
+            distortion.connect(lowpass);
+            lowpass.connect(hitGain);
+            hitGain.connect(this.audioContext.destination);
+
+            return {
+                oscillator: hitSound,
+                gain: hitGain,
+                lowpass: lowpass,
+                distortion: distortion
+            };
+        } catch (error) {
+            console.error('Error creating hit sound:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Make a distortion curve for the hit sound
+     * @param {number} amount - Amount of distortion
+     * @returns {Float32Array} Distortion curve
+     */
+    makeDistortionCurve(amount) {
+        const k = amount;
+        const samples = 44100;
+        const curve = new Float32Array(samples);
+        const deg = Math.PI / 180;
+
+        for (let i = 0; i < samples; ++i) {
+            const x = i * 2 / samples - 1;
+            curve[i] = (3 + k) * x * 20 * deg / (Math.PI + k * Math.abs(x));
+        }
+
+        return curve;
+    }
+
+    /**
+     * Play hit sound effect
+     */
+    playHitSound() {
+        if (!this.audioContext || !this.isAudioStarted || this.isMuted) return;
+
+        try {
+            const hitSoundNodes = this.createHitSound();
+            if (!hitSoundNodes) return;
+
+            // Start the oscillator
+            hitSoundNodes.oscillator.start();
+
+            // Stop after a short duration
+            hitSoundNodes.oscillator.stop(this.audioContext.currentTime + 0.15);
+
+            // Cleanup after sound finishes
+            setTimeout(() => {
+                hitSoundNodes.oscillator.disconnect();
+                hitSoundNodes.gain.disconnect();
+                hitSoundNodes.lowpass.disconnect();
+                hitSoundNodes.distortion.disconnect();
+            }, 200);
+
+        } catch (error) {
+            console.error('Error playing hit sound:', error);
+        }
+    }
+
+    /**
+     * Create explosion sound effect
+     * @returns {Object} Audio nodes for the explosion sound
+     */
+    createExplosionSound() {
+        if (!this.audioContext || !this.isAudioStarted) return null;
+
+        try {
+            // Create oscillators for a complex explosion sound
+            const lowOscillator = this.audioContext.createOscillator();
+            const noiseBuffer = this.createNoiseBuffer();
+            const noiseSource = this.audioContext.createBufferSource();
+
+            // Create gain nodes for volume control
+            const mainGain = this.audioContext.createGain();
+            const lowGain = this.audioContext.createGain();
+            const noiseGain = this.audioContext.createGain();
+
+            // Configure low rumble oscillator
+            lowOscillator.type = 'sine';
+            lowOscillator.frequency.setValueAtTime(60, this.audioContext.currentTime);
+            lowOscillator.frequency.exponentialRampToValueAtTime(20, this.audioContext.currentTime + 1.5);
+
+            // Configure noise
+            noiseSource.buffer = noiseBuffer;
+
+            // Configure gain envelope
+            mainGain.gain.setValueAtTime(0, this.audioContext.currentTime);
+            mainGain.gain.linearRampToValueAtTime(0.8, this.audioContext.currentTime + 0.1); // Fast attack
+            mainGain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 2.0); // Long decay
+
+            // Set individual component gains
+            lowGain.gain.setValueAtTime(0.7, this.audioContext.currentTime);
+            noiseGain.gain.setValueAtTime(0.5, this.audioContext.currentTime);
+            noiseGain.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + 0.8);
+
+            // Create a compressor for more punch
+            const compressor = this.audioContext.createDynamicsCompressor();
+            compressor.threshold.setValueAtTime(-10, this.audioContext.currentTime);
+            compressor.knee.setValueAtTime(10, this.audioContext.currentTime);
+            compressor.ratio.setValueAtTime(12, this.audioContext.currentTime);
+            compressor.attack.setValueAtTime(0, this.audioContext.currentTime);
+            compressor.release.setValueAtTime(0.25, this.audioContext.currentTime);
+
+            // Create a low-pass filter
+            const lowpass = this.audioContext.createBiquadFilter();
+            lowpass.type = 'lowpass';
+            lowpass.frequency.setValueAtTime(800, this.audioContext.currentTime);
+            lowpass.frequency.exponentialRampToValueAtTime(100, this.audioContext.currentTime + 1.0);
+
+            // Distortion for more grit
+            const distortion = this.audioContext.createWaveShaper();
+            distortion.curve = this.makeDistortionCurve(100);
+
+            // Connect the nodes
+            lowOscillator.connect(lowGain);
+            noiseSource.connect(noiseGain);
+
+            lowGain.connect(mainGain);
+            noiseGain.connect(mainGain);
+
+            mainGain.connect(distortion);
+            distortion.connect(lowpass);
+            lowpass.connect(compressor);
+            compressor.connect(this.audioContext.destination);
+
+            return {
+                lowOscillator: lowOscillator,
+                noiseSource: noiseSource,
+                lowGain: lowGain,
+                noiseGain: noiseGain,
+                mainGain: mainGain,
+                compressor: compressor,
+                lowpass: lowpass,
+                distortion: distortion
+            };
+        } catch (error) {
+            console.error('Error creating explosion sound:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Create a noise buffer for explosion sound
+     * @returns {AudioBuffer} Buffer containing noise
+     */
+    createNoiseBuffer() {
+        // Create a 1-second buffer of noise
+        const bufferSize = this.audioContext.sampleRate;
+        const buffer = this.audioContext.createBuffer(1, bufferSize, this.audioContext.sampleRate);
+        const output = buffer.getChannelData(0);
+
+        for (let i = 0; i < bufferSize; i++) {
+            output[i] = Math.random() * 2 - 1;
+        }
+
+        return buffer;
+    }
+
+    /**
+     * Play explosion sound effect
+     */
+    playExplosionSound() {
+        if (!this.audioContext || !this.isAudioStarted || this.isMuted) return;
+
+        try {
+            const explosionNodes = this.createExplosionSound();
+            if (!explosionNodes) return;
+
+            // Start the sound sources
+            explosionNodes.lowOscillator.start();
+            explosionNodes.noiseSource.start();
+
+            // Stop after duration
+            explosionNodes.lowOscillator.stop(this.audioContext.currentTime + 2.0);
+            explosionNodes.noiseSource.stop(this.audioContext.currentTime + 2.0);
+
+            // Cleanup
+            setTimeout(() => {
+                try {
+                    explosionNodes.lowOscillator.disconnect();
+                    explosionNodes.noiseSource.disconnect();
+                    explosionNodes.lowGain.disconnect();
+                    explosionNodes.noiseGain.disconnect();
+                    explosionNodes.mainGain.disconnect();
+                    explosionNodes.compressor.disconnect();
+                    explosionNodes.lowpass.disconnect();
+                    explosionNodes.distortion.disconnect();
+                } catch (e) {
+                    console.error('Error cleaning up explosion sound nodes:', e);
+                }
+            }, 3000);
+
+        } catch (error) {
+            console.error('Error playing explosion sound:', error);
+        }
+    }
+
+    /**
      * Set up event listeners
      */
     setupEventListeners() {
@@ -432,7 +667,7 @@ export default class AudioManager {
             }
         });
 
-        // Listen for gunfire events
+        // Listen for sound events
         this.eventBus.on('sound.play', (data) => {
             if (data.sound === 'gunfire') {
                 // Ensure audio is started
@@ -445,6 +680,36 @@ export default class AudioManager {
                     }, 100);
                 } else {
                     this.playGunfireSound();
+                }
+            }
+
+            // Handle hit sound effects
+            if (data.sound === 'hit') {
+                // Ensure audio is started
+                if (!this.isAudioStarted) {
+                    console.log('Hit sound event received, initializing audio');
+                    this.startAudio();
+                    // Small delay to allow audio initialization before playing
+                    setTimeout(() => {
+                        this.playHitSound();
+                    }, 100);
+                } else {
+                    this.playHitSound();
+                }
+            }
+
+            // Handle explosion sound effects
+            if (data.sound === 'explosion') {
+                // Ensure audio is started
+                if (!this.isAudioStarted) {
+                    console.log('Explosion sound event received, initializing audio');
+                    this.startAudio();
+                    // Small delay to allow audio initialization before playing
+                    setTimeout(() => {
+                        this.playExplosionSound();
+                    }, 100);
+                } else {
+                    this.playExplosionSound();
                 }
             }
         });

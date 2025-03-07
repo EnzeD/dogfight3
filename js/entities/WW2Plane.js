@@ -362,6 +362,9 @@ export default class WW2Plane extends Plane {
         const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(this.mesh.quaternion);
         velocity.copy(forward).multiplyScalar(this.speed);
 
+        // Set source plane for collision detection
+        this.ammoSystem.currentSourcePlane = this;
+
         // Fire bullets
         this.ammoSystem.fireBullets(this.mesh, velocity);
 

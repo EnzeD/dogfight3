@@ -48,7 +48,7 @@ export default class InstructionsPanel {
                 <li>← - Yaw left</li>
                 <li>→ - Yaw right</li>
                 <li>F - Toggle auto-stabilization</li>
-                <li>Space - Fire ammo</li>
+                <li>Space - Fire weapons</li>
             </ul>
             <p><strong>Camera Controls:</strong></p>
             <ul style="padding-left: 20px;">
@@ -60,6 +60,9 @@ export default class InstructionsPanel {
             <p><strong>Game Controls:</strong></p>
             <ul style="padding-left: 20px;">
                 <li>E - Spawn 20 enemy planes</li>
+                <li>R - Restart game after death</li>
+                <li>T - Toggle wing trails</li>
+                <li>B - Toggle hitboxes (debug)</li>
             </ul>
             <p style="margin-bottom: 0; font-style: italic; text-align: center;">
                 Click this panel to close

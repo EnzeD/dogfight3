@@ -1,6 +1,7 @@
 // Plane Factory for creating different types of planes
 import WW2Plane from './WW2Plane.js';
 import EnemyPlane from './EnemyPlane.js';
+import PlayerWW2Plane from './PlayerWW2Plane.js';
 
 export default class PlaneFactory {
     constructor(scene, eventBus) {
@@ -9,11 +10,11 @@ export default class PlaneFactory {
     }
 
     /**
-     * Create a WW2-style plane
-     * @returns {WW2Plane} The created plane
+     * Create a WW2-style plane for the player with enhanced destruction effects
+     * @returns {PlayerWW2Plane} The created plane with explosion and free fall effects
      */
     createWW2Plane() {
-        return new WW2Plane(this.scene, this.eventBus);
+        return new PlayerWW2Plane(this.scene, this.eventBus);
     }
 
     /**

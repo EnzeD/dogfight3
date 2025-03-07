@@ -33,6 +33,16 @@ export default class Camera {
         this.followDistance = 25;
         this.springStrength = 0.05; // For smooth camera movement
 
+        // Free fall camera settings
+        this.freeFallMode = false;
+        this.freeFallDistance = 40; // Distance during free fall (farther back to see the plane crash)
+        this.freeFallHeight = 15;   // Height during free fall (slightly higher to see better)
+
+        // Dramatic cinematic mode when plane is destroyed
+        this.cinematicMode = false;
+        this.cinematicTimer = 0;
+        this.cinematicDuration = 2000; // ms
+
         // Create OrbitControls
         this.controls = new OrbitControls(this.camera, domElement);
         this.setupControls();
@@ -42,6 +52,20 @@ export default class Camera {
             this.isUserControlling = data.isManual;
             if (data.isManual) {
                 this.lastUserInteractionTime = performance.now();
+            }
+        });
+
+        // Listen for plane destroyed events
+        this.eventBus.on('plane.destroyed', (data, source) => {
+            // Only switch to free fall mode if the player plane is destroyed
+            if (source === 'player') {
+                console.log('Camera: Player plane destroyed, switching to free fall camera mode');
+                this.freeFallMode = true;
+                this.cinematicMode = true;
+                this.cinematicTimer = performance.now();
+
+                // Disable orbit controls during cinematic sequence
+                this.controls.enabled = false;
             }
         });
     }
@@ -114,6 +138,41 @@ export default class Camera {
         const planePosition = this.target.mesh.position.clone();
         const planeDirection = new THREE.Vector3(0, 0, -1).applyQuaternion(this.target.mesh.quaternion);
 
+        // Handle cinematic mode (dramatic camera when plane is first destroyed)
+        const currentTime = performance.now();
+        if (this.cinematicMode) {
+            // Calculate progress through the cinematic sequence (0-1)
+            const cinematicProgress = Math.min(1.0, (currentTime - this.cinematicTimer) / this.cinematicDuration);
+
+            // End cinematic mode if timer is complete
+            if (cinematicProgress >= 1.0) {
+                this.cinematicMode = false;
+                this.controls.enabled = true; // Re-enable controls after cinematic
+            }
+
+            // Dramatic camera movement: zoom out and up for a better view of the crash
+            const startDistance = this.followDistance;
+            const endDistance = this.freeFallDistance;
+            const cinematicDistance = startDistance + (endDistance - startDistance) * cinematicProgress;
+
+            const startHeight = 5;
+            const endHeight = this.freeFallHeight;
+            const cinematicHeight = startHeight + (endHeight - startHeight) * cinematicProgress;
+
+            // Set camera to a dramatic position
+            const offsetVector = planeDirection.clone().multiplyScalar(-cinematicDistance);
+            const desiredPosition = planePosition.clone().add(offsetVector);
+            desiredPosition.y += cinematicHeight;
+
+            // Smoothly move camera to the cinematic position
+            this.camera.position.lerp(desiredPosition, 0.05);
+
+            // Always look at the plane
+            this.controls.target.copy(planePosition);
+
+            return; // Skip normal camera update during cinematic
+        }
+
         // Store previous target position to calculate movement delta
         const previousTargetPosition = this.controls.target.clone();
 
@@ -129,27 +188,29 @@ export default class Camera {
         }
 
         // Handle automatic camera behavior only when not manually controlling
-        const currentTime = performance.now();
         if (!this.isUserControlling &&
             (currentTime - this.lastUserInteractionTime >= this.cameraFollowDelay)) {
 
-            // Calculate ideal camera position based on plane's position and direction
-            const idealOffset = planeDirection.clone().multiplyScalar(-this.followDistance);
-            idealOffset.y += 5; // Position camera above the plane
+            // Different camera behavior for free fall mode
+            if (this.freeFallMode && this.target.isDestroyed) {
+                // In free fall mode, position camera farther back and slightly higher
+                const freeFallOffset = planeDirection.clone().multiplyScalar(-this.freeFallDistance);
+                const desiredPosition = planePosition.clone().add(freeFallOffset);
+                desiredPosition.y += this.freeFallHeight;
 
-            // Calculate speed-based look-ahead distance
-            const speed = this.target.speed || 0;
-            const maxSpeed = this.target.maxSpeed || 1;
-            const lookAheadDistance = 10 + (speed / maxSpeed) * 20;
+                // Smooth transition to desired position
+                this.camera.position.lerp(desiredPosition, this.springStrength);
+            }
+            else {
+                // Normal flight camera follows behind and slightly above
+                const idealOffset = planeDirection.clone().multiplyScalar(-this.followDistance);
+                idealOffset.y += 5; // Position above the plane
 
-            // Calculate look target ahead of the plane (for smoother following)
-            const lookTarget = planePosition.clone().add(
-                planeDirection.clone().multiplyScalar(lookAheadDistance)
-            );
+                const desiredPosition = planePosition.clone().add(idealOffset);
 
-            // Smoothly move camera to ideal position
-            const idealPosition = planePosition.clone().add(idealOffset);
-            this.camera.position.lerp(idealPosition, this.springStrength);
+                // Smooth transition to ideal position
+                this.camera.position.lerp(desiredPosition, this.springStrength);
+            }
         }
 
         // Always update controls
