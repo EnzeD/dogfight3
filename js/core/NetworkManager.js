@@ -919,7 +919,7 @@ export default class NetworkManager {
             remotePlane.ammoSystem = new AmmoSystem(remotePlane.scene, this.eventBus);
         }
 
-        // Fire bullets from the remote plane without playing sound (we'll play it separately)
+        // Fire bullets from the remote plane without playing sound
         if (remotePlane.ammoSystem) {
             // Make sure the remote plane's position is correct
             if (position.distanceTo(remotePlane.mesh.position) > 20) {
@@ -931,8 +931,8 @@ export default class NetworkManager {
             this.fireBulletsWithoutSound(remotePlane.mesh, velocity, remotePlane.ammoSystem);
         }
 
-        // Play gunfire sound for remote planes (only for other players, not yourself)
-        this.eventBus.emit('sound.play', { sound: 'gunfire', volume: 0.3 });
+        // Don't play gunfire sound for remote planes
+        // Remote players' shooting will be silent as requested
     }
 
     /**

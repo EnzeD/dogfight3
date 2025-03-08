@@ -92,13 +92,7 @@ function startGame(options) {
         previewGame = null;
     }
 
-    // Initialize game with selected mode
-    activeGame = new Game();
-
-    // Store game instance globally for debugging if needed
-    window.game = activeGame;
-
-    // Handle different game modes
+    // Handle different game modes - UPDATE URL FIRST before creating game
     if (options.mode === 'multi') {
         console.log('Starting multiplayer mode with callsign:', options.callsign);
 
@@ -108,9 +102,6 @@ function startGame(options) {
 
         // Update URL without reloading page
         window.history.pushState({}, '', currentUrl);
-
-        // Store callsign for network manager
-        activeGame.playerCallsign = options.callsign;
     } else {
         console.log('Starting solo mode');
 
@@ -120,6 +111,17 @@ function startGame(options) {
 
         // Update URL without reloading page
         window.history.pushState({}, '', currentUrl);
+    }
+
+    // Initialize game AFTER URL parameters are set
+    activeGame = new Game();
+
+    // Store game instance globally for debugging if needed
+    window.game = activeGame;
+
+    // Store callsign for network manager if in multiplayer mode
+    if (options.mode === 'multi' && options.callsign) {
+        activeGame.playerCallsign = options.callsign;
     }
 }
 
