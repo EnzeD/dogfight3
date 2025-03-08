@@ -331,16 +331,8 @@ export default class EnemyPlane extends WW2Plane {
 
         // Check if wing trails are ready
         if (this.wingTrails && this.wingTrails.left && this.wingTrails.right) {
-            // Red tint for enemy planes
-            const redTrailColor = 0xff5555;
-
-            if (this.wingTrails.left.mesh && this.wingTrails.left.mesh.material) {
-                this.wingTrails.left.mesh.material.color.setHex(redTrailColor);
-            }
-
-            if (this.wingTrails.right.mesh && this.wingTrails.right.mesh.material) {
-                this.wingTrails.right.mesh.material.color.setHex(redTrailColor);
-            }
+            // Use the default white color (same as player)
+            // No need to set a custom color
 
             // Mark as customized
             this.wingTrailsCustomized = true;
