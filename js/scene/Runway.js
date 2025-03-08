@@ -89,7 +89,7 @@ export default class Runway {
 
             centerStripe.rotation.x = Math.PI / 2;
             // Apply the same -30 Z offset as the runway
-            centerStripe.position.set(0, 0.04, z - 30); // Slightly above runway
+            centerStripe.position.set(0, 0.08, z - 30); // Slightly above runway
 
             this.scene.add(centerStripe);
         }
@@ -101,14 +101,14 @@ export default class Runway {
         const startThreshold = new THREE.Mesh(thresholdGeometry, markingMaterial);
         startThreshold.receiveShadow = true;
         startThreshold.rotation.x = Math.PI / 2;
-        startThreshold.position.set(0, 0.04, -runwayLength / 2 + 1 - 30); // Apply the Z offset
+        startThreshold.position.set(0, 0.08, -runwayLength / 2 + 1 - 30); // Apply the Z offset
         this.scene.add(startThreshold);
 
         // End threshold
         const endThreshold = new THREE.Mesh(thresholdGeometry, markingMaterial);
         endThreshold.receiveShadow = true;
         endThreshold.rotation.x = Math.PI / 2;
-        endThreshold.position.set(0, 0.04, runwayLength / 2 - 1 - 30); // Apply the Z offset
+        endThreshold.position.set(0, 0.08, runwayLength / 2 - 1 - 30); // Apply the Z offset
         this.scene.add(endThreshold);
     }
 
@@ -119,7 +119,7 @@ export default class Runway {
         // Position the tower next to the runway
         const runwayWidth = 30;
         const towerPosition = new THREE.Vector3(
-            runwayWidth / 2 + 10, // 10 units away from the edge of the runway
+            runwayWidth / 2 + 30, // 10 units away from the edge of the runway
             0,
             0 // Centered along the runway length
         );

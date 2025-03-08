@@ -125,9 +125,9 @@ export default class Game {
         this.sceneManager.setMainActor(this.playerPlane);
 
         // Position the player plane for testing combat
-        this.playerPlane.mesh.position.set(0, 30, 30); // Elevated and at a good distance
-        this.playerPlane.isAirborne = true; // Start airborne
-        this.playerPlane.speed = 0.5; // Set initial speed
+        this.playerPlane.mesh.position.set(0, 0.5, 35); // On the runway (slightly elevated to avoid clipping)
+        this.playerPlane.isAirborne = false; // Start on the ground
+        this.playerPlane.speed = 0; // Start stationary
 
         // Store reference to player plane in eventBus for proper event source identification
         this.eventBus.playerPlane = this.playerPlane;

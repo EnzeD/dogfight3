@@ -20,12 +20,35 @@ export default class Trees {
             willow: null
         };
 
+        // Tree instances (static trees based on map data)
+        this.staticTrees = [];
+
+        // Performance settings
+        this.detailLevel = this.qualitySettings.getCurrentSettings().environmentDetail;
+        this.segments = this.detailLevel === 'high' ? 8 : (this.detailLevel === 'medium' ? 6 : 4);
+        this.distanceThreshold = 500; // Distance at which to use LOD
+        this.maxFoliageSegments = this.detailLevel === 'high' ? 8 : (this.detailLevel === 'medium' ? 6 : 4);
+
+        // Instance-based rendering for similar trees (much more efficient)
+        this.useInstancing = true;
+        this.instancedMeshes = {};
+
+        // LOD matrices for optimized rendering
+        this.lodMatrix = {};
+
+        // Define tree heights for proper scaling
+        this.treeHeights = {
+            pine: 12,
+            oak: 15,
+            palm: 10,
+            birch: 12,
+            willow: 13
+        };
+
         // Get quality settings
-        const settings = this.qualitySettings.getCurrentSettings();
-        this.quality = settings.trees || {};
+        this.quality = this.qualitySettings.getCurrentSettings();
 
         // Store segment detail based on quality
-        this.segments = this.quality.segments || 6; // Default to medium
         this.foliageDetail = this.quality.foliageDetail || 2; // Default to medium
 
         console.log(`Creating trees with quality settings: segments=${this.segments}, foliageDetail=${this.foliageDetail}`);
@@ -35,160 +58,212 @@ export default class Trees {
     }
 
     /**
-     * Initialize tree types and create instances
+     * Initialize tree types and place them on the map
      */
     init() {
-        this.createTreeTypes();
-        this.placeTrees();
-        console.log(`Trees initialized with ${this.trees.length} instances`);
-    }
+        console.log('Initializing trees with quality level:', this.detailLevel);
 
-    /**
-     * Create the 5 different tree type templates
-     */
-    createTreeTypes() {
-        // Create materials
+        // Create materials with performance-based detail
         const darkGreenMaterial = new THREE.MeshStandardMaterial({
-            color: 0x2d4c1e,
+            color: 0x2D4F2D,
             roughness: 0.8,
-            metalness: 0.2
-        });
-
-        const lightGreenMaterial = new THREE.MeshStandardMaterial({
-            color: 0x506b2f,
-            roughness: 0.9,
-            metalness: 0.1
-        });
-
-        const tropicalGreenMaterial = new THREE.MeshStandardMaterial({
-            color: 0x4a9c2e,
-            roughness: 0.7,
-            metalness: 0.2
-        });
-
-        const brightGreenMaterial = new THREE.MeshStandardMaterial({
-            color: 0x7cba3f,
-            roughness: 0.8,
-            metalness: 0.1
-        });
-
-        const yellowGreenMaterial = new THREE.MeshStandardMaterial({
-            color: 0x8fb742,
-            roughness: 0.9,
-            metalness: 0.1
-        });
-
-        const brownMaterial = new THREE.MeshStandardMaterial({
-            color: 0x5d4037,
-            roughness: 0.9,
             metalness: 0.0
         });
 
+        const lightGreenMaterial = new THREE.MeshStandardMaterial({
+            color: 0x4A7F3F,
+            roughness: 0.8,
+            metalness: 0.0
+        });
+
+        const tropicalGreenMaterial = new THREE.MeshStandardMaterial({
+            color: 0x3A9C35,
+            roughness: 0.7,
+            metalness: 0.1
+        });
+
+        const brightGreenMaterial = new THREE.MeshStandardMaterial({
+            color: 0x75A159,
+            roughness: 0.8,
+            metalness: 0.0
+        });
+
+        const yellowGreenMaterial = new THREE.MeshStandardMaterial({
+            color: 0x97B85F,
+            roughness: 0.8,
+            metalness: 0.0
+        });
+
+        const brownMaterial = new THREE.MeshStandardMaterial({
+            color: 0x7C4D2B,
+            roughness: 0.9,
+            metalness: 0.1
+        });
+
         const lightBrownMaterial = new THREE.MeshStandardMaterial({
-            color: 0x8b6b4c,
+            color: 0xA67D53,
             roughness: 0.8,
             metalness: 0.1
         });
 
-        // 1. Pine Tree (conical shape with trunk)
+        // Create tree types with optimized geometry
         this.treeTypes.pine = this.createPineTree(darkGreenMaterial, brownMaterial);
-
-        // 2. Oak Tree (broad canopy with thick trunk)
         this.treeTypes.oak = this.createOakTree(lightGreenMaterial, brownMaterial);
-
-        // 3. Palm Tree (tall trunk with fronds at top)
         this.treeTypes.palm = this.createPalmTree(tropicalGreenMaterial, lightBrownMaterial);
-
-        // 4. Birch Tree (tall, thin trunk with light foliage)
         this.treeTypes.birch = this.createBirchTree(brightGreenMaterial, new THREE.MeshStandardMaterial({
-            color: 0xdddddd,
+            color: 0xDDDDDD, // White birch trunk
             roughness: 0.7,
-            metalness: 0.2
+            metalness: 0.1
         }));
-
-        // 5. Willow Tree (drooping, weeping foliage)
         this.treeTypes.willow = this.createWillowTree(yellowGreenMaterial, brownMaterial);
+
+        // Generate tree instances if we have tree map data
+        if (this.treeMapData) {
+            this.placeTreesFromMap();
+        }
     }
 
     /**
-     * Create a pine tree model
+     * Set up instanced rendering for more efficient tree rendering
+     */
+    setupInstancedRendering() {
+        // Create instanced meshes for each tree type and component
+        const typeKeys = Object.keys(this.treeTypes);
+
+        for (const type of typeKeys) {
+            const treeTemplate = this.treeTypes[type];
+            const components = [];
+
+            // Create an array of component meshes for instancing
+            treeTemplate.traverse(child => {
+                if (child.isMesh) {
+                    components.push({
+                        geometry: child.geometry,
+                        material: child.material,
+                        matrix: child.matrix.clone(), // Keep original transform
+                        parent: child.parent
+                    });
+                }
+            });
+
+            // Count trees of this type in the map data
+            let count = 0;
+            for (const treeType in this.treeMapData) {
+                if (treeType === type && Array.isArray(this.treeMapData[treeType])) {
+                    count = this.treeMapData[treeType].length;
+                }
+            }
+
+            if (count > 0) {
+                // Create instanced mesh for each component
+                this.instancedMeshes[type] = components.map(component => {
+                    const instancedMesh = new THREE.InstancedMesh(
+                        component.geometry,
+                        component.material,
+                        count
+                    );
+                    instancedMesh.castShadow = true;
+                    instancedMesh.receiveShadow = true;
+                    this.scene.add(instancedMesh);
+                    return instancedMesh;
+                });
+            }
+        }
+    }
+
+    /**
+     * Create a pine tree with optimized geometry
      */
     createPineTree(foliageMaterial, trunkMaterial) {
         const tree = new THREE.Group();
 
-        // Create trunk
-        const trunkHeight = 15;
+        // Trunk parameters
+        const trunkHeight = 5;
         const trunkRadius = 0.5;
 
-        // Use quality-based segment count for trunk
-        const trunkGeometry = new THREE.CylinderGeometry(trunkRadius * 0.7, trunkRadius, trunkHeight, this.segments);
-        const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+        // Use lower segment count for the trunk
+        const trunkSegments = Math.min(this.segments, 6);
 
+        // Create optimized trunk with fewer sides
+        const trunkGeometry = new THREE.CylinderGeometry(trunkRadius * 0.7, trunkRadius, trunkHeight, trunkSegments);
+        const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
         trunk.position.y = trunkHeight / 2;
         trunk.castShadow = true;
         trunk.receiveShadow = true;
         tree.add(trunk);
 
-        // Create pine foliage layers (cones stacked on top of each other)
-        const layerCount = 4;
-        const baseRadius = 6;
-        const topRadius = 1;
+        // Cone layers for foliage - reduced segment count 
+        const foliageSegments = Math.min(this.maxFoliageSegments, 8);
 
-        for (let i = 0; i < layerCount; i++) {
-            const layerHeight = 6;
-            const ratio = 1 - (i / layerCount);
-            const layerRadius = baseRadius * ratio + topRadius * (1 - ratio);
+        // Multiple cones for the foliage with different heights/radiuses
+        const foliageLayers = [
+            { radius: 3.0, height: 6.0, y: trunkHeight + 3.0 },
+            { radius: 2.5, height: 5.0, y: trunkHeight + 5.5 },
+            { radius: 1.8, height: 4.0, y: trunkHeight + 7.5 }
+        ];
 
-            // Use quality-based segment count for foliage
+        // If low quality, only use 2 layers
+        if (this.detailLevel === 'low') {
+            foliageLayers.pop();
+        }
+
+        // Create each cone layer
+        foliageLayers.forEach(layer => {
             const coneGeometry = new THREE.ConeGeometry(
-                layerRadius,
-                layerHeight,
-                this.segments,
-                this.foliageDetail
+                layer.radius,
+                layer.height,
+                foliageSegments, // Radial segments - reduced
+                1,              // Height segments - minimized
+                false           // Open ended = false
             );
 
             const cone = new THREE.Mesh(coneGeometry, foliageMaterial);
-
-            // Position cones from bottom to top
-            const layerPosition = trunkHeight * 0.6 + (layerHeight * 0.6 * i);
-            cone.position.y = layerPosition;
-
+            cone.position.y = layer.y;
             cone.castShadow = true;
             cone.receiveShadow = true;
             tree.add(cone);
-        }
+        });
 
         return tree;
     }
 
     /**
-     * Create an oak tree model
+     * Create an oak tree with optimized geometry
      */
     createOakTree(foliageMaterial, trunkMaterial) {
         const tree = new THREE.Group();
 
-        // Create trunk
-        const trunkGeometry = new THREE.CylinderGeometry(0.5, 0.7, 4, 10);
+        // Simplified trunk with fewer segments
+        const trunkSegments = Math.min(this.segments, 6);
+        const trunkGeometry = new THREE.CylinderGeometry(0.5, 0.7, 4, trunkSegments);
         const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
         trunk.position.y = 2;
-        trunk.castShadow = false;
+        trunk.castShadow = true;
         trunk.receiveShadow = true;
         tree.add(trunk);
 
-        // Create canopy (several overlapping spheres)
-        const canopyPositions = [
-            { x: 0, y: 5.5, z: 0, scale: 2.8 },
-            { x: 1.5, y: 5, z: 0, scale: 2.2 },
-            { x: -1.5, y: 5, z: 0, scale: 2.2 },
-            { x: 0, y: 5, z: 1.5, scale: 2.2 },
-            { x: 0, y: 5, z: -1.5, scale: 2.2 }
+        // Create a sparse foliage distribution instead of many individual spheres
+        const foliagePositions = [
+            { x: 0, y: 7, z: 0, scale: 3.0 },
+            { x: 1.5, y: 6, z: 1.5, scale: 2.0 },
+            { x: -1.5, y: 6, z: -1.2, scale: 2.2 },
+            { x: 1.2, y: 5.5, z: -1.2, scale: 1.8 },
+            { x: -1, y: 5.8, z: 1.4, scale: 1.9 }
         ];
 
-        canopyPositions.forEach(pos => {
-            const foliageGeometry = new THREE.SphereGeometry(pos.scale, 8, 8);
+        // If low quality, use fewer foliage elements
+        const positionsToUse = this.detailLevel === 'low' ?
+            foliagePositions.slice(0, 3) : foliagePositions;
+
+        // Use lower quality sphere geometry for foliage
+        const foliageSegments = Math.min(this.maxFoliageSegments, 6);
+
+        // Create the foliage clusters
+        positionsToUse.forEach(pos => {
+            const foliageGeometry = new THREE.SphereGeometry(pos.scale, foliageSegments, foliageSegments);
             const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
             foliage.position.set(pos.x, pos.y, pos.z);
-            foliage.castShadow = false;
+            foliage.castShadow = true;
             foliage.receiveShadow = true;
             tree.add(foliage);
         });
@@ -197,223 +272,305 @@ export default class Trees {
     }
 
     /**
-     * Create a palm tree model
+     * Create a palm tree with optimized geometry
      */
     createPalmTree(foliageMaterial, trunkMaterial) {
         const tree = new THREE.Group();
 
-        // Create curved trunk
+        // Create bent trunk with a curve (optimized with fewer points)
+        const trunkSegments = Math.min(this.segments, 6);
         const trunkCurvePoints = [];
-        for (let i = 0; i <= 10; i++) {
-            const t = i / 10;
-            const x = Math.sin(t * Math.PI * 0.2) * 0.5;
-            const y = t * 7;
+
+        // Generate curve points for trunk
+        for (let i = 0; i <= 4; i++) {
+            const t = i / 4;
+            const x = Math.sin(t * Math.PI * 0.5) * 0.5;
+            const y = t * 6;
             const z = 0;
             trunkCurvePoints.push(new THREE.Vector3(x, y, z));
         }
 
         const trunkCurve = new THREE.CatmullRomCurve3(trunkCurvePoints);
-        const trunkGeometry = new THREE.TubeGeometry(trunkCurve, 20, 0.25, 8, false);
+        const trunkGeometry = new THREE.TubeGeometry(trunkCurve, 5, 0.25, trunkSegments, false);
         const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-        trunk.castShadow = false;
+        trunk.castShadow = true;
         trunk.receiveShadow = true;
         tree.add(trunk);
 
-        // Create palm fronds
-        const frondCount = 9;
-        for (let i = 0; i < frondCount; i++) {
-            const frondGroup = new THREE.Group();
+        // Create simpler palm fronds with fewer detail for low-poly look
+        const frondCount = this.detailLevel === 'low' ? 5 :
+            (this.detailLevel === 'medium' ? 7 : 9);
 
-            // Create a single frond using custom geometry
+        const frondGroup = new THREE.Group();
+        frondGroup.position.y = 6;
+
+        // Create simple palm fronds
+        for (let i = 0; i < frondCount; i++) {
+            const angle = (i / frondCount) * Math.PI * 2;
+            const frondLength = 2 + Math.random() * 1.5;
+
+            // Create simple shape for frond
             const frondShape = new THREE.Shape();
             frondShape.moveTo(0, 0);
-            frondShape.bezierCurveTo(0.1, 1, 0.8, 1.5, 0.3, 3);
-            frondShape.lineTo(-0.3, 3);
-            frondShape.bezierCurveTo(-0.8, 1.5, -0.1, 1, 0, 0);
+            frondShape.quadraticCurveTo(0.5, 0.5, 1, 0);
+            frondShape.lineTo(frondLength, 0.5);
+            frondShape.lineTo(frondLength, -0.5);
+            frondShape.lineTo(1, -0.2);
+            frondShape.quadraticCurveTo(0.5, -0.5, 0, 0);
 
+            // Simplified extrusion settings
             const extrudeSettings = {
                 steps: 1,
-                depth: 0.1,
+                depth: 0.05,
                 bevelEnabled: false
             };
 
             const frondGeometry = new THREE.ExtrudeGeometry(frondShape, extrudeSettings);
             const frond = new THREE.Mesh(frondGeometry, foliageMaterial);
-            frond.scale.set(1, 1, 0.1);
-            frond.castShadow = false;
+
+            // Position and rotate
+            frond.rotation.x = -Math.PI / 2;
+            frond.rotation.z = angle;
+            frond.position.y = Math.random() * 0.5;
+
+            // Add 30° upward tilt
+            frond.rotation.y = Math.PI / 6;
+
+            frond.castShadow = true;
             frond.receiveShadow = true;
-
-            // Rotate and position frond
-            frond.rotation.x = Math.PI / 2;
-            frond.rotation.z = (i * (Math.PI * 2)) / frondCount;
-
             frondGroup.add(frond);
-            frondGroup.position.y = 7;
-            frondGroup.rotation.x = Math.PI / 6;
-            frondGroup.rotation.y = (i * (Math.PI * 2)) / frondCount;
-
-            tree.add(frondGroup);
         }
 
+        tree.add(frondGroup);
         return tree;
     }
 
     /**
-     * Create a birch tree model
+     * Create a birch tree with optimized geometry
      */
     createBirchTree(foliageMaterial, trunkMaterial) {
         const tree = new THREE.Group();
 
-        // Create tall, thin trunk
-        const trunkGeometry = new THREE.CylinderGeometry(0.15, 0.3, 6, 8);
+        // Simplified trunk
+        const trunkSegments = Math.min(this.segments, 6);
+        const trunkGeometry = new THREE.CylinderGeometry(0.15, 0.3, 6, trunkSegments);
         const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
         trunk.position.y = 3;
-        trunk.castShadow = false;
+        trunk.castShadow = true;
         trunk.receiveShadow = true;
         tree.add(trunk);
 
-        // Create foliage (elongated ellipsoid)
-        const foliageGeometry = new THREE.SphereGeometry(1.8, 8, 8);
-        foliageGeometry.scale(1, 1.5, 1);
+        // Simplified foliage (fewer segments)
+        const foliageSegments = Math.min(this.maxFoliageSegments, 6);
+        const foliageGeometry = new THREE.SphereGeometry(1.8, foliageSegments, foliageSegments);
+        // Squash the sphere slightly to make it more elliptical
+        foliageGeometry.scale(1, 1.2, 1);
+
         const foliage = new THREE.Mesh(foliageGeometry, foliageMaterial);
         foliage.position.y = 6;
-        foliage.castShadow = false;
+        foliage.castShadow = true;
         foliage.receiveShadow = true;
         tree.add(foliage);
 
-        // Add detail - a few small branches
-        for (let i = 0; i < 5; i++) {
-            const branchGeometry = new THREE.CylinderGeometry(0.05, 0.03, 1, 4);
-            const branch = new THREE.Mesh(branchGeometry, trunkMaterial);
+        // Only add small branches in medium/high quality
+        if (this.detailLevel !== 'low') {
+            // Add a few small branches
+            const branchCount = this.detailLevel === 'high' ? 4 : 2;
 
-            // Position branches at different heights and rotations
-            const height = 2 + i * 0.8;
-            const angle = i * Math.PI * 0.4;
+            for (let i = 0; i < branchCount; i++) {
+                const angle = (i / branchCount) * Math.PI * 2;
+                const branchGeometry = new THREE.CylinderGeometry(0.05, 0.03, 1, 3);
+                const branch = new THREE.Mesh(branchGeometry, trunkMaterial);
 
-            branch.position.set(
-                Math.sin(angle) * 0.2,
-                height,
-                Math.cos(angle) * 0.2
-            );
+                const height = 2.5 + i * 0.7;
+                branch.position.set(
+                    Math.sin(angle) * 0.3,
+                    height,
+                    Math.cos(angle) * 0.3
+                );
 
-            branch.rotation.z = Math.PI / 2 - angle;
-            branch.castShadow = false;
+                branch.rotation.z = Math.PI / 2 - angle;
+                branch.rotation.y = Math.PI / 2;
 
-            tree.add(branch);
+                branch.castShadow = true;
+                branch.receiveShadow = true;
+                tree.add(branch);
+            }
         }
 
         return tree;
     }
 
     /**
-     * Create a willow tree model
+     * Create a willow tree with optimized geometry
      */
     createWillowTree(foliageMaterial, trunkMaterial) {
         const tree = new THREE.Group();
 
-        // Create trunk
-        const trunkGeometry = new THREE.CylinderGeometry(0.4, 0.7, 5, 8);
+        // Simplified trunk
+        const trunkSegments = Math.min(this.segments, 6);
+        const trunkGeometry = new THREE.CylinderGeometry(0.4, 0.7, 5, trunkSegments);
         const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
         trunk.position.y = 2.5;
-        trunk.castShadow = false;
+        trunk.castShadow = true;
         trunk.receiveShadow = true;
         tree.add(trunk);
 
-        // Create main canopy
-        const canopyGeometry = new THREE.SphereGeometry(3, 10, 10);
-        canopyGeometry.scale(1, 0.7, 1);
+        // Simplified canopy (fewer segments)
+        const foliageSegments = Math.min(this.maxFoliageSegments, 6);
+        const canopyGeometry = new THREE.SphereGeometry(3, foliageSegments, foliageSegments);
+        // Stretch the canopy for willow look
+        canopyGeometry.scale(1, 1.2, 1);
+
         const canopy = new THREE.Mesh(canopyGeometry, foliageMaterial);
         canopy.position.y = 5.5;
-        canopy.castShadow = false;
+        canopy.castShadow = true;
         canopy.receiveShadow = true;
         tree.add(canopy);
 
-        // Create drooping branches
-        const branchCount = 16;
-        for (let i = 0; i < branchCount; i++) {
-            const branchCurvePoints = [];
-            const angle = (i / branchCount) * Math.PI * 2;
-            const radius = 2.5;
+        // Only add drooping branches in medium/high quality
+        if (this.detailLevel !== 'low') {
+            // Add drooping branches (fewer and simpler for optimization)
+            const branchCount = this.detailLevel === 'high' ? 6 : 3;
 
-            for (let j = 0; j <= 10; j++) {
-                const t = j / 10;
-                const x = Math.cos(angle) * radius * (1 - 0.3 * t);
-                const y = 5.5 - t * 4;
-                const z = Math.sin(angle) * radius * (1 - 0.3 * t);
-                branchCurvePoints.push(new THREE.Vector3(x, y, z));
+            for (let i = 0; i < branchCount; i++) {
+                const angle = (i / branchCount) * Math.PI * 2;
+
+                // Simplified curved branch (fewer points)
+                const branchCurvePoints = [];
+
+                // Generate curve points for branch
+                for (let j = 0; j <= 4; j++) {
+                    const t = j / 4;
+                    // Create drooping curve
+                    const x = Math.sin(angle) * (2 + t * 2);
+                    const y = 6 - t * 3;  // Start high, then droop down
+                    const z = Math.cos(angle) * (2 + t * 2);
+                    branchCurvePoints.push(new THREE.Vector3(x, y, z));
+                }
+
+                const branchCurve = new THREE.CatmullRomCurve3(branchCurvePoints);
+                const branchGeometry = new THREE.TubeGeometry(branchCurve, 4, 0.05, 3, false);
+                const branch = new THREE.Mesh(branchGeometry, foliageMaterial);
+
+                branch.castShadow = true;
+                branch.receiveShadow = true;
+                tree.add(branch);
             }
-
-            const branchCurve = new THREE.CatmullRomCurve3(branchCurvePoints);
-            const branchGeometry = new THREE.TubeGeometry(branchCurve, 20, 0.05, 4, false);
-            const branch = new THREE.Mesh(branchGeometry, foliageMaterial);
-            branch.castShadow = false;
-            branch.receiveShadow = true;
-            tree.add(branch);
         }
 
         return tree;
     }
 
     /**
-     * Place trees using static map data instead of random positions
+     * Place trees from map data - SIMPLIFIED VERSION
      */
-    placeTrees() {
-        // Check if we have map data
-        if (!this.treeMapData) {
-            console.warn('No tree map data provided. No trees will be placed.');
+    placeTreesFromMap() {
+        console.log("Placing trees from map data");
+
+        // Clear existing trees
+        this.clear();
+
+        // Simpler implementation - create individual trees directly
+        for (const treeType in this.treeMapData) {
+            if (this.treeTypes[treeType] && Array.isArray(this.treeMapData[treeType])) {
+                const treeTemplate = this.treeTypes[treeType];
+                const treePositions = this.treeMapData[treeType];
+
+                console.log(`Creating ${treePositions.length} trees of type ${treeType}`);
+
+                treePositions.forEach(tree => {
+                    const treeMesh = treeTemplate.clone();
+
+                    // Apply position, rotation, and scale
+                    treeMesh.position.set(tree.x, 0, tree.z);
+                    treeMesh.rotation.y = tree.rotation || 0;
+
+                    const scale = tree.scale || 1;
+                    treeMesh.scale.set(scale, scale, scale);
+
+                    // Enable shadows
+                    treeMesh.traverse(object => {
+                        if (object.isMesh) {
+                            object.castShadow = true;
+                            object.receiveShadow = true;
+                        }
+                    });
+
+                    this.trees.push(treeMesh);
+                    this.scene.add(treeMesh);
+                });
+            }
+        }
+
+        console.log(`Placed ${this.trees.length} trees in the scene`);
+    }
+
+    /**
+     * Update trees (LOD for distant trees)
+     */
+    update(cameraPosition) {
+        // Skip if no camera position
+        if (!cameraPosition) return;
+
+        // Simple distance-based LOD
+        const distanceThreshold = 500;
+
+        // Create a Vector3 if needed - either use the provided position 
+        // or extract position from the camera object
+        let cameraPos;
+        if (cameraPosition.isVector3) {
+            cameraPos = cameraPosition;
+        } else if (cameraPosition.position && cameraPosition.position.isVector3) {
+            cameraPos = cameraPosition.position;
+        } else {
+            // Can't calculate distance - skip LOD
             return;
         }
 
-        // Place each tree type according to map data
-        Object.entries(this.treeMapData).forEach(([treeType, positions]) => {
-            if (!Array.isArray(positions) || !this.treeTypes[treeType]) {
-                return; // Skip if not valid data or tree type doesn't exist
-            }
+        this.trees.forEach(tree => {
+            // Safely calculate distance
+            const treePos = tree.position;
+            const dx = treePos.x - cameraPos.x;
+            const dy = treePos.y - cameraPos.y;
+            const dz = treePos.z - cameraPos.z;
+            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-            console.log(`Placing ${positions.length} ${treeType} trees from map data`);
+            if (distance > distanceThreshold) {
+                // For distant trees, only show main parts
+                tree.traverse(object => {
+                    if (object.isMesh && object.geometry.parameters) {
+                        // Hide small details
+                        const size = Math.max(
+                            object.geometry.parameters.width || 0,
+                            object.geometry.parameters.height || 0,
+                            object.geometry.parameters.radius || 0
+                        );
 
-            positions.forEach(treeData => {
-                // Clone the template for this tree type
-                const tree = this.treeTypes[treeType].clone();
-
-                // Use exact scale, position and rotation from map data
-                const scale = treeData.scale || 3.0;
-                tree.scale.set(scale, scale, scale);
-
-                // Set position from map data
-                tree.position.set(treeData.x, treeData.y, treeData.z);
-
-                // Set rotation from map data
-                tree.rotation.y = treeData.rotation || 0;
-
-                // Add to scene and keep track of it
-                this.scene.add(tree);
-                this.trees.push({
-                    mesh: tree,
-                    type: treeType
+                        // Hide small details on distant trees
+                        if (size < 1.0) {
+                            object.visible = false;
+                        }
+                    }
                 });
-            });
+            } else {
+                // Show all parts when close
+                tree.traverse(object => {
+                    if (object.isMesh) {
+                        object.visible = true;
+                    }
+                });
+            }
         });
-
-        console.log(`Placed ${this.trees.length} trees in the scene with quality level: ${this.qualitySettings.getQuality()}`);
     }
 
     /**
-     * Update method for animation/changes over time
-     */
-    update(deltaTime) {
-        // Could implement subtle tree movements (wind effect, etc.)
-    }
-
-    /**
-     * Removes all trees from the scene
+     * Remove all trees from the scene
      */
     clear() {
-        // Remove all trees from the scene
         this.trees.forEach(tree => {
-            this.scene.remove(tree.mesh);
+            this.scene.remove(tree);
         });
-
         this.trees = [];
     }
 } 

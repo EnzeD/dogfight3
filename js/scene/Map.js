@@ -7,10 +7,10 @@ export default class GameMap {
 
         // Runway configuration
         this.runway = {
-            position: { x: 0, y: 0, z: 0 },
+            position: { x: 0, y: 0.04, z: -30 },
             rotation: 0,         // In radians
             width: 50,           // Width of the runway
-            length: 1000         // Length of the runway
+            length: 200         // Length of the runway
         };
 
         // Tree configurations with exact positions
@@ -138,57 +138,121 @@ export default class GameMap {
             }
         ];
 
-        // Skyscraper configurations
+        // Skyscraper configurations - moved further away and with 1940s style
         this.skyscrapers = {
-            center: { x: 150, z: -600 },
-            radius: 150,
+            center: { x: 0, z: -800 },  // Moved further away
+            radius: 200,  // Larger radius for more spread
             buildings: [
-                { x: -100, z: -250, height: 120, width: 30, depth: 30, type: 'modern', rotation: 0.3 },
-                { x: -70, z: -280, height: 150, width: 25, depth: 25, type: 'glass', rotation: 1.2 },
-                { x: -30, z: -320, height: 100, width: 35, depth: 35, type: 'office', rotation: 0.0 },
-                { x: 20, z: -340, height: 180, width: 20, depth: 20, type: 'modern', rotation: 5.1 },
-                { x: 60, z: -290, height: 130, width: 28, depth: 28, type: 'glass', rotation: 2.7 },
-                { x: 90, z: -260, height: 160, width: 22, depth: 22, type: 'office', rotation: 3.9 },
-                { x: 40, z: -230, height: 140, width: 32, depth: 32, type: 'modern', rotation: 0.5 },
-                { x: -20, z: -200, height: 170, width: 24, depth: 24, type: 'glass', rotation: 1.8 },
-                { x: -60, z: -220, height: 110, width: 36, depth: 36, type: 'office', rotation: 4.2 }
+                // 1940s skyscrapers were generally shorter and had art deco or early modern styles
+                // Types changed to reflect 1940s architecture with lower heights
+                { x: 300, z: -750, height: 80, width: 25, depth: 25, type: 'modern', rotation: 0.3 },
+                { x: 340, z: -800, height: 90, width: 20, depth: 20, type: 'glass', rotation: 1.2 },
+                { x: 370, z: -850, height: 70, width: 30, depth: 30, type: 'office', rotation: 0.0 },
+                { x: 420, z: -870, height: 100, width: 18, depth: 18, type: 'modern', rotation: 5.1 },
+                { x: 460, z: -820, height: 75, width: 22, depth: 22, type: 'glass', rotation: 2.7 },
+                { x: 490, z: -770, height: 85, width: 19, depth: 19, type: 'office', rotation: 3.9 },
+                { x: 440, z: -730, height: 95, width: 26, depth: 26, type: 'modern', rotation: 0.5 },
+                { x: 380, z: -720, height: 110, width: 21, depth: 21, type: 'glass', rotation: 1.8 },
+                { x: 350, z: -780, height: 65, width: 28, depth: 28, type: 'office', rotation: 4.2 },
+                // Additional buildings to fill out the 1940s skyline
+                { x: 330, z: -830, height: 75, width: 24, depth: 24, type: 'modern', rotation: 2.4 },
+                { x: 390, z: -890, height: 80, width: 20, depth: 20, type: 'office', rotation: 0.8 },
+                { x: 430, z: -910, height: 70, width: 22, depth: 22, type: 'glass', rotation: 3.2 },
+                { x: 470, z: -850, height: 90, width: 18, depth: 18, type: 'modern', rotation: 1.5 },
+                { x: 500, z: -800, height: 65, width: 23, depth: 23, type: 'office', rotation: 5.5 },
+                { x: 450, z: -740, height: 85, width: 21, depth: 21, type: 'glass', rotation: 0.2 }
             ]
         };
 
-        // Cloud configurations
+        // Cloud configurations - spread out more across the map
         this.clouds = {
-            count: 30,
+            count: 80, // Increased from 60 to 80 for more cloud density
             positions: [
-                { x: -800, y: 150, z: -400 },
-                { x: -600, y: 180, z: -700 },
-                { x: -300, y: 160, z: -500 },
-                { x: -100, y: 170, z: -600 },
-                { x: 200, y: 190, z: -800 },
-                { x: 500, y: 200, z: -300 },
-                { x: 700, y: 150, z: -100 },
-                { x: 600, y: 160, z: 200 },
-                { x: 400, y: 180, z: 400 },
-                { x: 200, y: 170, z: 600 },
-                { x: 0, y: 190, z: 800 },
-                { x: -200, y: 200, z: 600 },
-                { x: -400, y: 150, z: 400 },
-                { x: -600, y: 160, z: 200 },
-                { x: -800, y: 180, z: 0 },
-                { x: -700, y: 170, z: -200 },
-                { x: -500, y: 190, z: -600 },
-                { x: -100, y: 200, z: -100 },
-                { x: 300, y: 150, z: -400 },
-                { x: 500, y: 160, z: -700 },
-                { x: 800, y: 180, z: -500 },
-                { x: 600, y: 170, z: 800 },
-                { x: 100, y: 190, z: 500 },
-                { x: -300, y: 200, z: 700 },
-                { x: -700, y: 150, z: 600 },
-                { x: -500, y: 160, z: 100 },
-                { x: -200, y: 180, z: -800 },
-                { x: 400, y: 170, z: -100 },
-                { x: 700, y: 190, z: 400 },
-                { x: 100, y: 200, z: -300 }
+                // Original spread-out clouds remain
+                { x: -1200, y: 330, z: -800 },
+                { x: -1000, y: 350, z: -1100 },
+                { x: -800, y: 370, z: -1400 },
+                { x: -600, y: 340, z: -1200 },
+                { x: -400, y: 310, z: -1000 },
+                { x: -200, y: 360, z: -1300 },
+                { x: 200, y: 330, z: -1500 },
+                { x: 400, y: 350, z: -1200 },
+                { x: 600, y: 320, z: -900 },
+                { x: 800, y: 380, z: -1400 },
+                { x: 1000, y: 340, z: -1100 },
+                { x: 1200, y: 360, z: -800 },
+                { x: 1400, y: 330, z: -600 },
+                { x: 1300, y: 350, z: -200 },
+                { x: 1500, y: 370, z: 200 },
+                { x: 1200, y: 340, z: 400 },
+                { x: 1000, y: 360, z: 600 },
+                { x: 1400, y: 320, z: 800 },
+                { x: 1300, y: 350, z: 1000 },
+                { x: 1100, y: 370, z: 1200 },
+                { x: 900, y: 330, z: 1400 },
+                { x: 700, y: 360, z: 1300 },
+                { x: 500, y: 340, z: 1500 },
+                { x: 300, y: 320, z: 1400 },
+                { x: 100, y: 350, z: 1300 },
+                { x: -100, y: 370, z: 1500 },
+                { x: -300, y: 330, z: 1400 },
+                { x: -500, y: 350, z: 1200 },
+                { x: -700, y: 360, z: 1000 },
+                { x: -900, y: 340, z: 1300 },
+
+                // Additional clouds (from before)
+                { x: -1400, y: 320, z: -400 },
+                { x: -1300, y: 350, z: -200 },
+                { x: -1500, y: 370, z: 200 },
+                { x: -1200, y: 330, z: 400 },
+                { x: -1000, y: 350, z: 600 },
+                { x: -1400, y: 360, z: 800 },
+                { x: -1300, y: 340, z: 1000 },
+                { x: -1100, y: 320, z: 1200 },
+                { x: -1500, y: 350, z: -600 },
+                { x: -1250, y: 370, z: 1400 },
+                { x: 1150, y: 330, z: -1450 },
+                { x: 1350, y: 350, z: -950 },
+                { x: 1450, y: 360, z: -550 },
+                { x: 1550, y: 340, z: -150 },
+                { x: 950, y: 370, z: -1350 },
+                { x: 650, y: 330, z: -1550 },
+                { x: 150, y: 350, z: -1450 },
+                { x: -350, y: 360, z: -1250 },
+                { x: -650, y: 340, z: -1550 },
+                { x: -950, y: 320, z: -1350 },
+                { x: -1250, y: 350, z: -950 },
+                { x: -950, y: 330, z: 1550 },
+                { x: -650, y: 360, z: 1450 },
+                { x: -350, y: 340, z: 1350 },
+                { x: -150, y: 320, z: 1550 },
+                { x: 250, y: 350, z: 1450 },
+                { x: 650, y: 370, z: 1550 },
+                { x: 950, y: 330, z: 1350 },
+                { x: 1250, y: 350, z: 950 },
+                { x: 1550, y: 360, z: 550 },
+
+                // New clouds added near the center to fill empty space
+                { x: -200, y: 330, z: -100 },
+                { x: -150, y: 350, z: 150 },
+                { x: -100, y: 370, z: -200 },
+                { x: -50, y: 340, z: 50 },
+                { x: 0, y: 320, z: -150 },
+                { x: 50, y: 360, z: 100 },
+                { x: 100, y: 330, z: -50 },
+                { x: 150, y: 350, z: 200 },
+                { x: 200, y: 370, z: -300 },
+                { x: -300, y: 340, z: 250 },
+                { x: 250, y: 320, z: 300 },
+                { x: -250, y: 360, z: -350 },
+                { x: 300, y: 340, z: -200 },
+                { x: -350, y: 320, z: 150 },
+                { x: 350, y: 350, z: 100 },
+                { x: -400, y: 370, z: -50 },
+                { x: 400, y: 340, z: -300 },
+                { x: -450, y: 320, z: 250 },
+                { x: 450, y: 360, z: -100 },
+                { x: 0, y: 350, z: 0 }
             ]
         };
     }
