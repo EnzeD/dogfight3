@@ -5,134 +5,237 @@ import AmmoSystem from '../entities/AmmoSystem.js';
 
 export default class NetworkManager {
     constructor(eventBus, playerPlane) {
+        // Core properties
         this.eventBus = eventBus;
         this.playerPlane = playerPlane;
         this.socket = null;
         this.connected = false;
         this.clientId = null;
-        this.remotePlanes = new Map(); // Map of remote planes by client ID
-        this.lastUpdateTime = 0;
-        this.updateInterval = 20; // Reduced from 50ms to 100ms (10 updates/second)
-        this.interpolationFactor = 0.05; // For smooth movement
         this.playerCallsign = null;
 
-        // Listen for connection events
+        // Remote players state
+        this.remotePlanes = new Map(); // Map of remote planes by client ID
+
+        // Network settings
+        this.lastUpdateTime = 0;
+        this.updateInterval = 20; // 50 updates/second
+        this.interpolationFactor = 0.05; // For smooth movement
+
+        // Set up event listeners
+        this._setupEventListeners();
+
+        // Set up collision handler
+        this._setupCollisionHandler();
+    }
+
+    /**
+     * Set up all event listeners
+     * @private
+     */
+    _setupEventListeners() {
+        // Connection events
         this.eventBus.on('network.connect', this.connect.bind(this));
         this.eventBus.on('network.disconnect', this.disconnect.bind(this));
 
-        // Listen for firing events
+        // Game events
         this.eventBus.on('plane.fire', this.sendFireEvent.bind(this));
-
-        // Listen for damage and destruction events
         this.eventBus.on('plane.damage', this.handleDamageEvent.bind(this));
         this.eventBus.on('plane.destroyed', this.handleDestroyedEvent.bind(this));
-
-        // Set up damage handler for bullet collisions in multiplayer
-        this.setupCollisionHandler();
     }
 
     /**
      * Sets up a collision handler for the local ammo system
      * to sync damage in multiplayer
+     * @private
      */
-    setupCollisionHandler() {
+    _setupCollisionHandler() {
         // Wait for the player plane's ammo system to be ready
         const checkInterval = setInterval(() => {
-            if (this.playerPlane && this.playerPlane.ammoSystem) {
-                clearInterval(checkInterval);
+            if (!this.playerPlane || !this.playerPlane.ammoSystem) return;
 
-                console.log('Setting up multiplayer collision handler');
+            clearInterval(checkInterval);
+            console.log('Setting up multiplayer collision handler');
 
-                // Store original checkCollisions method
-                const originalCheckCollisions = this.playerPlane.ammoSystem.checkCollisions;
+            // Store original methods
+            const originalCheckCollisions = this.playerPlane.ammoSystem.checkCollisions;
+            const originalBulletDamage = this.playerPlane.ammoSystem.bulletDamage;
 
-                // Also store original damage method from AmmoSystem
-                const originalBulletDamage = this.playerPlane.ammoSystem.bulletDamage;
+            // Disable local damage application for multiplayer to prevent double damage
+            this.playerPlane.ammoSystem.bulletDamage = 0; // Damage will come from server
 
-                // IMPORTANT: We need to temporarily disable local damage application for multiplayer
-                // to prevent double damage (once locally and once via server)
-                this.playerPlane.ammoSystem.bulletDamage = 0; // Set to 0 for multiplayer - damage will come from server
+            // Override with network-aware collision detection
+            this.playerPlane.ammoSystem.checkCollisions = () => {
+                // Call the original method to get collisions
+                const collisions = originalCheckCollisions.call(this.playerPlane.ammoSystem);
 
-                // Override with our own that sends network messages
-                this.playerPlane.ammoSystem.checkCollisions = () => {
-                    // Call the original method to get collisions
-                    const collisions = originalCheckCollisions.call(this.playerPlane.ammoSystem);
+                // Only process in multiplayer when connected
+                if (this.connected && collisions.length > 0) {
+                    this._processCollisions(collisions, originalBulletDamage);
+                }
 
-                    // Only process in multiplayer when connected
-                    if (this.connected && collisions.length > 0) {
-                        console.log(`Detected ${collisions.length} collisions in multiplayer`);
+                return collisions;
+            };
 
-                        // For each collision, send damage event to server
-                        collisions.forEach(collision => {
-                            const plane = collision.plane;
+            // Add handler for remote bullets hitting local player
+            this._setupRemoteDamageHandler();
 
-                            // Skip if the collision is with the local player's plane
-                            if (plane === this.playerPlane) return;
-
-                            // Find remote plane ID from the plane object
-                            let targetId = null;
-                            this.remotePlanes.forEach((remotePlane, id) => {
-                                if (remotePlane === plane) {
-                                    targetId = id;
-                                }
-                            });
-
-                            if (targetId) {
-                                // Make sure collision position is valid
-                                if (!collision.position) {
-                                    console.warn('Collision missing position data');
-                                    return;
-                                }
-
-                                const collisionPos = collision.position.clone();
-
-                                console.log(`Local bullet hit remote plane ${targetId} at position:`,
-                                    collisionPos.x.toFixed(2),
-                                    collisionPos.y.toFixed(2),
-                                    collisionPos.z.toFixed(2)
-                                );
-
-                                // Send damage event to server including position
-                                this.sendDamageEvent({
-                                    targetId: targetId,
-                                    amount: originalBulletDamage, // Use the original damage amount
-                                    position: collisionPos
-                                });
-
-                                // Show local hit effect immediately
-                                this.eventBus.emit('effect.hit', {
-                                    position: collisionPos,
-                                    playSound: true
-                                });
-                            } else {
-                                console.warn('Hit a plane but could not determine remote plane ID');
-                            }
-                        });
-                    }
-
-                    return collisions;
-                };
-
-                // Also add a custom handler for remote bullets hitting local player
-                // This is needed because the server handles the actual damage calculation
-                this.eventBus.on('plane.damage', (data, source) => {
-                    if (source === 'player' && this.connected) {
-                        console.log(`Local player damaged: ${data.amount}`);
-
-                        // Ensure impact effects are shown on own plane
-                        if (data.impactPosition) {
-                            console.log('Creating hit effect from damage event');
-                            this.eventBus.emit('effect.hit', {
-                                position: data.impactPosition,
-                                playSound: false  // Sound is already played by the damage method
-                            });
-                        }
-                    }
-                });
-
-                console.log('Multiplayer collision handler set up successfully');
-            }
+            console.log('Multiplayer collision handler set up successfully');
         }, 500);
+    }
+
+    /**
+     * Process collisions for multiplayer
+     * @private
+     * @param {Array} collisions - List of collision objects
+     * @param {number} damageAmount - Amount of damage to apply
+     */
+    _processCollisions(collisions, damageAmount) {
+        console.log(`Detected ${collisions.length} collisions in multiplayer`);
+
+        collisions.forEach(collision => {
+            const plane = collision.plane;
+
+            // Skip if the collision is with the local player's plane
+            if (plane === this.playerPlane) return;
+
+            // Find remote plane ID from the plane object
+            let targetId = null;
+            this.remotePlanes.forEach((remotePlane, id) => {
+                if (remotePlane === plane) {
+                    targetId = id;
+                }
+            });
+
+            if (!targetId) {
+                console.warn('Hit a plane but could not determine remote plane ID');
+                return;
+            }
+
+            // Make sure collision position is valid
+            if (!collision.position) {
+                console.warn('Collision missing position data');
+                return;
+            }
+
+            const collisionPos = collision.position.clone();
+
+            console.log(`Local bullet hit remote plane ${targetId} at position:`,
+                collisionPos.x.toFixed(2),
+                collisionPos.y.toFixed(2),
+                collisionPos.z.toFixed(2)
+            );
+
+            // Send damage event to server including position
+            this.sendDamageEvent({
+                targetId: targetId,
+                amount: damageAmount,
+                position: collisionPos
+            });
+
+            // Show local hit effect immediately
+            this.eventBus.emit('effect.hit', {
+                position: collisionPos,
+                playSound: true
+            });
+        });
+    }
+
+    /**
+     * Set up handler for remote damage events
+     * @private
+     */
+    _setupRemoteDamageHandler() {
+        this.eventBus.on('plane.damage', (data, source) => {
+            if (source === 'player' && this.connected) {
+                console.log(`Local player damaged: ${data.amount}`);
+
+                // Ensure impact effects are shown on own plane
+                if (data.impactPosition) {
+                    console.log('Creating hit effect from damage event');
+                    this.eventBus.emit('effect.hit', {
+                        position: data.impactPosition,
+                        playSound: false  // Sound is already played by the damage method
+                    });
+                }
+            }
+        });
+    }
+
+    /**
+     * Connect to multiplayer server
+     * @param {Object} data - Connection data
+     * @param {string} [data.serverUrl] - Optional server URL override
+     * @param {string} [data.callsign] - Player's callsign
+     */
+    connect(data = {}) {
+        this._setPlayerCallsign(data.callsign);
+        const serverUrl = this._determineServerUrl(data.serverUrl);
+
+        try {
+            console.log(`Connecting to multiplayer server at ${serverUrl}...`);
+
+            this.socket = new WebSocket(serverUrl);
+
+            // Set up event handlers
+            this.socket.onopen = this.handleConnection.bind(this);
+            this.socket.onmessage = this.handleMessage.bind(this);
+            this.socket.onclose = this.handleDisconnection.bind(this);
+            this.socket.onerror = this.handleError.bind(this);
+        } catch (error) {
+            console.error('Error connecting to server:', error);
+            this._notifyError('Failed to connect to multiplayer server');
+        }
+    }
+
+    /**
+     * Set player callsign
+     * @private
+     * @param {string} callsign - Player callsign
+     */
+    _setPlayerCallsign(callsign) {
+        if (callsign) {
+            this.playerCallsign = callsign;
+            console.log(`Player callsign set to: ${this.playerCallsign}`);
+        } else {
+            // Generate a random callsign if none provided
+            this.playerCallsign = `Pilot${Math.floor(Math.random() * 1000)}`;
+            console.log(`Generated random callsign: ${this.playerCallsign}`);
+        }
+    }
+
+    /**
+     * Determine the WebSocket server URL
+     * @private
+     * @param {string} overrideUrl - Optional URL override
+     * @return {string} The WebSocket server URL
+     */
+    _determineServerUrl(overrideUrl) {
+        if (overrideUrl) return overrideUrl;
+
+        const isSecure = window.location.protocol === 'https:';
+        const protocol = isSecure ? 'wss:' : 'ws:';
+        const host = window.location.hostname;
+
+        // For localhost, use default ports
+        if (host === 'localhost' || host === '127.0.0.1') {
+            const port = isSecure ? '8443' : '8080';
+            return `${protocol}//${host}:${port}`;
+        }
+
+        // For deployed version, use same host/port as page
+        return `${protocol}//${host}${window.location.port ? ':' + window.location.port : ''}`;
+    }
+
+    /**
+     * Show an error notification
+     * @private
+     * @param {string} message - Error message
+     */
+    _notifyError(message) {
+        this.eventBus.emit('notification', {
+            message,
+            type: 'error'
+        });
     }
 
     /**
@@ -146,26 +249,150 @@ export default class NetworkManager {
             console.log('Sending damage event to server:', data);
 
             // Make sure position is a valid object with x,y,z properties
-            let position = null;
-            if (data.position) {
-                position = {
-                    x: data.position.x,
-                    y: data.position.y,
-                    z: data.position.z
-                };
-            }
+            let position = data.position ? {
+                x: data.position.x,
+                y: data.position.y,
+                z: data.position.z
+            } : null;
 
-            const damageMsg = {
+            this._sendMessage({
                 type: 'damage',
                 targetId: data.targetId,
                 amount: data.amount,
                 position: position
-            };
-
-            this.socket.send(JSON.stringify(damageMsg));
+            });
         } catch (error) {
             console.error('Error sending damage event:', error);
         }
+    }
+
+    /**
+     * Handle fire event from a remote player
+     * @private
+     * @param {Object} data - Fire event data
+     */
+    _handleFireEvent(data) {
+        const planeId = data.playerId;
+
+        // Get the remote plane that fired
+        const remotePlane = this.remotePlanes.get(planeId);
+        if (!remotePlane) {
+            console.warn(`Received fire event from unknown plane: ${planeId}`);
+            return;
+        }
+
+        console.log(`Remote player ${planeId} fired`);
+
+        // Create remote bullets without sound (sound will come from the fire effect)
+        const planeVelocity = data.velocity ? new THREE.Vector3(
+            data.velocity.x,
+            data.velocity.y,
+            data.velocity.z
+        ) : new THREE.Vector3(0, 0, 0);
+
+        // Fire the bullets
+        this.fireBulletsWithoutSound(remotePlane, planeVelocity);
+
+        // Create visual and sound effects at the plane's position
+        this.eventBus.emit('effect.fire', {
+            position: remotePlane.mesh.position.clone(),
+            rotation: remotePlane.mesh.rotation.clone(),
+            playSound: true
+        });
+    }
+
+    /**
+     * Handle hit effect from a remote player
+     * @private
+     * @param {Object} data - Hit effect data
+     */
+    _handleHitEffect(data) {
+        if (!data.position) return;
+
+        // Create position vector from data
+        const position = new THREE.Vector3(
+            data.position.x,
+            data.position.y,
+            data.position.z
+        );
+
+        // Emit hit effect event
+        this.eventBus.emit('effect.hit', {
+            position: position,
+            playSound: data.playSound || false
+        });
+    }
+
+    /**
+     * Handle destroyed event from a remote player
+     * @private
+     * @param {Object} data - Destroyed event data
+     */
+    _handleDestroyed(data) {
+        const planeId = data.playerId;
+
+        // Handle local player destruction
+        if (planeId === this.clientId) {
+            console.log('Server confirmed local player destroyed');
+            return;
+        }
+
+        // Get the remote plane
+        const remotePlane = this.remotePlanes.get(planeId);
+        if (!remotePlane) {
+            console.warn(`Received destroyed event for unknown plane: ${planeId}`);
+            return;
+        }
+
+        console.log(`Remote player ${planeId} was destroyed`);
+
+        // Mark the plane as destroyed
+        remotePlane.isDestroyed = true;
+
+        // Create destruction effect
+        if (remotePlane.mesh) {
+            this.eventBus.emit('effect.explosion', {
+                position: remotePlane.mesh.position.clone(),
+                scale: 2.0
+            });
+        }
+
+        // Hide the plane but don't remove it yet (it will be respawned)
+        if (remotePlane.mesh) {
+            remotePlane.mesh.visible = false;
+        }
+    }
+
+    /**
+     * Handle notification from the server
+     * @private
+     * @param {Object} data - Notification data
+     */
+    _handleNotification(data) {
+        if (!data.message) return;
+
+        // Forward to event bus for UI
+        this.eventBus.emit('notification', {
+            message: data.message,
+            type: data.type || 'info',
+            duration: data.duration || 3000
+        });
+    }
+
+    /**
+     * Handle player count update from the server
+     * @private
+     * @param {Object} data - Player count data
+     */
+    _handlePlayerCount(data) {
+        if (typeof data.count !== 'number') return;
+
+        console.log(`Received player count update: ${data.count} players connected`);
+
+        // Forward to event bus for UI
+        this.eventBus.emit('network.playerCount', {
+            count: data.count
+        });
     }
 
     /**
@@ -192,69 +419,9 @@ export default class NetworkManager {
 
         console.log('Player plane destroyed in multiplayer');
 
-        // Will be updated in next position update
-    }
-
-    /**
-     * Connect to multiplayer server
-     * @param {Object} data - Connection data
-     * @param {string} [data.serverUrl] - Optional server URL override
-     * @param {string} [data.callsign] - Player's callsign
-     */
-    connect(data = {}) {
-        // Store callsign if provided
-        console.log('DIAGNOSTIC NetworkManager.connect: Received data:', JSON.stringify(data));
-
-        if (data.callsign) {
-            this.playerCallsign = data.callsign;
-            console.log(`Player callsign set to: ${this.playerCallsign}`);
-        } else {
-            // Generate a random callsign if none provided
-            this.playerCallsign = `Pilot${Math.floor(Math.random() * 1000)}`;
-            console.log(`Generated random callsign: ${this.playerCallsign}`);
-        }
-
-        // Determine protocol and port based on page protocol
-        const isSecure = window.location.protocol === 'https:';
-        const protocol = isSecure ? 'wss:' : 'ws:';
-
-        // If serverUrl is explicitly provided, use it
-        // Otherwise, determine based on current page URL
-        let serverUrl;
-        if (data.serverUrl) {
-            serverUrl = data.serverUrl;
-        } else {
-            // Extract host without port
-            const host = window.location.hostname;
-
-            // If we're on localhost, use the default port
-            // Otherwise, use the same host as the page (for deployed version)
-            if (host === 'localhost' || host === '127.0.0.1') {
-                const port = isSecure ? '8443' : '8080';
-                serverUrl = `${protocol}//${host}:${port}`;
-            } else {
-                // For deployed version, use the same host and port as the page
-                // This works when the web server and WebSocket server are on the same host
-                serverUrl = `${protocol}//${host}${window.location.port ? ':' + window.location.port : ''}`;
-            }
-        }
-
-        try {
-            console.log(`Connecting to multiplayer server at ${serverUrl}...`);
-
-            this.socket = new WebSocket(serverUrl);
-
-            // Set up event handlers
-            this.socket.onopen = this.handleConnection.bind(this);
-            this.socket.onmessage = this.handleMessage.bind(this);
-            this.socket.onclose = this.handleDisconnection.bind(this);
-            this.socket.onerror = this.handleError.bind(this);
-        } catch (error) {
-            console.error('Error connecting to server:', error);
-            this.eventBus.emit('notification', {
-                message: 'Failed to connect to multiplayer server',
-                type: 'error'
-            });
+        // Notify server of destruction in next update message
+        if (this.playerPlane) {
+            this.playerPlane.isDestroyed = true;
         }
     }
 
@@ -275,124 +442,302 @@ export default class NetworkManager {
         console.log('Connected to multiplayer server');
         this.connected = true;
 
-        console.log('DIAGNOSTIC handleConnection: About to send player callsign:', this.playerCallsign);
+        // Send initial player data to server
+        this._sendInitialPlayerData();
 
-        // Send player info with callsign to server
-        const initialData = {
-            type: 'init',
-            callsign: this.playerCallsign,
-            position: this.playerPlane ? {
-                x: this.playerPlane.mesh.position.x,
-                y: this.playerPlane.mesh.position.y,
-                z: this.playerPlane.mesh.position.z
-            } : { x: 0, y: 0, z: 0 },
-            rotation: this.playerPlane ? {
-                x: this.playerPlane.mesh.rotation.x,
-                y: this.playerPlane.mesh.rotation.y,
-                z: this.playerPlane.mesh.rotation.z
-            } : { x: 0, y: 0, z: 0 },
-            health: this.playerPlane ? this.playerPlane.health : 100
-        };
-
-        console.log('DIAGNOSTIC handleConnection: Sending initialData:', JSON.stringify(initialData));
-
-        // Send initialization data to server
-        this.socket.send(JSON.stringify(initialData));
-
-        // Notify UI about connection
+        // Emit connection event
+        this.eventBus.emit('network.connected');
         this.eventBus.emit('notification', {
-            message: `Connected as ${this.playerCallsign}`,
+            message: 'Connected to multiplayer server',
             type: 'success'
         });
     }
 
     /**
-     * Handle messages from the server
-     * @param {MessageEvent} event - The message event
+     * Send initial player data to the server
+     * @private
+     */
+    _sendInitialPlayerData() {
+        const initialData = {
+            type: 'init',
+            callsign: this.playerCallsign,
+            position: this._getPlayerPosition(),
+            rotation: this._getPlayerRotation(),
+            health: this.playerPlane ? this.playerPlane.health : 100
+        };
+
+        this._sendMessage(initialData);
+    }
+
+    /**
+     * Get the player plane's position
+     * @private
+     * @returns {Object} The position as {x, y, z}
+     */
+    _getPlayerPosition() {
+        if (!this.playerPlane || !this.playerPlane.mesh) {
+            return { x: 0, y: 0, z: 0 };
+        }
+
+        return {
+            x: this.playerPlane.mesh.position.x,
+            y: this.playerPlane.mesh.position.y,
+            z: this.playerPlane.mesh.position.z
+        };
+    }
+
+    /**
+     * Get the player plane's rotation
+     * @private
+     * @returns {Object} The rotation as {x, y, z}
+     */
+    _getPlayerRotation() {
+        if (!this.playerPlane || !this.playerPlane.mesh) {
+            return { x: 0, y: 0, z: 0 };
+        }
+
+        return {
+            x: this.playerPlane.mesh.rotation.x,
+            y: this.playerPlane.mesh.rotation.y,
+            z: this.playerPlane.mesh.rotation.z
+        };
+    }
+
+    /**
+     * Send a message to the server
+     * @private
+     * @param {Object} data - Message data to send
+     */
+    _sendMessage(data) {
+        if (!this.connected || !this.socket) {
+            console.warn('Cannot send message - not connected');
+            return;
+        }
+
+        try {
+            const jsonData = JSON.stringify(data);
+            this.socket.send(jsonData);
+        } catch (error) {
+            console.error('Error sending message:', error);
+        }
+    }
+
+    /**
+     * Handle incoming WebSocket messages
+     * @param {MessageEvent} event - WebSocket message event
      */
     handleMessage(event) {
         try {
             const message = JSON.parse(event.data);
 
+            if (!message || !message.type) {
+                console.warn('Received invalid message format:', message);
+                return;
+            }
+
             switch (message.type) {
-                case 'init':
-                    // Store our client ID
-                    this.clientId = message.id;
-                    console.log(`Assigned client ID: ${this.clientId}`);
+                case 'init_ack':
+                    this._handleInitAck(message);
                     break;
-
-                case 'players':
-                    // Initialize existing players
-                    this.initExistingPlayers(message.players);
+                case 'player_joined':
+                    this._handlePlayerJoined(message);
                     break;
-
-                case 'player.joined':
-                    // If this is about our own player, check if callsign was changed by server
-                    if (message.player && message.player.id === this.clientId) {
-                        // The server might have sanitized our callsign due to profanity
-                        if (message.player.callsign !== this.playerCallsign) {
-                            console.log(`Server changed callsign from "${this.playerCallsign}" to "${message.player.callsign}"`);
-                            this.playerCallsign = message.player.callsign;
-
-                            // Notify the user about the callsign change
-                            this.eventBus.emit('notification', {
-                                message: `Your callsign was changed to ${this.playerCallsign}`,
-                                type: 'warning',
-                                duration: 5000
-                            });
-                        }
-                    }
+                case 'player_left':
+                    this._handlePlayerLeft(message);
                     break;
-
-                case 'playerUpdate':
-                    // Update a remote player
-                    this.updateRemotePlayer(message);
+                case 'update':
+                    this._handlePlayerUpdate(message);
                     break;
-
-                case 'playerDisconnect':
-                    // Remove a disconnected player
-                    this.removeRemotePlayer(message.id);
+                case 'damage':
+                    this._handleDamage(message);
                     break;
-
-                case 'playerFire':
-                    // Handle remote player firing
-                    this.handleRemoteFire(message);
+                case 'fire':
+                    this._handleFireEvent(message);
                     break;
-
-                case 'playerHealth':
-                    // Handle health update for a remote player
-                    this.updateRemotePlayerHealth(message);
+                case 'hit_effect':
+                    this._handleHitEffect(message);
                     break;
-
-                case 'playerDestroyed':
-                    // Handle a remote player being destroyed
-                    this.handleRemotePlayerDestroyed(message);
+                case 'destroyed':
+                    this._handleDestroyed(message);
                     break;
-
-                case 'playerRespawn':
-                    // Handle a player respawning
-                    this.handlePlayerRespawn(message);
-                    break;
-
-                case 'hitEffect':
-                    // Handle visual hit effect from another client
-                    this.handleRemoteHitEffect(message);
-                    break;
-
                 case 'notification':
-                    // Handle notification from the server
-                    this.handleNotification(message);
+                    this._handleNotification(message);
                     break;
-
-                case 'playerCount':
-                    // Handle player count update from the server
-                    console.log(`Received player count update: ${message.count} players connected`);
-                    // Forward to event bus for UI to display
-                    this.eventBus.emit('network.playerCount', { count: message.count });
+                case 'player_respawn':
+                    this._handlePlayerRespawn(message);
                     break;
+                case 'player_count':
+                    this._handlePlayerCount(message);
+                    break;
+                default:
+                    console.warn('Unknown message type:', message.type);
             }
         } catch (error) {
-            console.error('Error processing server message:', error);
+            console.error('Error handling message:', error);
+        }
+    }
+
+    /**
+     * Handle initialization acknowledgment from server
+     * @private
+     * @param {Object} data - Init ack data
+     */
+    _handleInitAck(data) {
+        // Store client ID assigned by the server
+        this.clientId = data.clientId;
+        console.log(`Server assigned client ID: ${this.clientId}`);
+
+        // Initialize existing players
+        if (data.players && Array.isArray(data.players)) {
+            this.initExistingPlayers(data.players);
+        }
+
+        // Set protection zone if provided
+        if (data.protectionZone) {
+            this.setProtectionZone(data.protectionZone);
+        }
+    }
+
+    /**
+     * Handle player joined event
+     * @private
+     * @param {Object} data - Player joined data
+     */
+    _handlePlayerJoined(data) {
+        if (!data.player || !data.player.id) {
+            console.warn('Received invalid player_joined data');
+            return;
+        }
+
+        const player = data.player;
+        console.log(`Player joined: ${player.callsign} (${player.id})`);
+
+        // Create remote plane if not already exists
+        if (!this.remotePlanes.has(player.id)) {
+            const planeFactory = new PlaneFactory();
+            this.createRemotePlane(planeFactory, player);
+        }
+
+        // Show notification
+        this.eventBus.emit('notification', {
+            message: `${player.callsign} joined the battle`,
+            type: 'info'
+        });
+    }
+
+    /**
+     * Handle player left event
+     * @private
+     * @param {Object} data - Player left data
+     */
+    _handlePlayerLeft(data) {
+        if (!data.playerId) {
+            console.warn('Received invalid player_left data');
+            return;
+        }
+
+        const playerId = data.playerId;
+        const remotePlane = this.remotePlanes.get(playerId);
+
+        if (remotePlane) {
+            const callsign = remotePlane.callsign || 'Unknown pilot';
+            console.log(`Player left: ${callsign} (${playerId})`);
+
+            // Remove the remote plane
+            this.removeRemotePlayer(playerId);
+
+            // Show notification
+            this.eventBus.emit('notification', {
+                message: `${callsign} left the battle`,
+                type: 'info'
+            });
+        }
+    }
+
+    /**
+     * Handle player update event
+     * @private
+     * @param {Object} data - Player update data
+     */
+    _handlePlayerUpdate(data) {
+        if (!data.players || !Array.isArray(data.players)) {
+            console.warn('Received invalid player update data:', data);
+            return;
+        }
+
+        console.log(`Received update for ${data.players.length} players`);
+
+        // Process each player update
+        data.players.forEach(playerData => {
+            // Skip updates without ID
+            if (!playerData.id) {
+                console.warn('Player update missing ID:', playerData);
+                return;
+            }
+
+            if (playerData.id === this.clientId) {
+                // Update for local player (health sync)
+                console.log('Updating local player health:', playerData.health);
+                this.updateRemotePlayerHealth(playerData);
+            } else {
+                // Update for remote player
+                const remotePlane = this.remotePlanes.get(playerData.id);
+
+                if (!remotePlane) {
+                    console.log(`Remote plane for ${playerData.id} not found, creating it`);
+
+                    // Create the remote plane if it doesn't exist yet
+                    if (this.playerPlane && this.playerPlane.scene) {
+                        const planeFactory = new PlaneFactory(this.playerPlane.scene, this.eventBus);
+                        this.createRemotePlane(planeFactory, playerData);
+                    } else {
+                        console.warn('Cannot create remote plane: scene not available');
+                    }
+                } else {
+                    console.log(`Updating remote plane ${playerData.id}`);
+                    this.updateRemotePlayer(playerData);
+                }
+            }
+        });
+    }
+
+    /**
+     * Handle damage event
+     * @private
+     * @param {Object} data - Damage event data
+     */
+    _handleDamage(data) {
+        // Handle damage to local player
+        if (data.targetId === this.clientId) {
+            console.log(`Received damage: ${data.amount} from ${data.sourceId}`);
+
+            // Apply damage to player plane
+            if (this.playerPlane && !this.playerPlane.isDestroyed) {
+                // Create impact position if provided
+                let impactPosition = null;
+                if (data.position) {
+                    impactPosition = new THREE.Vector3(
+                        data.position.x,
+                        data.position.y,
+                        data.position.z
+                    );
+                }
+
+                // Apply damage to player plane with server as the source
+                // This ensures the server is authoritative for health management
+                this.playerPlane.applyDamage(data.amount, impactPosition, 'server');
+
+                // Emit server health update event
+                this.eventBus.emit('network.health.update', {
+                    health: this.playerPlane.health
+                });
+
+                // Emit damage event (will be caught by UI to update health bar)
+                this.eventBus.emit('plane.damage', {
+                    amount: data.amount,
+                    impactPosition: impactPosition
+                }, 'player');
+            }
         }
     }
 
@@ -598,86 +943,108 @@ export default class NetworkManager {
         // Get scene from player plane
         const scene = this.playerPlane.scene;
 
-        // Create plane factory
+        // Create plane factory with scene and event bus
         const planeFactory = new PlaneFactory(scene, this.eventBus);
 
         // Create planes for each player
         players.forEach((playerData) => {
-            this.createRemotePlane(planeFactory, playerData);
+            // Skip our own player
+            if (playerData.id !== this.clientId) {
+                console.log(`Creating plane for player ${playerData.callsign || 'Unknown'} (ID: ${playerData.id})`);
+                this.createRemotePlane(planeFactory, playerData);
+            }
         });
 
-        this.eventBus.emit('notification', {
-            message: `${players.length} other players in game`,
-            type: 'info'
-        });
+        // Notify about players if there are any
+        if (players.length > 0) {
+            console.log(`Initialized ${players.length} remote players`);
+            this.eventBus.emit('notification', {
+                message: `${players.length} other players in game`,
+                type: 'info'
+            });
+        }
     }
 
     /**
      * Create a plane for a remote player
      * @param {PlaneFactory} planeFactory - Factory for creating planes
      * @param {Object} playerData - Player data including ID and position
+     * @returns {Object} The created remote plane
      */
     createRemotePlane(planeFactory, playerData) {
-        // Skip if this is our own plane
-        if (playerData.id === this.clientId) return;
+        const playerId = playerData.id;
 
-        // Skip if we already have this plane
-        if (this.remotePlanes.has(playerData.id)) return;
+        // Skip if this is our own plane or if it already exists
+        if (playerId === this.clientId || this.remotePlanes.has(playerId)) {
+            console.log(`Skipping creation of remote plane for player ${playerId} - player is self or already exists`);
+            return null;
+        }
 
-        console.log(`Creating plane for remote player ${playerData.id}`);
+        console.log(`Creating remote plane for player ${playerData.callsign || 'Unknown'} (${playerId})`);
 
         try {
-            // Create a new enemy plane
-            const remotePlane = planeFactory.createEnemyPlane();
+            // Make sure we have a valid planeFactory with scene and eventBus
+            if (!planeFactory.scene && this.playerPlane && this.playerPlane.scene) {
+                console.log('PlaneFactory missing scene, using player plane scene');
+                planeFactory.scene = this.playerPlane.scene;
+                planeFactory.eventBus = this.eventBus;
+            }
 
-            // Set initial position and rotation
-            if (playerData.position) {
+            // Create the remote plane
+            const remotePlane = planeFactory.createRemotePlayerPlane();
+            if (!remotePlane) {
+                console.error('Failed to create remote plane - null returned from factory');
+                return null;
+            }
+
+            // Store callsign and ID
+            remotePlane.callsign = playerData.callsign || `Player-${playerId.substring(0, 6)}`;
+            remotePlane.playerId = playerId;
+
+            // Set initial position if provided
+            if (playerData.position && remotePlane.mesh) {
                 remotePlane.mesh.position.set(
                     playerData.position.x,
                     playerData.position.y,
                     playerData.position.z
                 );
+                remotePlane.targetPosition = remotePlane.mesh.position.clone();
             }
 
-            if (playerData.rotation) {
+            // Set initial rotation if provided
+            if (playerData.rotation && remotePlane.mesh) {
                 remotePlane.mesh.rotation.set(
-                    playerData.rotation.x || 0,
-                    playerData.rotation.y || 0,
-                    playerData.rotation.z || 0
+                    playerData.rotation.x,
+                    playerData.rotation.y,
+                    playerData.rotation.z
                 );
+                remotePlane.targetRotation = remotePlane.mesh.rotation.clone();
             }
 
-            // Store player ID and callsign with the plane
-            remotePlane.playerId = playerData.id;
-            remotePlane.callsign = playerData.callsign || 'Unknown';
-
-            // Set initial health if available
+            // Set initial health if provided
             if (playerData.health !== undefined) {
-                remotePlane.setHealth(playerData.health);
+                remotePlane.health = playerData.health;
             }
 
-            // Set destroyed state if available
-            if (playerData.isDestroyed === true) {
-                remotePlane.destroy();
+            // Set destroyed state if provided
+            if (playerData.isDestroyed) {
+                remotePlane.isDestroyed = true;
+                if (remotePlane.mesh) {
+                    remotePlane.mesh.visible = false;
+                }
             }
 
-            // Store the remote plane
-            this.remotePlanes.set(playerData.id, remotePlane);
+            // Add to remote planes map
+            this.remotePlanes.set(playerId, remotePlane);
 
-            // Set protection zone if available
-            if (this.protectionZone && remotePlane.ammoSystem) {
-                remotePlane.ammoSystem.setProtectionZone(this.protectionZone);
-            }
-
-            // Emit event for collision registration
+            // Notify event listeners about the new remote plane
             this.eventBus.emit('network.plane.created', remotePlane);
 
-            // Debug log
-            console.log(`Remote plane for ${playerData.id} created and registered`);
-
+            // Log success
+            console.log(`Successfully created remote plane for player ${playerId}`);
             return remotePlane;
         } catch (error) {
-            console.error('Error creating remote plane:', error);
+            console.error(`Error creating remote plane for player ${playerId}:`, error);
             return null;
         }
     }
@@ -687,67 +1054,77 @@ export default class NetworkManager {
      * @param {Object} data - Player update data
      */
     updateRemotePlayer(data) {
-        const remotePlane = this.remotePlanes.get(data.id);
+        if (!data.id || data.id === this.clientId) return;
 
+        const playerId = data.id;
+        let remotePlane = this.remotePlanes.get(playerId);
+
+        // If plane doesn't exist, create it
         if (!remotePlane) {
-            // We don't have this plane yet, try to create it
-            if (!this.playerPlane || !this.playerPlane.scene) {
-                console.warn(`Cannot create remote plane ${data.id}: playerPlane or scene not available yet`);
+            const planeFactory = new PlaneFactory();
+            this.createRemotePlane(planeFactory, data);
+            remotePlane = this.remotePlanes.get(playerId);
+
+            // If still no remote plane, something went wrong
+            if (!remotePlane) {
+                console.warn(`Failed to create remote plane for player ${playerId}`);
                 return;
             }
-
-            console.log(`Creating remote plane for player ${data.id} during update`);
-            const planeFactory = new PlaneFactory(this.playerPlane.scene, this.eventBus);
-            this.createRemotePlane(planeFactory, data);
-            return;
         }
 
-        // Apply position with interpolation for smoother movement
-        if (data.position) {
-            // Create target position vector
-            const targetPosition = new THREE.Vector3(
+        // Skip updates for destroyed planes
+        if (remotePlane.isDestroyed && !data.isRespawned) return;
+
+        // Reset visibility if respawned
+        if (data.isRespawned && remotePlane.mesh) {
+            remotePlane.isDestroyed = false;
+            remotePlane.mesh.visible = true;
+            remotePlane.health = 100;
+        }
+
+        // Update position target
+        if (data.position && remotePlane.mesh) {
+            if (!remotePlane.targetPosition) {
+                remotePlane.targetPosition = new THREE.Vector3();
+            }
+            remotePlane.targetPosition.set(
                 data.position.x,
                 data.position.y,
                 data.position.z
             );
-
-            // Interpolate to new position for smoother visualization
-            remotePlane.mesh.position.lerp(targetPosition, this.interpolationFactor);
         }
 
-        // Apply rotation
-        if (data.rotation) {
-            remotePlane.mesh.rotation.set(
+        // Update rotation target
+        if (data.rotation && remotePlane.mesh) {
+            if (!remotePlane.targetRotation) {
+                remotePlane.targetRotation = new THREE.Euler();
+            }
+            remotePlane.targetRotation.set(
                 data.rotation.x,
                 data.rotation.y,
                 data.rotation.z
             );
         }
 
-        // Update speed if provided
-        if (data.speed !== undefined) {
-            remotePlane.speed = data.speed;
-        }
-
         // Update health if provided
         if (data.health !== undefined) {
-            remotePlane.setHealth(data.health);
-
-            // Ensure smoke effects are visible on remote planes by updating health percentage
-            if (remotePlane.smokeFX) {
-                const healthPercent = remotePlane.currentHealth / remotePlane.maxHealth;
-
-                // Force update smoke effects based on current health
-                if (healthPercent < 0.5) {
-                    remotePlane.smokeFX.emitSmoke(remotePlane, healthPercent, 0.016); // Use a small delta time
-                    remotePlane.smokeFX.update(0.016);
-                }
-            }
+            remotePlane.health = data.health;
         }
 
-        // Update destroyed state if provided
-        if (data.isDestroyed === true && !remotePlane.isDestroyed) {
-            remotePlane.destroy();
+        // Handle destruction
+        if (data.isDestroyed && !remotePlane.isDestroyed) {
+            remotePlane.isDestroyed = true;
+
+            // Hide the plane
+            if (remotePlane.mesh) {
+                remotePlane.mesh.visible = false;
+            }
+
+            // Create explosion effect
+            this.eventBus.emit('effect.explosion', {
+                position: remotePlane.mesh.position.clone(),
+                scale: 2.0
+            });
         }
     }
 
@@ -758,327 +1135,134 @@ export default class NetworkManager {
     removeRemotePlayer(playerId) {
         const remotePlane = this.remotePlanes.get(playerId);
 
-        if (remotePlane) {
-            console.log(`Removing plane for remote player ${playerId}`);
+        if (!remotePlane) return;
 
-            // Clean up hit effects before disposing the plane
-            if (remotePlane.ammoSystem && remotePlane.ammoSystem.hitEffect) {
-                remotePlane.ammoSystem.hitEffect.stopAndCleanup();
-                console.log(`Cleaned up hit effects for remote player ${playerId}`);
-            }
+        console.log(`Removing remote player ${playerId}`);
 
-            // Dispose the plane completely
-            remotePlane.dispose();
-            this.remotePlanes.delete(playerId);
-
-            this.eventBus.emit('notification', {
-                message: `Player ${playerId} has left the game`,
-                type: 'info'
-            });
+        // Remove from scene
+        if (remotePlane.mesh && remotePlane.mesh.parent) {
+            remotePlane.mesh.parent.remove(remotePlane.mesh);
         }
+
+        // Remove from remote planes map
+        this.remotePlanes.delete(playerId);
+
+        // Notify event listeners
+        this.eventBus.emit('network.plane.removed', remotePlane);
     }
 
     /**
-     * Send updates about our plane to the server
+     * Send update to server with player's current position and state
      * @param {number} currentTime - Current game time
      */
     sendUpdate(currentTime) {
-        // Ensure we have a valid connection and player plane reference
-        if (!this.connected || !this.socket) {
-            return;
-        }
+        if (!this.connected || !this.socket || !this.playerPlane) return;
 
-        if (!this.playerPlane) {
-            console.warn('Cannot send update: playerPlane reference is missing');
-            return;
-        }
-
-        if (!this.playerPlane.mesh) {
-            console.warn('Cannot send update: playerPlane.mesh is missing');
-            return;
-        }
-
-        // Limit update frequency
+        // Throttle updates based on updateInterval
         if (currentTime - this.lastUpdateTime < this.updateInterval) return;
+
         this.lastUpdateTime = currentTime;
 
-        // Get position and rotation from our plane
-        const position = this.playerPlane.mesh.position;
-        const rotation = this.playerPlane.mesh.rotation;
+        // Get player data for update
+        const playerData = this._getPlayerUpdateData();
 
-        // Create update message
-        const update = {
+        // Send update to server
+        this._sendMessage({
             type: 'update',
-            position: {
-                x: position.x,
-                y: position.y,
-                z: position.z
-            },
-            rotation: {
-                x: rotation.x,
-                y: rotation.y,
-                z: rotation.z
-            },
-            speed: this.playerPlane.speed,
-            health: this.playerPlane.currentHealth,
-            isDestroyed: this.playerPlane.isDestroyed
-        };
-
-        // Send to server
-        try {
-            this.socket.send(JSON.stringify(update));
-        } catch (error) {
-            console.error('Error sending update:', error);
-        }
+            player: playerData
+        });
     }
 
     /**
-     * Update networked game elements
+     * Get current player data for updates
+     * @private
+     * @returns {Object} Player update data
+     */
+    _getPlayerUpdateData() {
+        return {
+            position: this._getPlayerPosition(),
+            rotation: this._getPlayerRotation(),
+            velocity: this.playerPlane.velocity ? {
+                x: this.playerPlane.velocity.x,
+                y: this.playerPlane.velocity.y,
+                z: this.playerPlane.velocity.z
+            } : { x: 0, y: 0, z: 0 },
+            health: this.playerPlane.health,
+            isDestroyed: this.playerPlane.isDestroyed || false
+        };
+    }
+
+    /**
+     * Main update method called each frame
      * @param {number} currentTime - Current game time
      */
     update(currentTime) {
-        if (this.connected) {
-            this.sendUpdate(currentTime);
+        if (!this.connected) return;
 
-            // Update remote planes' propellers, trails, and ammo systems
-            this.remotePlanes.forEach((plane) => {
-                const deltaTime = 0.016; // Approximate delta time (60 fps)
+        // Send player updates to server
+        this.sendUpdate(currentTime);
 
-                // Handle destroyed planes specially
-                if (plane.isDestroyed) {
-                    // Update free fall physics if active
-                    if (plane.updateFreeFall) {
-                        plane.updateFreeFall(deltaTime);
-                    }
-
-                    // Update explosion effects for destroyed planes
-                    if (plane.explosionFX) {
-                        plane.explosionFX.update(deltaTime);
-                    }
-
-                    // Update hit effects for destroyed planes to ensure they animate out properly
-                    if (plane.ammoSystem && plane.ammoSystem.hitEffect) {
-                        plane.ammoSystem.hitEffect.update(deltaTime);
-                    }
-
-                    // Update propeller for visual consistency
-                    plane.updatePropeller(deltaTime);
-                    return;
-                }
-
-                // Update visual elements for active planes
-                plane.updatePropeller(deltaTime);
-                plane.updateWingTrails(deltaTime);
-
-                // Update smoke effects for damaged planes
-                if (plane.smokeFX) {
-                    const healthPercent = plane.currentHealth / plane.maxHealth;
-                    plane.smokeFX.emitSmoke(plane, healthPercent, deltaTime);
-                    plane.smokeFX.update(deltaTime);
-                }
-
-                // Update explosion effects if present
-                if (plane.explosionFX) {
-                    plane.explosionFX.update(deltaTime);
-                }
-
-                // Update ammo system to move bullets
-                if (plane.ammoSystem) {
-                    plane.ammoSystem.update(deltaTime);
-                }
-            });
-        }
+        // Update all remote planes
+        this._updateRemotePlanes(currentTime);
     }
 
     /**
-     * Send a firing event to the server
-     * @param {Object} data - Firing event data
+     * Update all remote planes for interpolation
+     * @private
+     * @param {number} currentTime - Current game time
+     */
+    _updateRemotePlanes(currentTime) {
+        this.remotePlanes.forEach(remotePlane => {
+            if (!remotePlane.mesh || remotePlane.isDestroyed) return;
+
+            // Apply interpolation for smooth movement
+            if (remotePlane.targetPosition) {
+                remotePlane.mesh.position.lerp(remotePlane.targetPosition, this.interpolationFactor);
+            }
+
+            // Apply interpolation for smooth rotation
+            if (remotePlane.targetRotation) {
+                // Ensure rotation is the shortest path
+                this._interpolateRotation(remotePlane.mesh.rotation, remotePlane.targetRotation, this.interpolationFactor);
+            }
+        });
+    }
+
+    /**
+     * Interpolate rotation along the shortest path
+     * @private
+     * @param {THREE.Euler} current - Current rotation
+     * @param {THREE.Euler} target - Target rotation
+     * @param {number} factor - Interpolation factor
+     */
+    _interpolateRotation(current, target, factor) {
+        // Convert Euler angles to a more straightforward approach
+        // Handle each axis separately for simplicity
+        current.x += (target.x - current.x) * factor;
+        current.y += (target.y - current.y) * factor;
+        current.z += (target.z - current.z) * factor;
+    }
+
+    /**
+     * Send fire event to the server
+     * @param {Object} data - Fire event data
      */
     sendFireEvent(data) {
-        if (!this.connected || !this.socket) return;
+        if (!this.connected || !this.socket || !this.playerPlane) return;
 
-        // Create fire message
-        const fireMsg = {
+        // Get player velocity for ballistic calculation
+        const velocity = this.playerPlane.velocity || new THREE.Vector3(0, 0, 0);
+
+        this._sendMessage({
             type: 'fire',
-            position: {
-                x: data.position.x,
-                y: data.position.y,
-                z: data.position.z
-            },
-            direction: {
-                x: data.direction.x,
-                y: data.direction.y,
-                z: data.direction.z
-            },
+            position: this._getPlayerPosition(),
+            rotation: this._getPlayerRotation(),
             velocity: {
-                x: data.velocity.x,
-                y: data.velocity.y,
-                z: data.velocity.z
+                x: velocity.x,
+                y: velocity.y,
+                z: velocity.z
             }
-        };
-
-        // Send to server
-        try {
-            this.socket.send(JSON.stringify(fireMsg));
-        } catch (error) {
-            console.error('Error sending fire event:', error);
-        }
-    }
-
-    /**
-     * Handle a remote player firing
-     * @param {Object} data - Firing event data from server
-     */
-    handleRemoteFire(data) {
-        // Skip if this is our own firing event coming back from the server
-        if (data.id === this.clientId) {
-            return;
-        }
-
-        const remotePlane = this.remotePlanes.get(data.id);
-
-        if (!remotePlane) {
-            return;
-        }
-
-        // Convert received data back to THREE.Vector3 objects
-        const position = new THREE.Vector3(
-            data.position.x,
-            data.position.y,
-            data.position.z
-        );
-
-        const direction = new THREE.Vector3(
-            data.direction.x,
-            data.direction.y,
-            data.direction.z
-        );
-
-        const velocity = new THREE.Vector3(
-            data.velocity.x,
-            data.velocity.y,
-            data.velocity.z
-        );
-
-        // Ensure remote plane has an ammo system
-        if (!remotePlane.ammoSystem) {
-            console.warn('Remote plane does not have an ammo system, creating one...');
-            remotePlane.ammoSystem = new AmmoSystem(remotePlane.scene, this.eventBus);
-        }
-
-        // Fire bullets from the remote plane without playing sound
-        if (remotePlane.ammoSystem) {
-            // Make sure the remote plane's position is correct
-            if (position.distanceTo(remotePlane.mesh.position) > 20) {
-                // If position is very different, update it to avoid bullets appearing in wrong place
-                remotePlane.mesh.position.copy(position);
-            }
-
-            // Get the wing positions (copied from AmmoSystem but without the sound emission)
-            this.fireBulletsWithoutSound(remotePlane.mesh, velocity, remotePlane.ammoSystem);
-        }
-
-        // Don't play gunfire sound for remote planes
-        // Remote players' shooting will be silent as requested
-    }
-
-    /**
-     * Modified version of fireBullets that doesn't trigger sound
-     * @param {THREE.Object3D} plane - The plane mesh
-     * @param {THREE.Vector3} planeVelocity - The plane's velocity vector
-     * @param {AmmoSystem} ammoSystem - The ammo system to use
-     */
-    fireBulletsWithoutSound(plane, planeVelocity, ammoSystem) {
-        // Get the current time
-        const now = performance.now();
-
-        // Check cooldown
-        if (now - ammoSystem.lastFireTime < ammoSystem.fireCooldown) {
-            return;
-        }
-
-        ammoSystem.lastFireTime = now;
-
-        // Create temporary vectors for calculations
-        const planePos = new THREE.Vector3();
-        const planeQuat = new THREE.Quaternion();
-        const planeScale = new THREE.Vector3();
-
-        // Get the plane's world position and orientation
-        plane.matrixWorld.decompose(planePos, planeQuat, planeScale);
-
-        // Calculate wing positions based on wingspan
-        const wingOffset = 5; // Half of wingspan
-
-        // Wing positions in local space
-        const leftWingLocal = new THREE.Vector3(-wingOffset, 0, 0);
-        const rightWingLocal = new THREE.Vector3(wingOffset, 0, 0);
-
-        // Convert to world space
-        leftWingLocal.applyQuaternion(planeQuat);
-        rightWingLocal.applyQuaternion(planeQuat);
-
-        const leftWingPos = new THREE.Vector3().addVectors(planePos, leftWingLocal);
-        const rightWingPos = new THREE.Vector3().addVectors(planePos, rightWingLocal);
-
-        // Get bullet direction (forward vector of plane)
-        const bulletDirection = new THREE.Vector3(0, 0, -1).applyQuaternion(planeQuat).normalize();
-
-        // Forward offset - move spawn point ahead of the wing
-        const forwardOffset = 3.0; // Units in front of the wing tips
-
-        // Apply forward offset to spawn positions
-        leftWingPos.addScaledVector(bulletDirection, forwardOffset);
-        rightWingPos.addScaledVector(bulletDirection, forwardOffset);
-
-        // Create bullets at wing positions - directly from ammo system
-        ammoSystem.createBullet(leftWingPos, bulletDirection, planeVelocity);
-        ammoSystem.createBullet(rightWingPos, bulletDirection, planeVelocity);
-
-        // No sound is played here - that's the key difference
-    }
-
-    /**
-     * Handle remote hit effect
-     * @param {Object} data - Hit effect data
-     */
-    handleRemoteHitEffect(data) {
-        // Skip if this is our own hit effect
-        if (data.id === this.clientId) return;
-
-        console.log('Received remote hit effect');
-
-        // Create the position vector from the data
-        if (data.position) {
-            const position = new THREE.Vector3(
-                data.position.x,
-                data.position.y,
-                data.position.z
-            );
-
-            // Emit the effect event
-            this.eventBus.emit('effect.hit', {
-                position: position,
-                playSound: true
-            });
-        }
-    }
-
-    /**
-     * Handle a notification message from the server
-     * @param {Object} data - Notification data
-     */
-    handleNotification(data) {
-        if (data.message) {
-            console.log('Received notification from server:', data.message);
-
-            // Forward the notification to the UI
-            this.eventBus.emit('notification', {
-                message: data.message,
-                type: data.notificationType || data.type || 'info',
-                duration: data.duration || 3000
-            });
-        }
+        });
     }
 
     /**
@@ -1095,7 +1279,7 @@ export default class NetworkManager {
         this.playerPlane = newPlayerPlane;
 
         // Re-setup collision handler with the new player plane
-        this.setupCollisionHandler();
+        this._setupCollisionHandler();
 
         // Notify other players that we've respawned
         this.sendRespawnNotification();
@@ -1153,67 +1337,133 @@ export default class NetworkManager {
     }
 
     /**
-     * Handle a player respawning after death
+     * Handle player respawn event from the server
+     * @private
      * @param {Object} data - Respawn data
      */
-    handlePlayerRespawn(data) {
-        // Skip if this is our own respawn event
-        if (data.id === this.clientId) return;
-
-        console.log(`Remote player ${data.id} has respawned`);
-
-        // Check if we already have this remote plane
-        const remotePlane = this.remotePlanes.get(data.id);
-
-        if (remotePlane) {
-            console.log(`Updating existing remote plane for respawned player ${data.id}`);
-
-            // Reset the plane's state
-            remotePlane.isDestroyed = false;
-            remotePlane.mesh.visible = true;
-
-            // Update position and rotation
-            if (data.position) {
-                remotePlane.mesh.position.set(
-                    data.position.x,
-                    data.position.y,
-                    data.position.z
-                );
-            }
-
-            if (data.rotation) {
-                remotePlane.mesh.rotation.set(
-                    data.rotation.x,
-                    data.rotation.y,
-                    data.rotation.z
-                );
-            }
-
-            // Reset health to max
-            remotePlane.setHealth(remotePlane.maxHealth);
-
-            // Enable wing trails again
-            if (remotePlane.wingTrails && remotePlane.wingTrails.left && remotePlane.wingTrails.right) {
-                remotePlane.wingTrails.left.mesh.visible = true;
-                remotePlane.wingTrails.right.mesh.visible = true;
-            }
-        } else {
-            // Create a new plane if we don't have it
-            if (!this.playerPlane || !this.playerPlane.scene) {
-                console.warn(`Cannot create remote plane for respawned player ${data.id}: playerPlane or scene not available`);
-                return;
-            }
-
-            console.log(`Creating new remote plane for respawned player ${data.id}`);
-            const planeFactory = new PlaneFactory(this.playerPlane.scene, this.eventBus);
-            this.createRemotePlane(planeFactory, data);
+    _handlePlayerRespawn(data) {
+        // Verify data format
+        if (!data.player || !data.player.id) {
+            console.warn('Received invalid player_respawn data', data);
+            return;
         }
 
-        // Show notification
-        this.eventBus.emit('notification', {
-            message: `Player ${data.id} has respawned`,
-            type: 'info',
-            duration: 3000
+        const playerData = data.player;
+        const playerId = playerData.id;
+
+        // Handle local player respawn
+        if (playerId === this.clientId) {
+            console.log('Local player respawn confirmed by server');
+
+            // Make sure local player exists
+            if (this.playerPlane) {
+                // Ensure health is synchronized
+                this.playerPlane.setHealth(playerData.health || 100);
+
+                // Update visibility
+                this.playerPlane.isDestroyed = false;
+                this.playerPlane.mesh.visible = true;
+
+                // Emit event for health update
+                this.eventBus.emit('network.health.update', {
+                    health: this.playerPlane.health
+                });
+            }
+
+            return;
+        }
+
+        // Handle remote player respawn
+        console.log(`Remote player ${playerId} respawned`);
+
+        // Get the remote plane
+        let remotePlane = this.remotePlanes.get(playerId);
+
+        if (!remotePlane) {
+            // Create new remote plane if it doesn't exist
+            console.log(`Creating new plane for respawned player ${playerId}`);
+            if (this.playerPlane && this.playerPlane.scene) {
+                const planeFactory = new PlaneFactory(this.playerPlane.scene, this.eventBus);
+                remotePlane = this.createRemotePlane(planeFactory, playerData);
+            } else {
+                console.warn('Cannot create remote plane for respawned player: scene not available');
+                return;
+            }
+        } else {
+            // Update existing plane
+            console.log(`Updating existing remote plane for respawned player ${playerId}`);
+
+            // Reset destroyed state
+            remotePlane.isDestroyed = false;
+
+            // Make plane visible
+            if (remotePlane.mesh) {
+                remotePlane.mesh.visible = true;
+            }
+
+            // Update position if provided
+            if (playerData.position && remotePlane.mesh) {
+                remotePlane.mesh.position.set(
+                    playerData.position.x,
+                    playerData.position.y,
+                    playerData.position.z
+                );
+                remotePlane.targetPosition = remotePlane.mesh.position.clone();
+            }
+
+            // Update rotation if provided
+            if (playerData.rotation && remotePlane.mesh) {
+                remotePlane.mesh.rotation.set(
+                    playerData.rotation.x,
+                    playerData.rotation.y,
+                    playerData.rotation.z
+                );
+                remotePlane.targetRotation = remotePlane.mesh.rotation.clone();
+            }
+
+            // Reset health
+            remotePlane.health = playerData.health || 100;
+        }
+
+        // Create respawn effect
+        if (remotePlane && remotePlane.mesh) {
+            this.eventBus.emit('effect.respawn', {
+                position: remotePlane.mesh.position.clone()
+            });
+        }
+    }
+
+    /**
+     * Add debugging information to the game
+     * Can be called from the console for debugging
+     */
+    debug() {
+        console.log('\n===== NETWORK MANAGER DEBUG INFO =====');
+        console.log('Connected:', this.connected);
+        console.log('Client ID:', this.clientId);
+        console.log('Player Callsign:', this.playerCallsign);
+
+        console.log('\nRemote Planes:', this.remotePlanes.size);
+        this.remotePlanes.forEach((plane, id) => {
+            console.log(`- Player ID: ${id}, Callsign: ${plane.callsign || 'Unknown'}`);
+            if (plane.mesh) {
+                console.log(`  Position: ${plane.mesh.position.x.toFixed(1)}, ${plane.mesh.position.y.toFixed(1)}, ${plane.mesh.position.z.toFixed(1)}`);
+                console.log(`  Visible: ${plane.mesh.visible}`);
+            } else {
+                console.log('  No mesh available');
+            }
+            console.log(`  Health: ${plane.health}`);
+            console.log(`  Destroyed: ${plane.isDestroyed}`);
         });
+
+        console.log('\nConnection Status:');
+        if (this.socket) {
+            const states = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'];
+            console.log(`- WebSocket State: ${states[this.socket.readyState]}`);
+        } else {
+            console.log('- No WebSocket connection');
+        }
+
+        return 'Debug info printed to console';
     }
 } 

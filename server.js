@@ -26,7 +26,7 @@ const PROFANITY_LIST = [
 ];
 
 // Server state
-const clients = new Map(); // clientId -> WebSocket connection
+const clients = new Map(); // clientId -> Client object
 let lastTimestamp = Date.now();
 
 // Create Express app and HTTP server
@@ -43,7 +43,10 @@ console.log(`Server for WW2 Dogfight Arena started on port ${PORT}`);
 console.log(`Game will be available at http://localhost:${PORT}`);
 console.log(`WebSocket endpoint will be available at ws://localhost:${PORT}`);
 
-// Debug function that only logs when DEBUG is true
+/**
+ * Debug logging function
+ * @param {string} message - The message to log
+ */
 function logDebug(message) {
     if (DEBUG) {
         console.log(`[DEBUG] ${message}`);
@@ -76,7 +79,7 @@ function sanitizeCallsign(callsign) {
 }
 
 /**
- * Gets formatted player data for sending to other clients
+ * Get formatted player data for a client
  * @param {Object} client - Client object
  * @returns {Object} - Formatted player data
  */
@@ -91,54 +94,74 @@ function getPlayerData(client) {
     };
 }
 
-// Handle new connections
-wss.on('connection', (socket) => {
-    // Generate a unique client ID
-    const clientId = uuidv4();
-
-    console.log(`New client connected: ${clientId}`);
-
-    // Store client connection
-    clients.set(clientId, {
+/**
+ * Create a new client object
+ * @param {string} clientId - The client ID
+ * @param {WebSocket} socket - The WebSocket connection
+ * @returns {Object} - The new client object
+ */
+function createClientObject(clientId, socket) {
+    return {
         socket,
         id: clientId,
         position: { x: 0, y: 100, z: 0 },
         rotation: { x: 0, y: 0, z: 0 },
-        speed: 0,
+        velocity: { x: 0, y: 0, z: 0 },
         health: 100,
         isDestroyed: false,
-        lastUpdate: Date.now()
+        lastUpdate: Date.now(),
+        callsign: null
+    };
+}
+
+/**
+ * Get a list of all connected players except the specified client
+ * @param {string} excludeClientId - Client ID to exclude
+ * @returns {Array} - Array of player data objects
+ */
+function getConnectedPlayers(excludeClientId) {
+    return Array.from(clients.entries())
+        .filter(([id]) => id !== excludeClientId)
+        .map(([_, client]) => getPlayerData(client));
+}
+
+// Handle new WebSocket connections
+wss.on('connection', (socket) => {
+    // Generate a unique client ID
+    const clientId = uuidv4();
+    logDebug(`New client connected: ${clientId}`);
+
+    // Create and store client object
+    const client = createClientObject(clientId, socket);
+    clients.set(clientId, client);
+
+    // Log connection
+    console.log(`Client connected: ${clientId} (Total: ${clients.size})`);
+
+    // Send initial acknowledgment
+    sendToClient(clientId, {
+        type: 'init_ack',
+        clientId: clientId,
+        message: 'Connected to WW2 Dogfight Arena Server'
     });
 
-    // Log the number of connected clients
-    console.log(`Total connected clients: ${clients.size}`);
+    // Set up event handlers for this client
+    setupClientEventHandlers(clientId, socket);
 
-    // Send client their unique ID
-    socket.send(JSON.stringify({
-        type: 'init',
-        id: clientId
-    }));
-    logDebug(`Sent init message to client ${clientId}`);
+    // Broadcast updated player count to all clients
+    broadcastPlayerCount();
+});
 
-    // Send list of existing players
-    const existingPlayers = Array.from(clients.entries())
-        .filter(([id]) => id !== clientId)
-        .map(([_, client]) => getPlayerData(client));
-
-    socket.send(JSON.stringify({
-        type: 'players',
-        players: existingPlayers
-    }));
-    logDebug(`Sent existing ${existingPlayers.length} players to client ${clientId}`);
-
-    // We'll wait for the client's init message before broadcasting to others
-    // This allows us to get the proper callsign first
-
+/**
+ * Set up WebSocket event handlers for a client
+ * @param {string} clientId - The client ID
+ * @param {WebSocket} socket - The WebSocket connection
+ */
+function setupClientEventHandlers(clientId, socket) {
     // Handle messages from client
     socket.on('message', (message) => {
         try {
             const data = JSON.parse(message);
-            logDebug(`Received ${data.type} message from client ${clientId}`);
             handleClientMessage(clientId, data);
         } catch (error) {
             console.error(`Error processing message from ${clientId}:`, error);
@@ -147,25 +170,40 @@ wss.on('connection', (socket) => {
 
     // Handle disconnection
     socket.on('close', () => {
-        console.log(`Client disconnected: ${clientId}`);
-
-        // Remove client from the list
-        clients.delete(clientId);
-
-        // Log the number of connected clients after disconnection
-        console.log(`Total connected clients: ${clients.size}`);
-
-        // Broadcast player disconnection
-        broadcast({
-            type: 'playerDisconnect',
-            id: clientId
-        });
-        logDebug(`Broadcasted disconnect of client ${clientId}`);
-
-        // Broadcast updated player count
-        broadcastPlayerCount();
+        handleClientDisconnection(clientId);
     });
-});
+
+    // Handle errors
+    socket.on('error', (error) => {
+        console.error(`WebSocket error for client ${clientId}:`, error);
+    });
+}
+
+/**
+ * Handle client disconnection
+ * @param {string} clientId - The client ID
+ */
+function handleClientDisconnection(clientId) {
+    // Get client info before removal
+    const client = clients.get(clientId);
+    const callsign = client ? client.callsign || 'Unknown pilot' : 'Unknown pilot';
+
+    // Remove client from the map
+    clients.delete(clientId);
+
+    // Log disconnection
+    console.log(`Client disconnected: ${callsign} (${clientId}) (Remaining: ${clients.size})`);
+
+    // Notify all other clients about the disconnection
+    broadcast({
+        type: 'player_left',
+        playerId: clientId,
+        callsign: callsign
+    }, clientId);
+
+    // Update player count
+    broadcastPlayerCount();
+}
 
 /**
  * Handles a message from a client
@@ -180,251 +218,369 @@ function handleClientMessage(clientId, data) {
         return;
     }
 
-    // Handle client initialization
-    if (data.type === 'init') {
-        console.log(`DIAGNOSTIC: Client ${clientId} init message full data:`, JSON.stringify(data));
-        logDebug(`Client ${clientId} initialized with callsign: ${data.callsign}`);
+    logDebug(`Received ${data.type} message from client ${clientId}`);
 
-        // Store original callsign for comparison
-        const originalCallsign = data.callsign;
+    // Route message to appropriate handler based on type
+    switch (data.type) {
+        case 'init':
+            handleInitMessage(clientId, client, data);
+            break;
+        case 'update':
+            handleUpdateMessage(clientId, client, data);
+            break;
+        case 'fire':
+            handleFireMessage(clientId, client, data);
+            break;
+        case 'damage':
+            handleDamageMessage(clientId, client, data);
+            break;
+        case 'respawn':
+            handleRespawnMessage(clientId, client, data);
+            break;
+        case 'hit_effect':
+            handleHitEffectMessage(clientId, client, data);
+            break;
+        default:
+            logDebug(`Unknown message type: ${data.type} from client ${clientId}`);
+    }
 
-        // Store player data including sanitized callsign
-        client.callsign = sanitizeCallsign(data.callsign) || `Pilot${clientId.substring(0, 4)}`;
-        console.log(`DIAGNOSTIC: Client ${clientId} callsign set to: ${client.callsign}`);
+    // Update client's last activity timestamp
+    client.lastUpdate = Date.now();
+}
 
-        // Check if callsign was changed due to profanity
-        const callsignChanged = originalCallsign && client.callsign !== originalCallsign;
+/**
+ * Handle client initialization message
+ * @param {string} clientId - Client ID
+ * @param {Object} client - Client object
+ * @param {Object} data - Message data
+ */
+function handleInitMessage(clientId, client, data) {
+    logDebug(`Client ${clientId} initialized with callsign: ${data.callsign}`);
 
-        client.position = data.position;
-        client.rotation = data.rotation;
-        client.health = data.health || 100;
-        client.lastUpdate = Date.now();
+    // Store original callsign for comparison
+    const originalCallsign = data.callsign;
 
-        // Send existing players to the new client
-        const existingPlayers = [];
-        for (const [id, otherClient] of clients.entries()) {
-            if (id !== clientId && otherClient.socket.readyState === WebSocket.OPEN) {
-                existingPlayers.push(getPlayerData(otherClient));
-            }
-        }
+    // Sanitize and store callsign
+    client.callsign = sanitizeCallsign(data.callsign) || `Pilot${clientId.substring(0, 4)}`;
 
-        if (existingPlayers.length > 0) {
-            // Send existing players data to new client
-            const existingPlayersMsg = {
-                type: 'players.existing',
-                players: existingPlayers
-            };
-            sendToClient(clientId, existingPlayersMsg);
-        }
+    // Update position, rotation, and health if provided
+    if (data.position) client.position = data.position;
+    if (data.rotation) client.rotation = data.rotation;
+    if (data.health) client.health = data.health;
 
-        // Announce new player to all other clients
-        const joinMessage = {
-            type: 'player.joined',
-            player: getPlayerData(client)
-        };
-        broadcast(joinMessage, clientId);
-
-        // Also send join message to the client themselves so they know if their callsign was changed
-        sendToClient(clientId, joinMessage);
-
-        // If callsign was changed, send a notification to the client
-        if (callsignChanged) {
-            sendToClient(clientId, {
-                type: 'notification',
-                message: `Your callsign contained inappropriate language and was changed to ${client.callsign}`,
-                notificationType: 'warning',
-                duration: 5000
-            });
-        }
-
-        // Broadcast complete player data including proper callsign to all other clients
-        broadcast({
-            type: 'playerUpdate',
-            ...getPlayerData(client)
-        }, clientId);
-        logDebug(`Broadcasted new player ${clientId} with callsign ${client.callsign} to other clients`);
-
-        // Broadcast notification about new player
-        broadcastToAll({
+    // Notify the client if their callsign was changed
+    if (client.callsign !== originalCallsign) {
+        sendToClient(clientId, {
             type: 'notification',
-            message: `${client.callsign} joined the battle!`,
-            notificationType: 'info'
+            message: `Your callsign was changed to ${client.callsign}`,
+            notificationType: 'warning'
         });
+        logDebug(`Callsign for client ${clientId} was changed from "${originalCallsign}" to "${client.callsign}"`);
+    }
 
-        // Broadcast player count update after new player joins
-        broadcastPlayerCount();
+    // Get existing players to send to the new client
+    const existingPlayers = getConnectedPlayers(clientId);
+    logDebug(`Sending ${existingPlayers.length} existing players to client ${clientId}`);
 
-        // Log player count
-        const activePlayers = Array.from(clients.values()).filter(c => c.socket.readyState === WebSocket.OPEN).length;
-        console.log(`Active players: ${activePlayers}`);
+    // Log the existing players for debugging
+    if (DEBUG) {
+        existingPlayers.forEach((player, index) => {
+            logDebug(`Existing player ${index + 1}: ID=${player.id}, Callsign=${player.callsign}`);
+        });
+    }
+
+    // Send existing players to the new client
+    sendToClient(clientId, {
+        type: 'init_ack',
+        clientId: clientId,
+        players: existingPlayers
+    });
+
+    // Notify all other clients about the new player
+    const playerData = getPlayerData(client);
+    logDebug(`Broadcasting new player to others: ID=${playerData.id}, Callsign=${playerData.callsign}`);
+
+    broadcast({
+        type: 'player_joined',
+        player: playerData
+    }, clientId);
+
+    // Update player count for all clients
+    broadcastPlayerCount();
+}
+
+/**
+ * Handle client update message
+ * @param {string} clientId - Client ID
+ * @param {Object} client - Client object
+ * @param {Object} data - Message data
+ */
+function handleUpdateMessage(clientId, client, data) {
+    // Update client's position, rotation, and other properties
+    if (data.player) {
+        if (data.player.position) client.position = data.player.position;
+        if (data.player.rotation) client.rotation = data.player.rotation;
+        if (data.player.velocity) client.velocity = data.player.velocity;
+        if (data.player.health !== undefined) client.health = data.player.health;
+        if (data.player.isDestroyed !== undefined) client.isDestroyed = data.player.isDestroyed;
+    }
+
+    // Forward update to all other clients
+    const playerData = getPlayerData(client);
+    broadcast({
+        type: 'update',
+        players: [playerData]
+    }, clientId);
+}
+
+/**
+ * Handle client fire message
+ * @param {string} clientId - Client ID
+ * @param {Object} client - Client object
+ * @param {Object} data - Message data
+ */
+function handleFireMessage(clientId, client, data) {
+    // Forward the fire event to all other clients
+    broadcast({
+        type: 'fire',
+        playerId: clientId,
+        position: data.position,
+        rotation: data.rotation,
+        velocity: data.velocity
+    }, clientId);
+}
+
+/**
+ * Handle client damage message
+ * @param {string} clientId - Client ID
+ * @param {Object} client - Client object
+ * @param {Object} data - Message data
+ */
+function handleDamageMessage(clientId, client, data) {
+    const targetId = data.targetId;
+    const targetClient = clients.get(targetId);
+
+    if (!targetClient) {
+        logDebug(`Target client ${targetId} not found for damage event`);
         return;
     }
 
-    // Process other message types in the existing switch statement
-    switch (data.type) {
-        case 'update':  // Changed from 'playerUpdate' to 'update' to match NetworkManager
-            // Update client position and rotation
-            client.position = data.position;
-            client.rotation = data.rotation;
-            client.speed = data.speed || 0;
+    // Read current health values
+    const oldHealth = targetClient.health || 100;
 
-            // Update health and destroyed state if provided
-            if (data.health !== undefined) {
-                client.health = data.health;
-            }
-            if (data.isDestroyed !== undefined) {
-                client.isDestroyed = data.isDestroyed;
-            }
+    // Apply damage to target
+    const damageAmount = Math.min(data.amount || 10, 100); // Limit max damage
+    targetClient.health = Math.max(0, oldHealth - damageAmount);
 
-            client.lastUpdate = Date.now();
+    logDebug(`Player ${targetClient.callsign} health reduced from ${oldHealth} to ${targetClient.health} (-${damageAmount})`);
 
-            // Broadcast update to all other clients with complete player data
-            broadcast({
-                type: 'playerUpdate',  // This stays as 'playerUpdate' for receivers
-                ...getPlayerData(client)
-            }, clientId);
-            break;
+    // Check if target was destroyed
+    const wasDestroyed = targetClient.health <= 0 && !targetClient.isDestroyed;
+    if (wasDestroyed) {
+        targetClient.isDestroyed = true;
+        targetClient.health = 0;
 
-        case 'fire':  // Changed from 'playerFire' to 'fire' to match NetworkManager
-            logDebug(`Client ${clientId} fired a weapon`);
-            // Broadcast fire event to all other clients
-            broadcast({
-                type: 'playerFire',  // This stays as 'playerFire' for receivers
-                id: clientId,
-                position: data.position,
-                direction: data.direction,
-                velocity: data.velocity
-            }, clientId);
-            break;
+        logDebug(`Player ${targetClient.callsign} was destroyed by ${client.callsign}`);
 
-        case 'hitEffect':
-            // Handle visual effect without damage (purely visual sync)
-            if (data.position) {
-                logDebug(`Client ${clientId} triggered a hit effect at position ${JSON.stringify(data.position)}`);
+        // Notify all clients about the destruction
+        broadcastToAll({
+            type: 'destroyed',
+            playerId: targetId,
+            sourceId: clientId
+        });
 
-                // Broadcast hit effect to all other clients
-                broadcast({
-                    type: 'hitEffect',
-                    id: clientId,
-                    position: data.position
-                }, clientId);
-            }
-            break;
-
-        case 'damage':
-            // Handle damage event
-            const targetId = data.targetId;
-            const damageAmount = data.amount || 10;
-            const impactPosition = data.position; // Get impact position from message
-
-            console.log(`Client ${clientId} damaged client ${targetId} for ${damageAmount} points`);
-
-            const targetClient = clients.get(targetId);
-            if (targetClient) {
-                // Apply damage to target
-                const oldHealth = targetClient.health;
-                targetClient.health = Math.max(0, targetClient.health - damageAmount);
-
-                // Log the health change with percentages
-                console.log(`Client ${targetId} health reduced from ${oldHealth} (${(oldHealth / 100 * 100).toFixed(0)}%) to ${targetClient.health} (${(targetClient.health / 100 * 100).toFixed(0)}%)`);
-
-                // Send notification to the damaged client
-                if (targetClient.socket && targetClient.socket.readyState === WebSocket.OPEN) {
-                    targetClient.socket.send(JSON.stringify({
-                        type: 'notification',
-                        message: `You were hit! Health: ${Math.round(targetClient.health)}%`,
-                        duration: 2000,
-                        type: 'warning'
-                    }));
-                }
-
-                // Broadcast health update to ALL clients (including the source and target)
-                broadcastToAll({
-                    type: 'playerHealth',
-                    ...getPlayerData(targetClient),
-                    impactPosition: impactPosition // Include impact position
-                });
-
-                // Check if destroyed
-                if (targetClient.health <= 0 && !targetClient.isDestroyed) {
-                    targetClient.isDestroyed = true;
-
-                    console.log(`Client ${targetId} was destroyed by client ${clientId}`);
-
-                    // Send notification to the shooter
-                    if (client.socket && client.socket.readyState === WebSocket.OPEN) {
-                        client.socket.send(JSON.stringify({
-                            type: 'notification',
-                            message: `You shot down an enemy plane!`,
-                            duration: 3000,
-                            type: 'success'
-                        }));
-                    }
-
-                    // Broadcast destroyed state to ALL clients (including the source)
-                    broadcastToAll({
-                        type: 'playerDestroyed',
-                        ...getPlayerData(targetClient),
-                        impactPosition: impactPosition // Include last impact position
-                    });
-
-                    console.log('Broadcasted destruction event to all clients');
-                }
-
-                // Log server-side state of all clients after damage
-                console.log("Current client health states:");
-                clients.forEach((c, id) => {
-                    console.log(`Client ${id}: health=${c.health}, destroyed=${c.isDestroyed}`);
-                });
-            } else {
-                console.error(`Target client ${targetId} not found for damage from ${clientId}`);
-            }
-            break;
-
-        default:
-            console.log(`Unknown message type from ${clientId}:`, data.type);
+        // Send kill notification
+        broadcastToAll({
+            type: 'notification',
+            message: `${client.callsign} shot down ${targetClient.callsign}!`,
+            notificationType: 'success'
+        });
     }
+
+    // Forward damage event to the target
+    sendToClient(targetId, {
+        type: 'damage',
+        amount: damageAmount,
+        sourceId: clientId,
+        position: data.position
+    });
+
+    // Also broadcast health update to all clients to keep everyone in sync
+    broadcastToAll({
+        type: 'update',
+        players: [getPlayerData(targetClient)]
+    });
+
+    // Send hit effect to all clients
+    broadcastToAll({
+        type: 'hit_effect',
+        position: data.position,
+        playSound: true
+    });
 }
 
 /**
- * Broadcast a message to all clients except the sender
+ * Handle client respawn message
+ * @param {string} clientId - Client ID
+ * @param {Object} client - Client object
+ * @param {Object} data - Message data
+ */
+function handleRespawnMessage(clientId, client, data) {
+    // Log respawn
+    logDebug(`Player ${client.callsign} (${clientId}) is respawning`);
+
+    // Reset client state
+    client.isDestroyed = false;
+    client.health = 100; // Reset health to full
+
+    // Update position and rotation if provided
+    if (data.position) client.position = data.position;
+    if (data.rotation) client.rotation = data.rotation;
+
+    // Get full updated player data to broadcast
+    const playerData = getPlayerData(client);
+
+    // Add respawn flag to indicate this is a respawn event
+    playerData.isRespawned = true;
+
+    // Notify all clients about the respawn with full player data
+    broadcastToAll({
+        type: 'player_respawn',
+        player: playerData
+    });
+
+    // Also send an update message to ensure health is synchronized
+    broadcastToAll({
+        type: 'update',
+        players: [playerData]
+    });
+
+    // Send notification
+    broadcastToAll({
+        type: 'notification',
+        message: `${client.callsign} respawned!`,
+        notificationType: 'info'
+    });
+}
+
+/**
+ * Handle client hit effect message
+ * @param {string} clientId - Client ID
+ * @param {Object} client - Client object
+ * @param {Object} data - Message data
+ */
+function handleHitEffectMessage(clientId, client, data) {
+    // Forward hit effect to all clients
+    broadcast({
+        type: 'hit_effect',
+        playerId: clientId,
+        position: data.position,
+        playSound: data.playSound
+    }, clientId);
+}
+
+/**
+ * Broadcast a message to all clients except the specified one
  * @param {Object} message - Message to broadcast
- * @param {string} excludeId - ID of client to exclude
+ * @param {string} excludeId - Client ID to exclude (optional)
+ * @returns {number} - Number of clients message was sent to
  */
 function broadcast(message, excludeId = null) {
-    const messageStr = JSON.stringify(message);
     let sentCount = 0;
 
+    // Convert message to JSON string once
+    const jsonMessage = JSON.stringify(message);
+
     clients.forEach((client, id) => {
-        if (id !== excludeId && client.socket.readyState === WebSocket.OPEN) {
-            client.socket.send(messageStr);
+        // Skip excluded client and closed connections
+        if (id === excludeId || client.socket.readyState !== WebSocket.OPEN) {
+            return;
+        }
+
+        try {
+            client.socket.send(jsonMessage);
             sentCount++;
+        } catch (error) {
+            console.error(`Error sending message to client ${id}:`, error);
         }
     });
 
-    if (DEBUG && message.type !== 'playerUpdate') {  // Don't log position updates to avoid spam
-        logDebug(`Broadcast ${message.type} message to ${sentCount} clients (excluding ${excludeId})`);
+    // Log message if not a common update message
+    if (DEBUG && message.type !== 'update') {
+        logDebug(`Broadcast ${message.type} to ${sentCount} clients (excluding ${excludeId || 'none'})`);
     }
+
+    return sentCount;
 }
 
 /**
- * Broadcast a message to ALL clients including the sender
+ * Broadcast a message to all connected clients
  * @param {Object} message - Message to broadcast
+ * @returns {number} - Number of clients message was sent to
  */
 function broadcastToAll(message) {
-    const messageStr = JSON.stringify(message);
+    // Convert message to JSON string once
+    const jsonMessage = JSON.stringify(message);
     let sentCount = 0;
 
     clients.forEach((client, id) => {
         if (client.socket.readyState === WebSocket.OPEN) {
-            client.socket.send(messageStr);
-            sentCount++;
+            try {
+                client.socket.send(jsonMessage);
+                sentCount++;
+            } catch (error) {
+                console.error(`Error sending message to client ${id}:`, error);
+            }
         }
     });
 
-    if (DEBUG && message.type !== 'playerUpdate') {  // Don't log position updates to avoid spam
-        logDebug(`Broadcast ${message.type} message to ALL ${sentCount} clients (including sender)`);
+    // Log message if not a common update message
+    if (DEBUG && message.type !== 'update') {
+        logDebug(`Broadcast ${message.type} to ALL ${sentCount} clients`);
     }
+
+    return sentCount;
+}
+
+/**
+ * Send a message to a specific client
+ * @param {string} clientId - Target client ID
+ * @param {Object} message - Message to send
+ * @returns {boolean} - Whether the message was sent successfully
+ */
+function sendToClient(clientId, message) {
+    const client = clients.get(clientId);
+
+    // Verify client exists and connection is open
+    if (!client || client.socket.readyState !== WebSocket.OPEN) {
+        return false;
+    }
+
+    try {
+        client.socket.send(JSON.stringify(message));
+
+        // Log message if not a common update message
+        if (DEBUG && message.type !== 'update') {
+            logDebug(`Sent ${message.type} to client ${clientId}`);
+        }
+
+        return true;
+    } catch (error) {
+        console.error(`Error sending message to client ${clientId}:`, error);
+        return false;
+    }
+}
+
+/**
+ * Broadcast current player count to all clients
+ */
+function broadcastPlayerCount() {
+    const count = clients.size;
+    broadcastToAll({
+        type: 'player_count',
+        count: count
+    });
+    console.log(`Updated player count: ${count} players`);
 }
 
 /**
@@ -433,26 +589,36 @@ function broadcastToAll(message) {
 function cleanupInactiveClients() {
     const now = Date.now();
     const timeout = 30000; // 30 seconds timeout
+    let removedCount = 0;
 
     clients.forEach((client, id) => {
         if (now - client.lastUpdate > timeout) {
-            console.log(`Client ${id} timed out and will be removed`);
+            // Log timeout
+            console.log(`Client ${id} (${client.callsign || 'Unknown'}) timed out after ${Math.floor((now - client.lastUpdate) / 1000)}s`);
 
-            // Close connection
+            // Close connection if still open
             if (client.socket.readyState === WebSocket.OPEN) {
                 client.socket.close();
             }
 
             // Remove client
             clients.delete(id);
+            removedCount++;
 
             // Broadcast disconnection
             broadcast({
-                type: 'playerDisconnect',
-                id: id
+                type: 'player_left',
+                playerId: id,
+                callsign: client.callsign || 'Unknown pilot'
             });
         }
     });
+
+    // If any clients were removed, update player count
+    if (removedCount > 0) {
+        console.log(`Cleaned up ${removedCount} inactive clients, ${clients.size} remaining`);
+        broadcastPlayerCount();
+    }
 }
 
 // Clean up inactive clients every minute
@@ -479,35 +645,4 @@ process.on('SIGINT', () => {
 // Start the server
 server.listen(PORT, () => {
     console.log(`Server is listening on port ${PORT}`);
-});
-
-/**
- * Send a message to a specific client
- * @param {string} clientId - ID of client to send message to
- * @param {Object} message - Message to send
- */
-function sendToClient(clientId, message) {
-    const client = clients.get(clientId);
-    if (client && client.socket && client.socket.readyState === WebSocket.OPEN) {
-        const messageStr = JSON.stringify(message);
-        client.socket.send(messageStr);
-        if (DEBUG && message.type !== 'playerUpdate') {  // Don't log position updates
-            logDebug(`Sent ${message.type} message to client ${clientId}`);
-        }
-    } else {
-        console.error(`Cannot send message to client ${clientId}: client not found or not connected`);
-    }
-}
-
-/**
- * Broadcast the current player count to all clients
- */
-function broadcastPlayerCount() {
-    const activePlayers = Array.from(clients.values()).filter(c => c.socket.readyState === WebSocket.OPEN).length;
-    console.log(`Broadcasting active player count: ${activePlayers}`);
-
-    broadcastToAll({
-        type: 'playerCount',
-        count: activePlayers
-    });
-} 
+}); 

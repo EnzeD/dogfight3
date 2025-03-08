@@ -246,51 +246,77 @@ export default class Game {
         const urlParams = new URLSearchParams(window.location.search);
         this.isMultiplayer = urlParams.has('multiplayer');
 
-        if (this.isMultiplayer) {
-            console.log('Initializing multiplayer mode');
+        if (!this.isMultiplayer) return;
 
-            // DIAGNOSTIC: Log if we have a player callsign
-            console.log('DIAGNOSTIC before NetworkManager creation: playerCallsign =', this.playerCallsign);
+        console.log('Initializing multiplayer mode');
 
-            // Create network manager
-            this.networkManager = new NetworkManager(this.eventBus, this.playerPlane);
+        // Create network manager
+        this.networkManager = new NetworkManager(this.eventBus, this.playerPlane);
 
-            // Listen for remote plane creation to register with ammo system
-            this.eventBus.on('network.plane.created', (remotePlane) => {
-                // Add remote plane to planes array for collision detection
-                if (remotePlane && !this.planes.includes(remotePlane)) {
-                    console.log('Adding remote plane to collision detection');
-                    this.planes.push(remotePlane);
+        // Listen for remote plane creation to register with ammo system
+        this._setupNetworkEventHandlers();
 
-                    // Register with ammo system if available
-                    if (this.playerPlane && this.playerPlane.ammoSystem) {
-                        this.playerPlane.ammoSystem.addPlane(remotePlane);
-                    }
-                }
-            });
+        // Set up server-synced health system for multiplayer
+        this.setupServerSyncedHealth();
 
-            // Connect to server with callsign if available
-            const serverUrl = urlParams.get('server');
-            const connectionData = { serverUrl };
+        // Connect to server with callsign if available
+        this._connectToMultiplayerServer(urlParams);
+    }
 
-            // Add callsign if it was set in main.js
-            if (this.playerCallsign) {
-                console.log('DIAGNOSTIC: Adding callsign to connection data:', this.playerCallsign);
-                connectionData.callsign = this.playerCallsign;
-            } else {
-                console.log('DIAGNOSTIC: No playerCallsign available in Game instance');
+    /**
+     * Set up network event handlers
+     * @private
+     */
+    _setupNetworkEventHandlers() {
+        // Register remote planes for collision detection
+        this.eventBus.on('network.plane.created', (remotePlane) => {
+            if (!remotePlane || this.planes.includes(remotePlane)) return;
+
+            console.log('Adding remote plane to collision detection');
+            this.planes.push(remotePlane);
+
+            // Register with ammo system if available
+            if (this.playerPlane && this.playerPlane.ammoSystem) {
+                this.playerPlane.ammoSystem.addPlane(remotePlane);
+            }
+        });
+
+        // Remove planes when they disconnect
+        this.eventBus.on('network.plane.removed', (remotePlane) => {
+            const index = this.planes.indexOf(remotePlane);
+            if (index >= 0) {
+                this.planes.splice(index, 1);
+                console.log('Removed remote plane from collision detection');
             }
 
-            // DIAGNOSTIC: Log the final connection data
-            console.log('DIAGNOSTIC: Final connection data:', JSON.stringify(connectionData));
+            // Unregister from ammo system if available
+            if (this.playerPlane && this.playerPlane.ammoSystem) {
+                this.playerPlane.ammoSystem.removePlane(remotePlane);
+            }
+        });
+    }
 
-            this.eventBus.emit('network.connect', connectionData);
+    /**
+     * Connect to the multiplayer server
+     * @private
+     * @param {URLSearchParams} urlParams - URL parameters
+     */
+    _connectToMultiplayerServer(urlParams) {
+        const serverUrl = urlParams.get('server');
+        const connectionData = { serverUrl };
 
-            // Add multiplayer UI indicators
-            this.uiManager.showMultiplayerStatus(true);
+        // Add callsign if it was set
+        if (this.playerCallsign) {
+            console.log(`Using callsign for multiplayer: ${this.playerCallsign}`);
+            connectionData.callsign = this.playerCallsign;
+        }
 
-        } else {
-            console.log('Running in single player mode');
+        // Connect to server
+        this.eventBus.emit('network.connect', connectionData);
+
+        // Set up protection zone for multiplayer
+        if (this.protectionZone && this.networkManager) {
+            this.networkManager.setProtectionZone(this.protectionZone);
         }
     }
 
@@ -680,5 +706,57 @@ export default class Game {
 
         // Debug message to show how to toggle zone visibility
         console.log('Press Ctrl+H to toggle protection zone visualization');
+    }
+
+    /**
+     * Sets up server-synced health management for multiplayer mode
+     * This ensures health is properly managed by the server in multiplayer
+     */
+    setupServerSyncedHealth() {
+        if (!this.isMultiplayer || !this.playerPlane) return;
+
+        console.log('Setting up server-synced health management');
+
+        // Store original applyDamage method
+        const originalApplyDamage = this.playerPlane.applyDamage;
+
+        // In multiplayer, we only apply damage received from the server
+        // This prevents desynchronization of health values
+        this.playerPlane.applyDamage = (amount, position, source) => {
+            // If the damage is coming from the local player or AI in multiplayer,
+            // let the server handle the actual health reduction
+            if (source !== 'server' && this.isMultiplayer) {
+                console.log(`Local damage detected (${amount}), deferring to server`);
+                // We still want to show visual effects for the hit
+                if (position) {
+                    this.eventBus.emit('effect.hit', {
+                        position: position,
+                        playSound: true
+                    });
+                }
+                // The actual health reduction will happen when the server sends back the update
+                return;
+            }
+
+            // For damage from the server or in single-player, apply normally
+            console.log(`Applying damage: ${amount}, source: ${source || 'unknown'}`);
+            originalApplyDamage.call(this.playerPlane, amount, position);
+        };
+
+        // Listen for server health updates
+        this.eventBus.on('network.health.update', (data) => {
+            if (!this.playerPlane) return;
+
+            console.log(`Received server health update: ${data.health}`);
+
+            // Set the health directly based on server value
+            this.playerPlane.setHealth(data.health);
+
+            // Update UI
+            this.eventBus.emit('player.health.updated', {
+                health: data.health,
+                maxHealth: this.playerPlane.maxHealth
+            });
+        });
     }
 } 

@@ -26,6 +26,22 @@ export default class PlaneFactory {
     }
 
     /**
+     * Create a plane for remote players in multiplayer
+     * @returns {EnemyPlane} The created remote player plane
+     */
+    createRemotePlayerPlane() {
+        console.log('Creating remote player plane');
+
+        // Using EnemyPlane as the base for remote players
+        const remotePlane = new EnemyPlane(this.scene, this.eventBus);
+
+        // Add any remote-player specific customizations here
+        remotePlane.isRemotePlayer = true;
+
+        return remotePlane;
+    }
+
+    /**
      * Factory method to create a plane by type
      * @param {string} type - The type of plane to create
      * @returns {Plane} The created plane
@@ -34,6 +50,8 @@ export default class PlaneFactory {
         switch (type.toLowerCase()) {
             case 'enemy':
                 return this.createEnemyPlane();
+            case 'remote':
+                return this.createRemotePlayerPlane();
             case 'ww2':
             default:
                 return this.createWW2Plane();
