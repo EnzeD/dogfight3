@@ -48,62 +48,8 @@ export default class UIManager {
      * Create multiplayer UI elements
      */
     createMultiplayerUI() {
-        // Create multiplayer indicator
-        this.multiplayerIndicator = document.createElement('div');
-        this.multiplayerIndicator.className = 'multiplayer-indicator';
-        this.multiplayerIndicator.innerHTML = `
-            <div class="multiplayer-status">
-                <span class="status-dot"></span>
-                <span class="status-text">Multiplayer: Disconnected</span>
-            </div>
-            <div class="multiplayer-info">
-                Press 'P' to toggle connection
-            </div>
-        `;
-
-        // Add styles
-        const style = document.createElement('style');
-        style.textContent = `
-            .multiplayer-indicator {
-                position: fixed;
-                bottom: 60px;
-                right: 10px;
-                background-color: rgba(0, 0, 0, 0.7);
-                color: white;
-                padding: 12px;
-                border-radius: 5px;
-                font-family: Arial, sans-serif;
-                font-size: 14px;
-                display: none;
-                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-                z-index: 999;
-            }
-            .multiplayer-status {
-                display: flex;
-                align-items: center;
-                margin-bottom: 5px;
-            }
-            .status-dot {
-                width: 10px;
-                height: 10px;
-                border-radius: 50%;
-                background-color: red;
-                margin-right: 8px;
-                box-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
-                transition: background-color 0.3s ease, box-shadow 0.3s ease;
-            }
-            .status-dot.connected {
-                background-color: #00ff00;
-                box-shadow: 0 0 8px rgba(0, 255, 0, 0.8);
-            }
-            .multiplayer-info {
-                font-size: 12px;
-                opacity: 0.8;
-            }
-        `;
-
-        document.head.appendChild(style);
-        document.body.appendChild(this.multiplayerIndicator);
+        // Multiplayer indicator removed as requested
+        // Method kept empty to maintain compatibility
     }
 
     /**
@@ -175,9 +121,7 @@ export default class UIManager {
      * @param {boolean} show - Whether to show the indicator
      */
     showMultiplayerStatus(show) {
-        if (this.multiplayerIndicator) {
-            this.multiplayerIndicator.style.display = show ? 'block' : 'none';
-        }
+        // Multiplayer indicator no longer exists, method kept for compatibility
     }
 
     /**
@@ -186,22 +130,7 @@ export default class UIManager {
      * @param {boolean} connected - Whether connected to server
      */
     updateMultiplayerStatus(status, connected = false) {
-        if (!this.multiplayerIndicator) return;
-
-        const statusDot = this.multiplayerIndicator.querySelector('.status-dot');
-        const statusText = this.multiplayerIndicator.querySelector('.status-text');
-
-        if (statusDot) {
-            if (connected) {
-                statusDot.classList.add('connected');
-            } else {
-                statusDot.classList.remove('connected');
-            }
-        }
-
-        if (statusText) {
-            statusText.textContent = `Multiplayer: ${status}`;
-        }
+        // Multiplayer indicator no longer exists, method kept for compatibility
     }
 
     /**

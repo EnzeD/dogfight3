@@ -261,16 +261,6 @@ export default class Game {
             // Add multiplayer UI indicators
             this.uiManager.showMultiplayerStatus(true);
 
-            // Add toggle for multiplayer connection
-            document.addEventListener('keydown', (event) => {
-                if (event.key.toLowerCase() === 'p') {
-                    if (this.networkManager.connected) {
-                        this.eventBus.emit('network.disconnect');
-                    } else {
-                        this.eventBus.emit('network.connect', connectionData);
-                    }
-                }
-            });
         } else {
             console.log('Running in single player mode');
         }
