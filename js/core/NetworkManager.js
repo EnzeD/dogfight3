@@ -595,44 +595,60 @@ export default class NetworkManager {
 
         console.log(`Creating plane for remote player ${playerData.id}`);
 
-        // Create a new enemy plane
-        const remotePlane = planeFactory.createEnemyPlane();
+        try {
+            // Create a new enemy plane
+            const remotePlane = planeFactory.createEnemyPlane();
 
-        // Set initial position and rotation
-        if (playerData.position) {
-            remotePlane.mesh.position.set(
-                playerData.position.x,
-                playerData.position.y,
-                playerData.position.z
-            );
+            // Set initial position and rotation
+            if (playerData.position) {
+                remotePlane.mesh.position.set(
+                    playerData.position.x,
+                    playerData.position.y,
+                    playerData.position.z
+                );
+            }
+
+            if (playerData.rotation) {
+                remotePlane.mesh.rotation.set(
+                    playerData.rotation.x || 0,
+                    playerData.rotation.y || 0,
+                    playerData.rotation.z || 0
+                );
+            }
+
+            // Store player ID and callsign with the plane
+            remotePlane.playerId = playerData.id;
+            remotePlane.callsign = playerData.callsign || 'Unknown';
+
+            // Set initial health if available
+            if (playerData.health !== undefined) {
+                remotePlane.setHealth(playerData.health);
+            }
+
+            // Set destroyed state if available
+            if (playerData.isDestroyed === true) {
+                remotePlane.destroy();
+            }
+
+            // Store the remote plane
+            this.remotePlanes.set(playerData.id, remotePlane);
+
+            // Set protection zone if available
+            if (this.protectionZone && remotePlane.ammoSystem) {
+                remotePlane.ammoSystem.setProtectionZone(this.protectionZone);
+            }
+
+            // Emit event for collision registration
+            this.eventBus.emit('network.plane.created', remotePlane);
+
+            // Debug log
+            console.log(`Remote plane for ${playerData.id} created and registered`);
+
+            return remotePlane;
+        } catch (error) {
+            console.error('Error creating remote plane:', error);
+            return null;
         }
-
-        if (playerData.rotation) {
-            remotePlane.mesh.rotation.set(
-                playerData.rotation.x,
-                playerData.rotation.y,
-                playerData.rotation.z
-            );
-        }
-
-        // Set initial health if available
-        if (playerData.health !== undefined) {
-            remotePlane.setHealth(playerData.health);
-        }
-
-        // Set destroyed state if available
-        if (playerData.isDestroyed === true) {
-            remotePlane.destroy();
-        }
-
-        // Store the remote plane
-        this.remotePlanes.set(playerData.id, remotePlane);
-
-        // Emit event for collision registration
-        this.eventBus.emit('network.plane.created', remotePlane);
-
-        // Debug log
-        console.log(`Remote plane for ${playerData.id} created and registered`);
     }
 
     /**
@@ -1035,9 +1051,8 @@ export default class NetworkManager {
     }
 
     /**
-     * Update the reference to the player's plane
-     * This should be called whenever the player plane is recreated (e.g., after respawn)
-     * @param {Plane} newPlayerPlane - The new player plane reference
+     * Updates the reference to the player plane
+     * @param {Object} newPlayerPlane - The new player plane object
      */
     updatePlayerPlaneReference(newPlayerPlane) {
         if (!newPlayerPlane) {
@@ -1053,6 +1068,23 @@ export default class NetworkManager {
 
         // Notify other players that we've respawned
         this.sendRespawnNotification();
+    }
+
+    /**
+     * Sets the protection zone reference and applies it to all remote planes
+     * @param {ProtectionZone} protectionZone - The protection zone reference
+     */
+    setProtectionZone(protectionZone) {
+        this.protectionZone = protectionZone;
+
+        // Apply to all existing remote planes
+        if (this.remotePlanes) {
+            this.remotePlanes.forEach((remotePlane) => {
+                if (remotePlane.ammoSystem) {
+                    remotePlane.ammoSystem.setProtectionZone(protectionZone);
+                }
+            });
+        }
     }
 
     /**

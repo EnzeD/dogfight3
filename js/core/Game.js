@@ -9,6 +9,8 @@ import EventBus from './EventBus.js';
 import NetworkManager from './NetworkManager.js';
 import PerformanceMonitor from '../utils/PerformanceMonitor.js';
 import QualitySettings from '../utils/QualitySettings.js';
+import GameMap from '../scene/Map.js';
+import ProtectionZone from '../utils/ProtectionZone.js';
 
 export default class Game {
     constructor(previewMode = false) {
@@ -20,6 +22,9 @@ export default class Game {
         // Initialize quality settings
         this.qualitySettings = new QualitySettings();
         console.log(`Game quality set to: ${this.qualitySettings.getQuality()}`);
+
+        // Create the game map (single instance for deterministic world)
+        this.map = new GameMap();
 
         // Create core systems
         this.sceneManager = new SceneManager(this.eventBus, this.qualitySettings);
@@ -79,6 +84,9 @@ export default class Game {
             // Create the player's plane (after scene is initialized)
             console.log('Creating player plane...');
             this.createPlayerPlane();
+
+            // Create the runway protection zone
+            this.createProtectionZone();
 
             // Check multiplayer mode after player plane creation
             this.checkMultiplayerMode();
@@ -436,6 +444,24 @@ export default class Game {
         this.collectPerformanceMetrics(currentTime);
     }
 
+    /**
+     * Check if player is in the protection zone and update UI
+     */
+    checkProtectionZoneStatus() {
+        if (!this.protectionZone || !this.playerPlane || !this.playerPlane.mesh) {
+            return;
+        }
+
+        const isInZone = this.protectionZone.isInProtectionZone(this.playerPlane.mesh.position);
+
+        // Update UI to show protection zone status
+        this.uiManager.showProtectionZoneStatus(isInZone);
+    }
+
+    /**
+     * Main game update loop
+     * @param {number} currentTime - Current timestamp
+     */
     update(currentTime) {
         // Update the scene regardless of mode
         this.sceneManager.update(this.deltaTime);
@@ -449,8 +475,16 @@ export default class Game {
             return;
         }
 
+        // Skip update if game is paused
+        if (this.isPaused) {
+            return;
+        }
+
         // Regular game update logic
         if (this.playerPlane) {
+            // Check if player is in protection zone
+            this.checkProtectionZoneStatus();
+
             this.playerPlane.update(this.deltaTime, this.inputManager.getInputState());
         }
 
@@ -594,5 +628,37 @@ export default class Game {
                 type: 'info'
             });
         }
+    }
+
+    /**
+     * Creates the runway protection zone
+     */
+    createProtectionZone() {
+        console.log('Creating runway protection zone...');
+        this.protectionZone = new ProtectionZone(
+            this.sceneManager.scene,
+            this.eventBus,
+            this.map
+        );
+
+        // If player plane has been created, set the protection zone
+        if (this.playerPlane && this.playerPlane.ammoSystem) {
+            this.playerPlane.ammoSystem.setProtectionZone(this.protectionZone);
+        }
+
+        // If network manager exists, set the protection zone
+        if (this.networkManager) {
+            this.networkManager.setProtectionZone(this.protectionZone);
+        }
+
+        // Add debug toggle for protection zone visualization
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'h' && event.ctrlKey) {
+                this.protectionZone.toggleVisualizer(!this.protectionZone.visualizer.visible);
+            }
+        });
+
+        // Debug message to show how to toggle zone visibility
+        console.log('Press Ctrl+H to toggle protection zone visualization');
     }
 } 

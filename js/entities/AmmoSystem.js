@@ -25,6 +25,9 @@ export default class AmmoSystem {
         // Reference to planes for collision detection
         this.planes = [];
 
+        // Reference to the protection zone
+        this.protectionZone = null;
+
         // Collection of hitbox visualizers (for debugging)
         this.hitboxVisualizers = {};
 
@@ -130,8 +133,16 @@ export default class AmmoSystem {
     }
 
     /**
-     * Check collisions between bullets and planes
-     * @returns {Array} Collisions that occurred
+     * Set the protection zone reference
+     * @param {ProtectionZone} protectionZone - The protection zone
+     */
+    setProtectionZone(protectionZone) {
+        this.protectionZone = protectionZone;
+    }
+
+    /**
+     * Check for collisions between bullets and planes
+     * @returns {Array} - Array of collision objects
      */
     checkCollisions() {
         const collisions = [];
@@ -152,12 +163,29 @@ export default class AmmoSystem {
             // Store bullet origin plane for excluding self-collisions
             const bulletSourcePlane = bullet.sourcePlane;
 
+            // Check if bullet is in protection zone
+            const isBulletInProtectionZone = this.protectionZone &&
+                this.protectionZone.isInProtectionZone(bullet.mesh.position);
+
             for (const plane of this.planes) {
                 // Skip if plane is destroyed
                 if (!plane.isAlive()) continue;
 
                 // Skip if bullet belongs to this plane (prevent shooting yourself)
                 if (bulletSourcePlane === plane) continue;
+
+                // Check if plane is in protection zone
+                const isPlaneInProtectionZone = this.protectionZone &&
+                    this.protectionZone.isInProtectionZone(plane.mesh.position);
+
+                // Skip collision if either the bullet or the plane is in the protection zone
+                if (isBulletInProtectionZone || isPlaneInProtectionZone) {
+                    // If bullet is in protection zone, we might want to remove it visually
+                    if (isBulletInProtectionZone) {
+                        toRemove.push(i);
+                    }
+                    continue;
+                }
 
                 // Get plane position (assume plane mesh has position property)
                 const planePosition = plane.mesh.position;

@@ -21,6 +21,9 @@ export default class UIManager {
 
         // Multiplayer UI elements
         this.multiplayerIndicator = null;
+
+        // Protection zone state
+        this.isInProtectionZone = false;
     }
 
     /**
@@ -169,6 +172,26 @@ export default class UIManager {
         // Update FPS display
         if (this.flightInfo) {
             this.flightInfo.updateFPS(fps);
+        }
+    }
+
+    /**
+     * Show or hide the protection zone status
+     * @param {boolean} isInZone - Whether the player is in a protection zone
+     */
+    showProtectionZoneStatus(isInZone) {
+        // Track state change to avoid spamming notifications
+        if (isInZone === this.isInProtectionZone) {
+            return;
+        }
+
+        this.isInProtectionZone = isInZone;
+
+        // Show notification when entering or leaving the zone
+        if (isInZone) {
+            this.notifications.show('Entered Runway Protection Zone - Combat Disabled', 'info', 3000);
+        } else {
+            this.notifications.show('Exited Runway Protection Zone - Combat Enabled', 'warning', 3000);
         }
     }
 } 
