@@ -362,3 +362,235 @@ canvas {
 }
 
 /* Existing mobile message styles can remain */
+
+/* Sponsor section styles */
+.sponsor-section {
+    margin-top: 2rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(248, 215, 66, 0.3);
+    width: 100%;
+    position: relative;
+}
+
+/* Call to action button */
+.sponsor-cta {
+    font-family: 'Black Ops One', cursive;
+    font-size: 0.9rem;
+    background-color: transparent;
+    color: #f8d742;
+    border: 1px solid #f8d742;
+    padding: 8px 15px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 1rem auto;
+    display: block;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.sponsor-cta::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(248, 215, 66, 0.2), transparent);
+    transition: left 0.7s;
+}
+
+.sponsor-cta:hover {
+    background-color: rgba(248, 215, 66, 0.1);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.sponsor-cta:hover::before {
+    left: 100%;
+}
+
+/* Sponsor details (initially hidden) */
+.sponsor-details {
+    display: none;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    max-height: 0;
+    overflow: hidden;
+}
+
+.sponsor-details.visible {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 1000px;
+    animation: slideDown 0.4s ease forwards;
+}
+
+@keyframes slideDown {
+    from {
+        max-height: 0;
+        opacity: 0;
+    }
+
+    to {
+        max-height: 1000px;
+        opacity: 1;
+    }
+}
+
+.sponsor-close {
+    font-family: 'Black Ops One', cursive;
+    font-size: 0.8rem;
+    background-color: rgba(0, 0, 0, 0.4);
+    color: #aaa;
+    border: 1px solid #555;
+    padding: 5px 10px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 1rem auto;
+    display: block;
+    transition: all 0.3s ease;
+}
+
+.sponsor-close:hover {
+    color: #fff;
+    border-color: #777;
+}
+
+.sponsor-heading {
+    font-family: 'Black Ops One', cursive;
+    font-size: 1.3rem;
+    margin-bottom: 0.5rem;
+    color: #f8d742;
+    text-shadow: 2px 2px 3px rgba(0, 0, 0, 0.7);
+    letter-spacing: 1px;
+}
+
+.sponsor-desc {
+    font-family: 'Special Elite', monospace;
+    font-size: 0.9rem;
+    color: #ddd;
+    margin-bottom: 1.5rem;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
+    max-width: 80%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.sponsor-options {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+    margin-bottom: 1.5rem;
+}
+
+.sponsor-option {
+    background-color: rgba(0, 0, 0, 0.5);
+    border: 1px solid #555;
+    padding: 15px;
+    width: 140px;
+    transition: all 0.3s ease;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.sponsor-option::before,
+.sponsor-option::after {
+    content: '';
+    position: absolute;
+    width: 5px;
+    height: 5px;
+    background-color: #f8d742;
+    border-radius: 50%;
+}
+
+.sponsor-option::before {
+    top: 5px;
+    left: 5px;
+}
+
+.sponsor-option::after {
+    top: 5px;
+    right: 5px;
+}
+
+.sponsor-icon {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 10px;
+    filter: drop-shadow(2px 2px 3px rgba(0, 0, 0, 0.5));
+}
+
+.sponsor-option h4 {
+    font-family: 'Black Ops One', cursive;
+    font-size: 0.9rem;
+    margin: 0 0 10px 0;
+    color: #f8d742;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+    text-align: center;
+}
+
+.sponsor-price {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.price {
+    font-family: 'Teko', sans-serif;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #fff;
+}
+
+.interval {
+    font-family: 'Special Elite', monospace;
+    font-size: 0.7rem;
+    color: #aaa;
+}
+
+.sponsor-button {
+    font-family: 'Black Ops One', cursive;
+    font-size: 0.7rem;
+    background-color: #8b0000;
+    color: #fff;
+    border: none;
+    padding: 5px 10px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    display: inline-block;
+    margin-top: auto;
+}
+
+.sponsor-button:hover {
+    background-color: #b20000;
+    transform: translateY(-2px);
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+}
+
+.sponsor-option:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+    border-color: #f8d742;
+}
+
+.sponsor-disclaimer {
+    font-family: 'Special Elite', monospace;
+    font-size: 0.75rem;
+    color: #999;
+    text-align: center;
+    margin-bottom: 1rem;
+    font-style: italic;
+}

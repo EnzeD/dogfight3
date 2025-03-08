@@ -130,6 +130,117 @@ export default class LandingPage {
         this.callsignSection = callsignSection;
         content.appendChild(callsignSection);
 
+        // Create sponsor section
+        const sponsorSection = document.createElement('div');
+        sponsorSection.className = 'sponsor-section';
+
+        // Add collapsed sponsor call-to-action
+        const sponsorCTA = document.createElement('button');
+        sponsorCTA.className = 'sponsor-cta';
+        sponsorCTA.textContent = 'BECOME A SPONSOR';
+        sponsorSection.appendChild(sponsorCTA);
+
+        // Create sponsor details container (initially hidden)
+        const sponsorDetails = document.createElement('div');
+        sponsorDetails.className = 'sponsor-details';
+
+        // Add sponsor heading with period-appropriate wording
+        const sponsorHeading = document.createElement('h3');
+        sponsorHeading.className = 'sponsor-heading';
+        sponsorHeading.textContent = 'SUPPORT THE WAR EFFORT';
+        sponsorDetails.appendChild(sponsorHeading);
+
+        // Add sponsor description
+        const sponsorDesc = document.createElement('p');
+        sponsorDesc.className = 'sponsor-desc';
+        sponsorDesc.textContent = 'Purchase advertising space in the game and get your logo and name displayed for all pilots to see!';
+        sponsorDetails.appendChild(sponsorDesc);
+
+        // Create sponsor options container
+        const sponsorOptions = document.createElement('div');
+        sponsorOptions.className = 'sponsor-options';
+
+        // Add sponsor options with prices
+        const sponsorProducts = [
+            {
+                name: 'Runway Billboards',
+                price: '€29.00',
+                interval: 'per month',
+                image: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2Y4ZDc0MiI+PHBhdGggZD0iTTIwLDRINEMyLjg5LDQgMiw0Ljg5IDIsNlYxOEEyLDIgMCAwLDAgNCwyMEgyMEEyLDIgMCAwLDAgMjIsMThWNkMyMiw0Ljg5IDIxLjEsNCAyMCw0TTQsNkgyMFY4SDRWNk00LDE4VjEySDE0VjE4SDRNMjAsMThIMTZWMTJIMjBWMThNNiwxNEg4VjE2SDZWMTRaIi8+PC9zdmc+',
+                url: 'https://buy.stripe.com/eVa17v8WKa2U6OY144'
+            },
+            {
+                name: 'Sponsor Village',
+                price: '€100.00',
+                interval: 'per month',
+                image: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2Y4ZDc0MiI+PHBhdGggZD0iTTEwLDJ2MmgyVjJIMTBNNiw4SDQsTDIsMTB2MTBoMlYxMmgxNnY4aDJWMTBMMjAsOEgxOGgxMlYyMGgyVjhoLThWNmgySE05SDhINkM2LDggMSwxNCAxLDE0aDF2NmgybC0wLC0yaDJWMjBoNHYtNGgxNnY4aDJ2LTZoMUMzMCwxNSAyNSw4IDI1LDh2LTJoLTRWNGgydi0ySDEwdjJoMnYySDZNMTIsMTJoMnYyaC0ySE00TDIsMTB2MTBoMlYxMmgxNnY4aDJWMTBMMjAsMTBIMThaIi8+PC9zdmc+',
+                url: 'https://buy.stripe.com/4gw2bz4Gu2As8X65kl'
+            },
+            {
+                name: 'Main Building',
+                price: '€500.00',
+                interval: 'per month',
+                image: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2Y4ZDc0MiI+PHBhdGggZD0iTTcsN1YxN0gxMFYxM0gxNFYxN0gxN1Y3SDdNOSwxNVY5SDE1VjE1SDlaTTEsMTFIN1YyMUgxVjE5SDVWMTdIMVYxNUg1VjEzSDFWMTFaTTE5LDExVjEzSDE5LjA5TDE3LjIsMTlINTBWMTdBMiwxIDAgMCwxIDE4LDE3VjE5SDE5TDIxLDEyLjUgTTIzLDExTDIzLDEzSDI0TDI0LDE1SDIzVjE3SDI0VjE5SDIzVjIxSDI3VjE5SDI2VjE3SDI3VjE1SDI2VjEzSDI3VjExSDIzWiIvPjwvc3ZnPg==',
+                url: 'https://buy.stripe.com/7sI2bz8WK1wo2yI7sv'
+            },
+            {
+                name: 'Runway Tower',
+                price: '€500.00',
+                interval: 'per month',
+                image: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2Y4ZDc0MiI+PHBhdGggZD0iTTEyLDJMOSwxMkw5LDIxSDZWMjNIMThWMjFIMTVWMTJMMTIsMk0xMiwzLjl2MkgxMS42TDEyLDMuOU0xMS43LDhIMTIuM0wxMi42LDEwSDExLjRMMTEuNyw4TTEzLDEzSDExVjIxSDEzVjEzWiIvPjwvc3ZnPg==',
+                url: 'https://buy.stripe.com/6oE6rP2yma2U0qA4gi'
+            }
+        ];
+
+        sponsorProducts.forEach(product => {
+            const option = document.createElement('div');
+            option.className = 'sponsor-option';
+
+            const optionHTML = `
+                <img src="${product.image}" alt="${product.name}" class="sponsor-icon">
+                <h4>${product.name}</h4>
+                <div class="sponsor-price">
+                    <span class="price">${product.price}</span>
+                    <span class="interval">${product.interval}</span>
+                </div>
+                <a href="${product.url}" target="_blank" class="sponsor-button">PURCHASE</a>
+            `;
+
+            option.innerHTML = optionHTML;
+            sponsorOptions.appendChild(option);
+        });
+
+        // Add disclaimer note
+        const disclaimer = document.createElement('p');
+        disclaimer.className = 'sponsor-disclaimer';
+        disclaimer.textContent = '* All proceeds go to support ongoing development. Sponsorships do not affect gameplay.';
+
+        // Add close button
+        const closeButton = document.createElement('button');
+        closeButton.className = 'sponsor-close';
+        closeButton.textContent = 'CLOSE';
+
+        // Append everything to the sponsor details
+        sponsorDetails.appendChild(sponsorOptions);
+        sponsorDetails.appendChild(disclaimer);
+        sponsorDetails.appendChild(closeButton);
+
+        // Add the details container to the sponsor section
+        sponsorSection.appendChild(sponsorDetails);
+
+        // Add toggle functionality
+        sponsorCTA.addEventListener('click', () => {
+            sponsorDetails.classList.add('visible');
+            sponsorCTA.style.display = 'none';
+        });
+
+        closeButton.addEventListener('click', () => {
+            sponsorDetails.classList.remove('visible');
+            sponsorCTA.style.display = 'block';
+        });
+
+        content.appendChild(sponsorSection);
+
         // Create start button (initially disabled)
         const startButton = document.createElement('button');
         startButton.className = 'start-button';
