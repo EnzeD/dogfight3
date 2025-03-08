@@ -9,8 +9,8 @@ export default class ProtectionZone {
 
         // Protection zone properties
         this.enabled = true;
-        this.radius = 150; // Half-sphere radius around runway
-        this.height = 200; // Maximum height of protection
+        this.radius = 100; // Half-sphere radius around runway
+        this.height = 60; // Maximum height of protection (lowered from 200)
 
         // Cache the runway center for faster checks
         this.runwayCenter = new THREE.Vector3(
