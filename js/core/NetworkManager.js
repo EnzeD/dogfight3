@@ -20,6 +20,7 @@ export default class NetworkManager {
         this.lastUpdateTime = 0;
         this.updateInterval = 20; // 50 updates/second
         this.interpolationFactor = 0.05; // For smooth movement
+        this.lastRemoteUpdateTime = 0;
 
         // Set up event listeners
         this._setupEventListeners();
@@ -800,10 +801,18 @@ export default class NetworkManager {
             return;
         }
 
-        const oldHealth = remotePlane.currentHealth;
+        const oldHealth = remotePlane.health || 100; // Use health property directly
 
         // Update remote plane's health
-        remotePlane.setHealth(data.health);
+        remotePlane.health = data.health; // Set health property directly
+
+        // Ensure the plane knows its health has changed for smoke effects
+        if (remotePlane.setHealth) {
+            // Use proper method if available (which will trigger proper events and smoke effects)
+            remotePlane.setHealth(data.health);
+        } else {
+            console.log(`Remote plane ${data.id} health updated to ${data.health}`);
+        }
 
         // Update destroyed state if needed
         if (data.isDestroyed && !remotePlane.isDestroyed) {
@@ -839,13 +848,6 @@ export default class NetworkManager {
                     playSound: false
                 });
             }
-
-            // Show notification when enemy is hit
-            this.eventBus.emit('notification', {
-                message: `Hit enemy plane! Their health: ${Math.round(data.health)}%`,
-                type: 'success',
-                duration: 2000
-            });
         }
     }
 
@@ -1212,18 +1214,32 @@ export default class NetworkManager {
      * @param {number} currentTime - Current game time
      */
     _updateRemotePlanes(currentTime) {
-        this.remotePlanes.forEach(remotePlane => {
-            if (!remotePlane.mesh || remotePlane.isDestroyed) return;
+        const deltaTime = (currentTime - (this.lastRemoteUpdateTime || currentTime)) / 1000;
+        this.lastRemoteUpdateTime = currentTime;
 
-            // Apply interpolation for smooth movement
-            if (remotePlane.targetPosition) {
-                remotePlane.mesh.position.lerp(remotePlane.targetPosition, this.interpolationFactor);
+        this.remotePlanes.forEach(remotePlane => {
+            if (!remotePlane.mesh) return;
+
+            // Skip position/rotation updates for destroyed planes, but still update effects
+            if (!remotePlane.isDestroyed) {
+                // Apply interpolation for smooth movement
+                if (remotePlane.targetPosition) {
+                    remotePlane.mesh.position.lerp(remotePlane.targetPosition, this.interpolationFactor);
+                }
+
+                // Apply interpolation for smooth rotation
+                if (remotePlane.targetRotation) {
+                    // Ensure rotation is the shortest path
+                    this._interpolateRotation(remotePlane.mesh.rotation, remotePlane.targetRotation, this.interpolationFactor);
+                }
             }
 
-            // Apply interpolation for smooth rotation
-            if (remotePlane.targetRotation) {
-                // Ensure rotation is the shortest path
-                this._interpolateRotation(remotePlane.mesh.rotation, remotePlane.targetRotation, this.interpolationFactor);
+            // Update smoke effects based on health percentage
+            if (remotePlane.smokeFX && typeof remotePlane.health === 'number') {
+                const healthPercent = remotePlane.health / 100; // Assuming 100 is max health
+                // Update smoke effects
+                remotePlane.smokeFX.emitSmoke(remotePlane, healthPercent, deltaTime);
+                remotePlane.smokeFX.update(deltaTime);
             }
         });
     }
