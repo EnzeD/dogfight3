@@ -1,4 +1,7 @@
-// WW2 Dogfight Arena - Local Multiplayer WebSocket Server
+// WW2 Dogfight Arena - Multiplayer WebSocket Server with Static File Serving
+const express = require('express');
+const http = require('http');
+const path = require('path');
 const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 
@@ -11,11 +14,19 @@ const DEBUG = true; // Set to true for detailed logging
 const clients = new Map(); // clientId -> WebSocket connection
 let lastTimestamp = Date.now();
 
-// Create WebSocket server
-const server = new WebSocket.Server({ port: PORT });
+// Create Express app and HTTP server
+const app = express();
+const server = http.createServer(app);
 
-console.log(`WebSocket server for WW2 Dogfight Arena started on port ${PORT}`);
-console.log(`Connect to this server by using the URL parameter: ?multiplayer&server=ws://localhost:${PORT}`);
+// Serve static files from the root directory
+app.use(express.static(__dirname));
+
+// Create WebSocket server attached to the HTTP server
+const wss = new WebSocket.Server({ server });
+
+console.log(`Server for WW2 Dogfight Arena started on port ${PORT}`);
+console.log(`Game will be available at http://localhost:${PORT}`);
+console.log(`WebSocket endpoint will be available at ws://localhost:${PORT}`);
 
 // Debug function that only logs when DEBUG is true
 function logDebug(message) {
@@ -41,7 +52,7 @@ function getPlayerData(client) {
 }
 
 // Handle new connections
-server.on('connection', (socket) => {
+wss.on('connection', (socket) => {
     // Generate a unique client ID
     const clientId = uuidv4();
 
@@ -342,4 +353,9 @@ process.on('SIGINT', () => {
         console.log('Server closed');
         process.exit(0);
     });
+});
+
+// Start the server
+server.listen(PORT, () => {
+    console.log(`Server is listening on port ${PORT}`);
 }); 

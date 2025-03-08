@@ -202,10 +202,27 @@ export default class NetworkManager {
         // Determine protocol and port based on page protocol
         const isSecure = window.location.protocol === 'https:';
         const protocol = isSecure ? 'wss:' : 'ws:';
-        const port = isSecure ? '8443' : '8080';
 
-        // Use VPS IP address with appropriate port
-        const serverUrl = data.serverUrl || `${protocol}//141.95.17.225:${port}`;
+        // If serverUrl is explicitly provided, use it
+        // Otherwise, determine based on current page URL
+        let serverUrl;
+        if (data.serverUrl) {
+            serverUrl = data.serverUrl;
+        } else {
+            // Extract host without port
+            const host = window.location.hostname;
+
+            // If we're on localhost, use the default port
+            // Otherwise, use the same host as the page (for deployed version)
+            if (host === 'localhost' || host === '127.0.0.1') {
+                const port = isSecure ? '8443' : '8080';
+                serverUrl = `${protocol}//${host}:${port}`;
+            } else {
+                // For deployed version, use the same host and port as the page
+                // This works when the web server and WebSocket server are on the same host
+                serverUrl = `${protocol}//${host}${window.location.port ? ':' + window.location.port : ''}`;
+            }
+        }
 
         try {
             console.log(`Connecting to multiplayer server at ${serverUrl}...`);

@@ -232,7 +232,7 @@ export default class Game {
             });
 
             // Connect to server
-            const serverUrl = urlParams.get('server') || 'ws://141.95.17.225:8080';
+            const serverUrl = urlParams.get('server');
             this.eventBus.emit('network.connect', { serverUrl });
 
             // Add multiplayer UI indicators

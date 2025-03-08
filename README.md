@@ -1,6 +1,93 @@
-# Dogfight3 Multiplayer
+# WW2 Dogfight Arena
 
-A WebGL-based WW2 dogfight simulator with multiplayer support.
+A multiplayer dogfighting game built with Three.js.
+
+## Local Development
+
+To run the game locally:
+
+1. Install dependencies:
+   ```
+   npm install
+   ```
+
+2. Start the server:
+   ```
+   npm start
+   ```
+
+3. Open your browser and navigate to:
+   ```
+   http://localhost:8080
+   ```
+
+4. To play in multiplayer mode, add the `?multiplayer` parameter:
+   ```
+   http://localhost:8080?multiplayer
+   ```
+
+## Online Deployment
+
+### Deploying to Render.com (Free)
+
+1. Create a [Render.com](https://render.com/) account
+
+2. From your Render dashboard, click "New" and select "Web Service"
+
+3. Connect your GitHub repository (fork this project to your GitHub account first)
+
+4. Configure the service:
+   - **Name**: (choose a name, like "dogfight-arena")
+   - **Runtime**: Node
+   - **Build Command**: `npm install`
+   - **Start Command**: `node server.js`
+   - **Instance Type**: Free
+
+5. Click "Create Web Service"
+
+6. After deployment, your game will be available at the URL provided by Render (e.g., `https://dogfight-arena.onrender.com`)
+
+7. To play in multiplayer mode, add the `?multiplayer` parameter to the URL:
+   ```
+   https://dogfight-arena.onrender.com?multiplayer
+   ```
+
+### Deploying to Heroku
+
+1. Create a [Heroku](https://www.heroku.com/) account
+
+2. Install the [Heroku CLI](https://devcenter.heroku.com/articles/heroku-cli)
+
+3. Login to Heroku:
+   ```
+   heroku login
+   ```
+
+4. Create a new Heroku app:
+   ```
+   heroku create your-app-name
+   ```
+
+5. Push your code to Heroku:
+   ```
+   git push heroku main
+   ```
+
+6. Open your app:
+   ```
+   heroku open
+   ```
+
+7. To play in multiplayer mode, add the `?multiplayer` parameter to the URL.
+
+## Game Controls
+
+- WASD: Movement
+- Mouse: Aim
+- Left Click: Fire
+- Space: Boost
+- C: Toggle camera view
+- P: Pause game
 
 ## Overview
 
