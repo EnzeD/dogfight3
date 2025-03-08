@@ -11,7 +11,7 @@ import PerformanceMonitor from '../utils/PerformanceMonitor.js';
 import QualitySettings from '../utils/QualitySettings.js';
 
 export default class Game {
-    constructor() {
+    constructor(previewMode = false) {
         console.log('Initializing Game...');
 
         // Create event bus for communication between modules
@@ -51,6 +51,7 @@ export default class Game {
 
         // Game state
         this.isPaused = false;
+        this.isPreviewMode = previewMode;
 
         // Initialize array to hold all planes (player and enemies)
         this.planes = [];
@@ -69,49 +70,63 @@ export default class Game {
 
         // Initialize managers
         this.sceneManager.init();
-        this.inputManager.init();
-        this.uiManager.init();
 
-        // Create the player's plane (after scene is initialized)
-        console.log('Creating player plane...');
-        this.createPlayerPlane();
+        // Only initialize these if not in preview mode
+        if (!this.isPreviewMode) {
+            this.inputManager.init();
+            this.uiManager.init();
 
-        // Check multiplayer mode after player plane creation
-        this.checkMultiplayerMode();
+            // Create the player's plane (after scene is initialized)
+            console.log('Creating player plane...');
+            this.createPlayerPlane();
 
-        // Only create an AI enemy in single player mode
-        if (!this.isMultiplayer) {
-            console.log('Creating enemy plane in single player mode...');
-            // Position the enemy plane directly in front of the player for easy testing
-            const planeFactory = new PlaneFactory(this.sceneManager.scene, this.eventBus);
-            this.createEnemyPlane(planeFactory, new THREE.Vector3(0, 30, -50));
+            // Check multiplayer mode after player plane creation
+            this.checkMultiplayerMode();
+
+            // Only create an AI enemy in single player mode
+            if (!this.isMultiplayer) {
+                console.log('Creating enemy plane in single player mode...');
+                // Position the enemy plane directly in front of the player for testing
+                const planeFactory = new PlaneFactory(this.sceneManager.scene, this.eventBus);
+                this.createEnemyPlane(planeFactory, new THREE.Vector3(0, 30, -50));
+            }
+
+            // Initialize audio (after plane is created)
+            this.audioManager.init();
+
+            // Setup input action handler
+            this.setupInputActionHandler();
+
+            // Listen for debug visibility changes
+            this.eventBus.on('debug.visibility', (isVisible) => {
+                this.debugEnabled = isVisible;
+            });
+
+            // Listen for game pause/resume events
+            this.eventBus.on('game.pause', () => this.pauseGame());
+            this.eventBus.on('game.resume', () => this.resumeGame());
+
+            // Show instructions
+            this.uiManager.showInstructions();
         } else {
-            console.log('Multiplayer mode active - No AI enemies will be created');
-        }
+            // Preview mode setup
+            // Set up a cinematic camera view
+            this.sceneManager.setCinematicView();
 
-        // Initialize audio (after plane is created)
-        this.audioManager.init();
+            // Create some AI planes for background action
+            const planeFactory = new PlaneFactory(this.sceneManager.scene, this.eventBus);
+
+            // Create planes at various positions for visual interest
+            this.createEnemyPlane(planeFactory, new THREE.Vector3(0, 100, -100));
+            this.createEnemyPlane(planeFactory, new THREE.Vector3(-100, 150, -50));
+            this.createEnemyPlane(planeFactory, new THREE.Vector3(100, 120, -150));
+        }
 
         // Setup window resize handler
         window.addEventListener('resize', this.onWindowResize.bind(this));
 
-        // Setup input action handler
-        this.setupInputActionHandler();
-
-        // Listen for debug visibility changes
-        this.eventBus.on('debug.visibility', (isVisible) => {
-            this.debugEnabled = isVisible;
-        });
-
-        // Listen for game pause/resume events
-        this.eventBus.on('game.pause', () => this.pauseGame());
-        this.eventBus.on('game.resume', () => this.resumeGame());
-
         // Start the game loop
         this.animate();
-
-        // Show instructions
-        this.uiManager.showInstructions();
     }
 
     /**
@@ -205,7 +220,8 @@ export default class Game {
     }
 
     /**
-     * Check if multiplayer mode is enabled via URL parameter
+     * Check if multiplayer mode is enabled via URL parameters
+     * and set up multiplayer components if needed
      */
     checkMultiplayerMode() {
         const urlParams = new URLSearchParams(window.location.search);
@@ -231,9 +247,16 @@ export default class Game {
                 }
             });
 
-            // Connect to server
+            // Connect to server with callsign if available
             const serverUrl = urlParams.get('server');
-            this.eventBus.emit('network.connect', { serverUrl });
+            const connectionData = { serverUrl };
+
+            // Add callsign if it was set in main.js
+            if (this.playerCallsign) {
+                connectionData.callsign = this.playerCallsign;
+            }
+
+            this.eventBus.emit('network.connect', connectionData);
 
             // Add multiplayer UI indicators
             this.uiManager.showMultiplayerStatus(true);
@@ -244,7 +267,7 @@ export default class Game {
                     if (this.networkManager.connected) {
                         this.eventBus.emit('network.disconnect');
                     } else {
-                        this.eventBus.emit('network.connect', { serverUrl });
+                        this.eventBus.emit('network.connect', connectionData);
                     }
                 }
             });
@@ -424,7 +447,19 @@ export default class Game {
     }
 
     update(currentTime) {
-        // Update the player plane
+        // Update the scene regardless of mode
+        this.sceneManager.update(this.deltaTime);
+
+        // Skip other updates if in preview mode
+        if (this.isPreviewMode) {
+            // Update enemy planes for background action
+            for (const enemyPlane of this.enemyPlanes) {
+                enemyPlane.update(this.deltaTime, null);
+            }
+            return;
+        }
+
+        // Regular game update logic
         if (this.playerPlane) {
             this.playerPlane.update(this.deltaTime, this.inputManager.getInputState());
         }
@@ -433,7 +468,6 @@ export default class Game {
         if (!this.isMultiplayer) {
             for (const enemyPlane of this.enemyPlanes) {
                 if (this.playerPlane) {
-                    // Pass player position to enemy AI
                     enemyPlane.update(this.deltaTime, null, this.playerPlane.mesh.position);
                 } else {
                     enemyPlane.update(this.deltaTime, null);
@@ -445,9 +479,6 @@ export default class Game {
         if (this.isMultiplayer && this.networkManager) {
             this.networkManager.update(currentTime);
         }
-
-        // Update scene elements (camera, environment, etc.)
-        this.sceneManager.update(this.deltaTime);
 
         // Update audio based on game state
         this.audioManager.update(this.playerPlane);

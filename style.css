@@ -1,3 +1,6 @@
+/* Import WW2-era inspired fonts */
+@import url('https://fonts.googleapis.com/css2?family=Special+Elite&family=Black+Ops+One&family=Teko:wght@400;500;600&display=swap');
+
 /* Reset default margin and hide overflow */
 body {
     margin: 0;
@@ -5,6 +8,9 @@ body {
     overflow: hidden;
     width: 100%;
     height: 100vh;
+    font-family: 'Special Elite', monospace;
+    background-color: #000;
+    color: #fff;
 }
 
 /* Ensure the canvas fills the screen */
@@ -13,3 +19,346 @@ canvas {
     width: 100%;
     height: 100%;
 }
+
+/* Landing page styles */
+.landing-page {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    pointer-events: none;
+    /* Allow clicks to pass through to canvas */
+}
+
+.landing-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at center, transparent 0%, rgba(0, 0, 0, 0.7) 100%);
+    z-index: 1001;
+    pointer-events: none;
+}
+
+.landing-content {
+    position: relative;
+    width: 80%;
+    max-width: 800px;
+    background-color: rgba(20, 20, 20, 0.85);
+    border: 2px solid #8B5A2B;
+    border-radius: 0;
+    padding: 30px;
+    text-align: center;
+    z-index: 1002;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    pointer-events: auto;
+}
+
+/* Military corner brackets */
+.corner {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    z-index: 1003;
+}
+
+.corner.top-left {
+    top: 0;
+    left: 0;
+    border-top: 3px solid #f8d742;
+    border-left: 3px solid #f8d742;
+}
+
+.corner.top-right {
+    top: 0;
+    right: 0;
+    border-top: 3px solid #f8d742;
+    border-right: 3px solid #f8d742;
+}
+
+.corner.bottom-left {
+    bottom: 0;
+    left: 0;
+    border-bottom: 3px solid #f8d742;
+    border-left: 3px solid #f8d742;
+}
+
+.corner.bottom-right {
+    bottom: 0;
+    right: 0;
+    border-bottom: 3px solid #f8d742;
+    border-right: 3px solid #f8d742;
+}
+
+.landing-title {
+    font-family: 'Black Ops One', cursive;
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+    text-align: center;
+    color: #f8d742;
+    text-shadow: 3px 3px 5px rgba(0, 0, 0, 0.8);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    /* Stencil-like effect */
+    -webkit-text-stroke: 1px #000;
+    text-stroke: 1px #000;
+}
+
+.landing-subtitle {
+    font-family: 'Teko', sans-serif;
+    font-size: 1.2rem;
+    text-align: center;
+    margin-bottom: 2rem;
+    color: #fff;
+    text-shadow: 2px 2px 3px rgba(0, 0, 0, 0.7);
+    letter-spacing: 1px;
+    font-weight: 500;
+    max-width: 90%;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.4;
+}
+
+/* Mode selection styles */
+.mode-selection {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin-bottom: 30px;
+}
+
+.mode-option {
+    background-color: rgba(0, 0, 0, 0.5);
+    border: 1px solid #555;
+    padding: 20px;
+    border-radius: 0;
+    width: 180px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    /* Military style borders with rivet effect */
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+/* Top left rivet */
+.mode-option::before {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background-color: #f8d742;
+    border-radius: 50%;
+    top: 8px;
+    left: 8px;
+}
+
+/* Top right rivet */
+.mode-option::after {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background-color: #f8d742;
+    border-radius: 50%;
+    top: 8px;
+    right: 8px;
+}
+
+/* Bottom left rivet */
+.mode-option>p::before {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background-color: #f8d742;
+    border-radius: 50%;
+    bottom: 8px;
+    left: 8px;
+}
+
+/* Bottom right rivet */
+.mode-option>p::after {
+    content: '';
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background-color: #f8d742;
+    border-radius: 50%;
+    bottom: 8px;
+    right: 8px;
+}
+
+.mode-option:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+    background-color: rgba(30, 30, 30, 0.9);
+    border-color: #f8d742;
+}
+
+.mode-option.selected {
+    border-color: #f8d742;
+    background-color: rgba(50, 50, 30, 0.8);
+    transform: translateY(-5px);
+}
+
+.mode-option h3 {
+    font-family: 'Black Ops One', cursive;
+    font-size: 1.3rem;
+    margin-bottom: 0.7rem;
+    color: #f8d742;
+    text-shadow: 2px 2px 3px rgba(0, 0, 0, 0.7);
+}
+
+.mode-option p {
+    font-family: 'Special Elite', monospace;
+    font-size: 0.9rem;
+    color: #ddd;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.mode-option img,
+.mode-option svg.plane-icon {
+    width: 60px;
+    height: 60px;
+    margin-bottom: 15px;
+    filter: drop-shadow(2px 2px 3px rgba(0, 0, 0, 0.5));
+    transition: all 0.3s ease;
+}
+
+.mode-option:hover img,
+.mode-option:hover svg.plane-icon {
+    filter: drop-shadow(0 0 8px rgba(248, 215, 66, 0.8));
+    transform: scale(1.1);
+}
+
+.mode-option.selected img,
+.mode-option.selected svg.plane-icon {
+    filter: drop-shadow(0 0 10px rgba(248, 215, 66, 0.9));
+    transform: scale(1.1);
+}
+
+.callsign-section {
+    display: none;
+    margin-top: 1rem;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
+.callsign-section.visible {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.callsign-input {
+    width: 100%;
+    padding: 10px 15px;
+    border: 2px solid #666;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-family: 'Special Elite', monospace;
+    font-size: 1.2rem;
+    border-radius: 0;
+    outline: none;
+    transition: border-color 0.3s;
+    margin-bottom: 1.5rem;
+    box-sizing: border-box;
+    /* Military stencil look */
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.callsign-input:focus {
+    border-color: #f8d742;
+    box-shadow: 0 0 8px rgba(248, 215, 66, 0.5);
+}
+
+.start-button {
+    background-color: #8b0000;
+    color: #fff;
+    border: none;
+    padding: 12px 30px;
+    font-family: 'Black Ops One', cursive;
+    font-size: 1.2rem;
+    cursor: pointer;
+    border-radius: 0;
+    transition: background-color 0.3s, transform 0.2s;
+    text-transform: uppercase;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    margin-top: 1rem;
+    pointer-events: auto;
+    letter-spacing: 2px;
+    position: relative;
+    overflow: hidden;
+}
+
+.start-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.7s;
+}
+
+.start-button:hover {
+    background-color: #b20000;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+.start-button:hover::before {
+    left: 100%;
+}
+
+.start-button:disabled {
+    background-color: #555;
+    cursor: not-allowed;
+    transform: translateY(0);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Animation for fade in */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* WW2 decorative elements */
+.ww2-decoration {
+    position: absolute;
+    opacity: 0.7;
+    z-index: 1003;
+}
+
+.ww2-decoration.top-left {
+    top: 10px;
+    left: 10px;
+}
+
+.ww2-decoration.bottom-right {
+    bottom: 10px;
+    right: 10px;
+}
+
+/* Existing mobile message styles can remain */

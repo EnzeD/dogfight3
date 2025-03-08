@@ -36,18 +36,18 @@ function logDebug(message) {
 }
 
 /**
- * Get a serializable player object with all required fields
+ * Gets formatted player data for sending to other clients
  * @param {Object} client - Client object
- * @returns {Object} - Player object with all fields
+ * @returns {Object} - Formatted player data
  */
 function getPlayerData(client) {
     return {
         id: client.id,
-        position: client.position,
-        rotation: client.rotation,
-        speed: client.speed,
-        health: client.health,
-        isDestroyed: client.isDestroyed
+        callsign: client.callsign || `Pilot${client.id.substring(0, 4)}`,
+        position: client.position || { x: 0, y: 0, z: 0 },
+        rotation: client.rotation || { x: 0, y: 0, z: 0 },
+        health: client.health || 100,
+        isDestroyed: client.isDestroyed || false
     };
 }
 
@@ -129,17 +129,67 @@ wss.on('connection', (socket) => {
 });
 
 /**
- * Handle messages from clients
- * @param {string} clientId - ID of the client
+ * Handles a message from a client
+ * @param {string} clientId - ID of the sending client
  * @param {Object} data - Message data
  */
 function handleClientMessage(clientId, data) {
     const client = clients.get(clientId);
+
     if (!client) {
-        console.error(`Client ${clientId} not found for message type ${data.type}`);
+        console.error(`Received message from unknown client: ${clientId}`);
         return;
     }
 
+    // Handle client initialization
+    if (data.type === 'init') {
+        logDebug(`Client ${clientId} initialized with callsign: ${data.callsign}`);
+
+        // Store player data including callsign
+        client.callsign = data.callsign || `Pilot${clientId.substring(0, 4)}`;
+        client.position = data.position;
+        client.rotation = data.rotation;
+        client.health = data.health || 100;
+        client.lastUpdate = Date.now();
+
+        // Send existing players to the new client
+        const existingPlayers = [];
+        for (const [id, otherClient] of clients.entries()) {
+            if (id !== clientId && otherClient.socket.readyState === WebSocket.OPEN) {
+                existingPlayers.push(getPlayerData(otherClient));
+            }
+        }
+
+        if (existingPlayers.length > 0) {
+            // Send existing players data to new client
+            const existingPlayersMsg = {
+                type: 'players.existing',
+                players: existingPlayers
+            };
+            sendToClient(clientId, existingPlayersMsg);
+        }
+
+        // Announce new player to all other clients
+        const joinMessage = {
+            type: 'player.joined',
+            player: getPlayerData(client)
+        };
+        broadcast(joinMessage, clientId);
+
+        // Broadcast notification about new player
+        broadcastToAll({
+            type: 'notification',
+            message: `${client.callsign} joined the battle!`,
+            type: 'info'
+        });
+
+        // Log player count
+        const activePlayers = Array.from(clients.values()).filter(c => c.socket.readyState === WebSocket.OPEN).length;
+        console.log(`Active players: ${activePlayers}`);
+        return;
+    }
+
+    // Process other message types in the existing switch statement
     switch (data.type) {
         case 'update':  // Changed from 'playerUpdate' to 'update' to match NetworkManager
             // Update client position and rotation

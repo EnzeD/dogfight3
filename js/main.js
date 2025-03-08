@@ -1,5 +1,9 @@
 // WW2 Dogfight Arena - Main Entry Point
 import Game from './core/Game.js';
+import LandingPage from './ui/LandingPage.js';
+
+let previewGame = null;
+let activeGame = null;
 
 /**
  * Detects if the user is on a mobile device
@@ -69,6 +73,56 @@ function showMobileMessage() {
     document.body.appendChild(messageContainer);
 }
 
+/**
+ * Starts the game with the selected options
+ * @param {Object} options - Game options from landing page
+ * @param {string} options.mode - Game mode ('solo' or 'multi')
+ * @param {string} options.callsign - Player's callsign (for multiplayer)
+ */
+function startGame(options) {
+    console.log('Starting game with options:', options);
+
+    // Clean up preview game if it exists
+    if (previewGame) {
+        // Remove the preview game's canvas
+        const oldCanvas = document.querySelector('canvas');
+        if (oldCanvas) {
+            oldCanvas.remove();
+        }
+        previewGame = null;
+    }
+
+    // Initialize game with selected mode
+    activeGame = new Game();
+
+    // Store game instance globally for debugging if needed
+    window.game = activeGame;
+
+    // Handle different game modes
+    if (options.mode === 'multi') {
+        console.log('Starting multiplayer mode with callsign:', options.callsign);
+
+        // Set URL parameter for multiplayer mode
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('multiplayer', 'true');
+
+        // Update URL without reloading page
+        window.history.pushState({}, '', currentUrl);
+
+        // Store callsign for network manager
+        activeGame.playerCallsign = options.callsign;
+    } else {
+        console.log('Starting solo mode');
+
+        // Ensure multiplayer parameter is removed for solo mode
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.delete('multiplayer');
+
+        // Update URL without reloading page
+        window.history.pushState({}, '', currentUrl);
+    }
+}
+
 // Initialize the game once the window loads
 window.addEventListener('load', () => {
     // Check if user is on a mobile device
@@ -76,9 +130,13 @@ window.addEventListener('load', () => {
         console.log('Mobile device detected, showing message instead of loading game');
         showMobileMessage();
     } else {
-        console.log('Game loading...');
-        const game = new Game();
-        // Store the game instance globally for debugging if needed
-        window.game = game;
+        console.log('Starting preview mode and showing game mode selection screen');
+
+        // Create preview game instance
+        previewGame = new Game(true);
+
+        // Create and show landing page
+        const landingPage = new LandingPage(startGame);
+        landingPage.show();
     }
 }); 

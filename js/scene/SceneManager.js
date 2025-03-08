@@ -48,11 +48,14 @@ export default class SceneManager {
         // Set scene background color (will be replaced by sky)
         this.scene.background = new THREE.Color(0x87CEEB);
 
-        // Add fog to the scene
-        this.createFog();
-
         // Create the renderer
         this.createRenderer();
+
+        // Create and setup camera (before other elements that might need it)
+        this.camera = new Camera(this.scene, this.renderer.domElement, this.eventBus);
+
+        // Add fog to the scene
+        this.createFog();
 
         // Add lighting
         this.createLighting();
@@ -65,9 +68,6 @@ export default class SceneManager {
         this.trees = new Trees(this.scene, this.eventBus, this.qualitySettings, this.gameMap.trees); // Pass tree config
         this.villages = new Villages(this.scene, this.eventBus, this.runway, this.qualitySettings, this.gameMap.villages); // Pass village config
         this.skyscrapers = new Skyscrapers(this.scene, this.eventBus, this.qualitySettings, this.gameMap.skyscrapers); // Pass skyscraper config
-
-        // Create and setup camera (after renderer is created)
-        this.camera = new Camera(this.scene, this.renderer.domElement, this.eventBus);
 
         console.log(`SceneManager initialized with quality: ${this.qualitySettings.getQuality()}`);
     }
@@ -164,10 +164,40 @@ export default class SceneManager {
     }
 
     /**
-     * Update scene elements
-     * @param {number} deltaTime - Time since last frame in seconds
+     * Set up a cinematic camera view for the preview mode
+     */
+    setCinematicView() {
+        // Position camera for a dramatic view
+        this.camera.camera.position.set(200, 150, 200);
+        this.camera.camera.lookAt(0, 50, 0);
+
+        // Create a slow circular motion for the camera
+        this.cinematicAngle = 0;
+        this.cinematicRadius = 250;
+        this.cinematicHeight = 150;
+        this.cinematicLookAtHeight = 50;
+        this.cinematicRotationSpeed = 0.05; // radians per second
+    }
+
+    /**
+     * Update the scene
+     * @param {number} deltaTime - Time since last update
      */
     update(deltaTime) {
+        // Update cinematic camera if in that mode
+        if (this.cinematicAngle !== undefined) {
+            // Update camera position in a circular pattern
+            this.cinematicAngle += this.cinematicRotationSpeed * deltaTime;
+
+            // Calculate new camera position
+            const x = Math.cos(this.cinematicAngle) * this.cinematicRadius;
+            const z = Math.sin(this.cinematicAngle) * this.cinematicRadius;
+
+            // Update camera position and look target
+            this.camera.camera.position.set(x, this.cinematicHeight, z);
+            this.camera.camera.lookAt(0, this.cinematicLookAtHeight, 0);
+        }
+
         // Update clouds
         if (this.clouds) {
             this.clouds.update(deltaTime);

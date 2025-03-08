@@ -14,6 +14,7 @@ export default class NetworkManager {
         this.lastUpdateTime = 0;
         this.updateInterval = 20; // Reduced from 50ms to 100ms (10 updates/second)
         this.interpolationFactor = 0.05; // For smooth movement
+        this.playerCallsign = null;
 
         // Listen for connection events
         this.eventBus.on('network.connect', this.connect.bind(this));
@@ -195,10 +196,22 @@ export default class NetworkManager {
     }
 
     /**
-     * Connect to the multiplayer server
-     * @param {Object} data - Connection data including server URL
+     * Connect to multiplayer server
+     * @param {Object} data - Connection data
+     * @param {string} [data.serverUrl] - Optional server URL override
+     * @param {string} [data.callsign] - Player's callsign
      */
     connect(data = {}) {
+        // Store callsign if provided
+        if (data.callsign) {
+            this.playerCallsign = data.callsign;
+            console.log(`Player callsign set to: ${this.playerCallsign}`);
+        } else {
+            // Generate a random callsign if none provided
+            this.playerCallsign = `Pilot${Math.floor(Math.random() * 1000)}`;
+            console.log(`Generated random callsign: ${this.playerCallsign}`);
+        }
+
         // Determine protocol and port based on page protocol
         const isSecure = window.location.protocol === 'https:';
         const protocol = isSecure ? 'wss:' : 'ws:';
@@ -254,17 +267,35 @@ export default class NetworkManager {
     }
 
     /**
-     * Handle successful connection to the server
+     * Handle successful WebSocket connection
      */
     handleConnection() {
         console.log('Connected to multiplayer server');
         this.connected = true;
 
-        // Emit a specific connected event that UI can listen for
-        this.eventBus.emit('network.connected');
+        // Send player info with callsign to server
+        const initialData = {
+            type: 'init',
+            callsign: this.playerCallsign,
+            position: this.playerPlane ? {
+                x: this.playerPlane.mesh.position.x,
+                y: this.playerPlane.mesh.position.y,
+                z: this.playerPlane.mesh.position.z
+            } : { x: 0, y: 0, z: 0 },
+            rotation: this.playerPlane ? {
+                x: this.playerPlane.mesh.rotation.x,
+                y: this.playerPlane.mesh.rotation.y,
+                z: this.playerPlane.mesh.rotation.z
+            } : { x: 0, y: 0, z: 0 },
+            health: this.playerPlane ? this.playerPlane.health : 100
+        };
 
+        // Send initialization data to server
+        this.socket.send(JSON.stringify(initialData));
+
+        // Notify UI about connection
         this.eventBus.emit('notification', {
-            message: 'Connected to multiplayer server',
+            message: `Connected as ${this.playerCallsign}`,
             type: 'success'
         });
     }
