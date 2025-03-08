@@ -8,6 +8,7 @@ import Camera from './Camera.js';
 import Trees from './Trees.js';  // Import the new Trees class
 import Villages from './Villages.js';  // Import the new Villages class
 import Skyscrapers from './Skyscrapers.js';  // Import the new Skyscrapers class
+import GameMap from './Map.js';  // Import the GameMap class for static map data
 
 export default class SceneManager {
     constructor(eventBus, qualitySettings) {
@@ -35,6 +36,9 @@ export default class SceneManager {
 
         // Get current quality settings
         this.settings = this.qualitySettings.getCurrentSettings();
+
+        // Initialize the game map - contains static positions for all elements
+        this.gameMap = new GameMap();
     }
 
     init() {
@@ -53,14 +57,14 @@ export default class SceneManager {
         // Add lighting
         this.createLighting();
 
-        // Create scene elements
+        // Create scene elements with static map data
         this.sky = new Sky(this.scene, this.sun); // Pass the sun to the sky
         this.ground = new Ground(this.scene);
-        this.runway = new Runway(this.scene);
-        this.clouds = new Clouds(this.scene, this.eventBus, this.qualitySettings);
-        this.trees = new Trees(this.scene, this.eventBus, this.qualitySettings); // Pass quality settings
-        this.villages = new Villages(this.scene, this.eventBus, this.runway, this.qualitySettings); // Pass quality settings
-        this.skyscrapers = new Skyscrapers(this.scene, this.eventBus, this.qualitySettings); // Pass quality settings
+        this.runway = new Runway(this.scene, this.gameMap.runway); // Pass runway config from map
+        this.clouds = new Clouds(this.scene, this.eventBus, this.qualitySettings, this.gameMap.clouds); // Pass cloud config
+        this.trees = new Trees(this.scene, this.eventBus, this.qualitySettings, this.gameMap.trees); // Pass tree config
+        this.villages = new Villages(this.scene, this.eventBus, this.runway, this.qualitySettings, this.gameMap.villages); // Pass village config
+        this.skyscrapers = new Skyscrapers(this.scene, this.eventBus, this.qualitySettings, this.gameMap.skyscrapers); // Pass skyscraper config
 
         // Create and setup camera (after renderer is created)
         this.camera = new Camera(this.scene, this.renderer.domElement, this.eventBus);

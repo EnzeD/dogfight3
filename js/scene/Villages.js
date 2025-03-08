@@ -2,11 +2,12 @@
 import * as THREE from 'three';
 
 export default class Villages {
-    constructor(scene, eventBus, runway, qualitySettings) {
+    constructor(scene, eventBus, runway, qualitySettings, villageMapData) {
         this.scene = scene;
         this.eventBus = eventBus;
         this.runway = runway; // Reference to the runway
         this.qualitySettings = qualitySettings;
+        this.villageMapData = villageMapData; // Static village data from map
         this.villages = []; // Will store village data
         this.houses = []; // Will store all house meshes
         this.streets = []; // Will store all street meshes
@@ -53,7 +54,7 @@ export default class Villages {
             // this.visualizeExclusionZone();
         }
 
-        // Generate villages
+        // Generate villages from map data
         this.generateVillages();
 
         console.log('Villages initialized with', this.houses.length, 'houses and', this.streets.length, 'streets');
@@ -174,37 +175,79 @@ export default class Villages {
         return house;
     }
 
+    /**
+     * Generate villages based on static map data
+     */
     generateVillages() {
-        // Generate several villages around the map
-        let placedVillages = 0;
-        let attempts = 0;
-        const maxAttempts = this.villageCount * 10; // Prevent infinite loops if we can't place villages
-
-        while (placedVillages < this.villageCount && attempts < maxAttempts) {
-            attempts++;
-            const villageX = (Math.random() - 0.5) * 2 * this.villageRadius;
-            const villageZ = (Math.random() - 0.5) * 2 * this.villageRadius;
-
-            // Check if this location is too close to the runway
-            if (this.isTooCloseToRunway(villageX, villageZ)) {
-                continue; // Skip this location and try again
-            }
-
-            const villageSize = this.housesPerVillage + Math.floor(Math.random() * 4 - 2);
-
-            // Create the village layout
-            this.createVillageLayout(villageX, villageZ, villageSize);
-            placedVillages++;
-
-            // Store village data for reference
-            this.villages.push({
-                x: villageX,
-                z: villageZ,
-                size: villageSize
-            });
+        // Check if we have map data
+        if (!this.villageMapData || !Array.isArray(this.villageMapData)) {
+            console.warn('No village map data provided. No villages will be placed.');
+            return;
         }
 
-        console.log(`Generated ${placedVillages} villages after ${attempts} attempts`);
+        console.log(`Generating ${this.villageMapData.length} villages from map data`);
+
+        // Process each village from map data
+        this.villageMapData.forEach(village => {
+            // Store village data
+            this.villages.push({
+                x: village.center.x,
+                z: village.center.z,
+                size: village.size
+            });
+
+            // Place houses based on map data
+            if (village.houses && Array.isArray(village.houses)) {
+                village.houses.forEach(houseData => {
+                    this.placeHouse(houseData.x, houseData.z, houseData.type, houseData.rotation);
+                });
+            }
+
+            // Create streets based on map data
+            if (village.streets && Array.isArray(village.streets)) {
+                village.streets.forEach(streetData => {
+                    const dirX = streetData.x2 - streetData.x1;
+                    const dirZ = streetData.z2 - streetData.z1;
+                    this.createStreet(
+                        streetData.x1,
+                        streetData.z1,
+                        streetData.x2,
+                        streetData.z2,
+                        dirX,
+                        dirZ
+                    );
+                });
+            }
+        });
+
+        console.log(`Generated ${this.villages.length} villages with ${this.houses.length} houses and ${this.streets.length} streets`);
+    }
+
+    /**
+     * Place a house at specific coordinates with specific type and rotation
+     * @param {number} x - X coordinate
+     * @param {number} z - Z coordinate
+     * @param {number} type - House type index
+     * @param {number} rotation - Rotation in radians
+     */
+    placeHouse(x, z, type = 0, rotation = 0) {
+        // Make sure we have house prototypes
+        if (this.housePrototypes.length === 0) {
+            console.warn('No house prototypes available');
+            return;
+        }
+
+        // Get house type (use modulo to ensure valid index)
+        const houseType = type % this.housePrototypes.length;
+        const house = this.housePrototypes[houseType].clone();
+
+        // Position and rotate house
+        house.position.set(x, 0, z);
+        house.rotation.y = rotation;
+
+        // Add to scene and store reference
+        this.scene.add(house);
+        this.houses.push(house);
     }
 
     /**
@@ -288,24 +331,6 @@ export default class Villages {
                 }
             }
         }
-    }
-
-    placeHouse(x, z) {
-        // Choose a random house prototype
-        const prototype = this.housePrototypes[Math.floor(Math.random() * this.housePrototypes.length)];
-
-        // Clone the prototype
-        const house = prototype.clone();
-
-        // Position the house
-        house.position.set(x, 0, z);
-
-        // Random rotation (4 possible orientations)
-        house.rotation.y = Math.floor(Math.random() * 4) * (Math.PI / 2);
-
-        // Add to scene and track
-        this.scene.add(house);
-        this.houses.push(house);
     }
 
     createStreetConnections(posX, posZ, gridX, gridZ, gridSize, streetGrid, cellSize) {

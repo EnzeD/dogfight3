@@ -2,10 +2,11 @@
 import * as THREE from 'three';
 
 export default class Trees {
-    constructor(scene, eventBus, qualitySettings) {
+    constructor(scene, eventBus, qualitySettings, treeMapData) {
         this.scene = scene;
         this.eventBus = eventBus;
         this.qualitySettings = qualitySettings;
+        this.treeMapData = treeMapData; // Static tree positions from map data
 
         // Collections for tree instances
         this.trees = [];
@@ -354,56 +355,44 @@ export default class Trees {
     }
 
     /**
-     * Place trees in the scene
+     * Place trees using static map data instead of random positions
      */
     placeTrees() {
-        // Define areas where trees should be placed
-        // Get counts from quality settings
-        const treeCountSettings = this.quality.count || {};
+        // Check if we have map data
+        if (!this.treeMapData) {
+            console.warn('No tree map data provided. No trees will be placed.');
+            return;
+        }
 
-        const areas = [
-            { type: 'pine', count: treeCountSettings.pine || 15, xMin: -1000, xMax: 1000, zMin: -1000, zMax: -500 },
-            { type: 'oak', count: treeCountSettings.oak || 12, xMin: 500, xMax: 1000, zMin: -300, zMax: 300 },
-            { type: 'palm', count: treeCountSettings.palm || 8, xMin: -200, xMax: 200, zMin: 600, zMax: 1000 },
-            { type: 'birch', count: treeCountSettings.birch || 10, xMin: -1000, xMax: -500, zMin: 100, zMax: 600 },
-            { type: 'willow', count: treeCountSettings.willow || 5, xMin: 300, xMax: 600, zMin: 400, zMax: 700 }
-        ];
-
-        // Place trees based on defined areas
-        areas.forEach(area => {
-            console.log(`Placing ${area.count} ${area.type} trees`);
-
-            for (let i = 0; i < area.count; i++) {
-                // Get the tree type template
-                const treeTemplate = this.treeTypes[area.type];
-
-                if (treeTemplate) {
-                    // Clone the template
-                    const tree = treeTemplate.clone();
-
-                    // Random position within area bounds
-                    const x = Math.random() * (area.xMax - area.xMin) + area.xMin;
-                    const z = Math.random() * (area.zMax - area.zMin) + area.zMin;
-
-                    // Random scale variation (0.7 to 1.3 of original size)
-                    // Multiplied by 3 to make trees 3 times bigger
-                    const scale = (0.7 + Math.random() * 0.6) * 3;
-                    tree.scale.set(scale, scale, scale);
-
-                    // Random rotation
-                    tree.rotation.y = Math.random() * Math.PI * 2;
-
-                    // Position tree on the ground (y=0)
-                    tree.position.set(x, 0, z);
-
-                    // Add to scene and keep track of it
-                    this.scene.add(tree);
-                    this.trees.push({
-                        mesh: tree,
-                        type: area.type
-                    });
-                }
+        // Place each tree type according to map data
+        Object.entries(this.treeMapData).forEach(([treeType, positions]) => {
+            if (!Array.isArray(positions) || !this.treeTypes[treeType]) {
+                return; // Skip if not valid data or tree type doesn't exist
             }
+
+            console.log(`Placing ${positions.length} ${treeType} trees from map data`);
+
+            positions.forEach(treeData => {
+                // Clone the template for this tree type
+                const tree = this.treeTypes[treeType].clone();
+
+                // Use exact scale, position and rotation from map data
+                const scale = treeData.scale || 3.0;
+                tree.scale.set(scale, scale, scale);
+
+                // Set position from map data
+                tree.position.set(treeData.x, treeData.y, treeData.z);
+
+                // Set rotation from map data
+                tree.rotation.y = treeData.rotation || 0;
+
+                // Add to scene and keep track of it
+                this.scene.add(tree);
+                this.trees.push({
+                    mesh: tree,
+                    type: treeType
+                });
+            });
         });
 
         console.log(`Placed ${this.trees.length} trees in the scene with quality level: ${this.qualitySettings.getQuality()}`);

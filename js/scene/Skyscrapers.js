@@ -2,10 +2,11 @@
 import * as THREE from 'three';
 
 export default class Skyscrapers {
-    constructor(scene, eventBus, qualitySettings) {
+    constructor(scene, eventBus, qualitySettings, skyscraperMapData) {
         this.scene = scene;
         this.eventBus = eventBus;
         this.qualitySettings = qualitySettings;
+        this.skyscraperMapData = skyscraperMapData; // Static skyscraper data from map
 
         // Collection for skyscraper instances
         this.skyscrapers = [];
@@ -13,9 +14,11 @@ export default class Skyscrapers {
         // Skyscraper type definitions with meshes and materials
         this.skyscraperTypes = {
             modern: null,
+            glass: null,    // For map compatibility
+            office: null,   // For map compatibility
             corporate: null,
             residential: null,
-            landmark: null // Add landmark skyscraper type
+            landmark: null  // Add landmark skyscraper type
         };
 
         // Get quality settings
@@ -26,7 +29,7 @@ export default class Skyscrapers {
         this.buildingCount = skyscraperSettings.count || 10; // Default to medium
         this.segments = skyscraperSettings.segments || 6; // Default to medium
 
-        console.log(`Creating skyscrapers with quality settings: count=${this.buildingCount}, segments=${this.segments}`);
+        console.log(`Creating skyscrapers with quality settings: segments=${this.segments}`);
 
         // Initialize skyscrapers
         this.init();
@@ -398,78 +401,71 @@ export default class Skyscrapers {
     }
 
     /**
-     * Place skyscrapers in the CBD area
+     * Place skyscrapers according to map data
      */
     placeSkyscrapers() {
-        // Find a suitable CBD location that avoids the runway 
-        const cbdArea = this.findSuitableCBDLocation();
+        // Check if we have map data
+        if (!this.skyscraperMapData) {
+            console.warn('No skyscraper map data provided. No skyscrapers will be placed.');
+            return;
+        }
 
-        // Types of buildings to place
-        const types = ['modern', 'corporate', 'residential'];
+        console.log(`Placing skyscrapers from map data at center: ${this.skyscraperMapData.center.x}, ${this.skyscraperMapData.center.z}`);
 
-        // Place landmark skyscraper in the center of the CBD
-        const landmarkX = (cbdArea.xMin + cbdArea.xMax) / 2;
-        const landmarkZ = (cbdArea.zMin + cbdArea.zMax) / 2;
+        // Place landmark building in the center if needed
+        const centerX = this.skyscraperMapData.center.x;
+        const centerZ = this.skyscraperMapData.center.z;
 
-        const landmark = this.skyscraperTypes.landmark.clone();
-        landmark.position.set(landmarkX, 0, landmarkZ);
-        landmark.userData = { type: 'skyscraper', subtype: 'landmark' }; // Add metadata
-        this.scene.add(landmark);
-        this.skyscrapers.push({
-            mesh: landmark,
-            type: 'landmark'
-        });
+        // Map skyscraper type names to our internal types
+        const typeMapping = {
+            'modern': 'modern',
+            'glass': 'corporate',  // Map glass to corporate
+            'office': 'residential' // Map office to residential
+        };
 
-        // Place remaining skyscrapers in the CBD (based on quality)
-        for (let i = 0; i < this.buildingCount; i++) {
-            // Get random building type
-            const type = types[Math.floor(Math.random() * types.length)];
-            const skyscraperTemplate = this.skyscraperTypes[type];
+        // Place buildings based on map data
+        if (this.skyscraperMapData.buildings && Array.isArray(this.skyscraperMapData.buildings)) {
+            this.skyscraperMapData.buildings.forEach(buildingData => {
+                // Get building type (use mapping or default to modern)
+                const mappedType = typeMapping[buildingData.type] || 'modern';
+                const skyscraperTemplate = this.skyscraperTypes[mappedType];
 
-            if (skyscraperTemplate) {
+                if (!skyscraperTemplate) {
+                    console.warn(`Unknown skyscraper type: ${buildingData.type}`);
+                    return;
+                }
+
                 // Clone the template
                 const skyscraper = skyscraperTemplate.clone();
 
-                // Calculate position with spacing so buildings don't overlap
-                // This creates a rough grid layout for the CBD
-                const gridSize = 4; // 4x4 grid
-                const cellSize = 80; // 80 units between building centers
+                // Scale the building to the specified height
+                const originalHeight = skyscraper.userData?.originalHeight || 100;
+                const scaleY = buildingData.height / originalHeight;
+                const scaleXZ = 1.0; // Can adjust this if needed based on width/depth
 
-                // Calculate grid position (0-3 for x and z)
-                const gridX = i % gridSize;
-                const gridZ = Math.floor(i / gridSize);
+                skyscraper.scale.set(scaleXZ, scaleY, scaleXZ);
 
-                // Calculate actual position with some randomization within cell
-                // Avoid the center where the landmark building is
-                let x = cbdArea.xMin + gridX * cellSize + (Math.random() * 30 - 15);
-                let z = cbdArea.zMin + gridZ * cellSize + (Math.random() * 30 - 15);
+                // Position and rotate building
+                skyscraper.position.set(buildingData.x, 0, buildingData.z);
+                skyscraper.rotation.y = buildingData.rotation || 0;
 
-                // Ensure we don't place a building too close to the landmark
-                const distToLandmark = Math.sqrt(Math.pow(x - landmarkX, 2) + Math.pow(z - landmarkZ, 2));
-                if (distToLandmark < 100) {
-                    // If too close, shift it away
-                    const angle = Math.atan2(z - landmarkZ, x - landmarkX);
-                    x = landmarkX + Math.cos(angle) * 100 + (Math.random() * 20 - 10);
-                    z = landmarkZ + Math.sin(angle) * 100 + (Math.random() * 20 - 10);
-                }
+                // Add metadata
+                skyscraper.userData = {
+                    type: 'skyscraper',
+                    subtype: mappedType,
+                    height: buildingData.height
+                };
 
-                // Random rotation
-                skyscraper.rotation.y = Math.random() * Math.PI * 2;
-
-                // Position building
-                skyscraper.position.set(x, 0, z);
-                skyscraper.userData = { type: 'skyscraper', subtype: type }; // Add metadata
-
-                // Add to scene and store reference
+                // Add to scene and track
                 this.scene.add(skyscraper);
                 this.skyscrapers.push({
                     mesh: skyscraper,
-                    type: type
+                    type: mappedType
                 });
-            }
+            });
         }
 
-        console.log(`Placed ${this.skyscrapers.length} skyscrapers in CBD with quality level: ${this.qualitySettings.getQuality()}`);
+        console.log(`Placed ${this.skyscrapers.length} skyscrapers from map data`);
     }
 
     /**

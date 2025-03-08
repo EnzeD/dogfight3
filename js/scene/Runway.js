@@ -2,8 +2,9 @@
 import * as THREE from 'three';
 
 export default class Runway {
-    constructor(scene) {
+    constructor(scene, runwayMapData) {
         this.scene = scene;
+        this.runwayMapData = runwayMapData; // Static runway data from map
         this.runway = null;
 
         // Create the runway
@@ -13,12 +14,16 @@ export default class Runway {
     }
 
     /**
-     * Create the runway
+     * Create the runway using map data if available
      */
     createRunway() {
-        // Define runway dimensions
-        const runwayWidth = 30;
-        const runwayLength = 150;
+        // Define runway dimensions - use map data if available
+        const runwayWidth = this.runwayMapData ? this.runwayMapData.width : 30;
+        const runwayLength = this.runwayMapData ? this.runwayMapData.length : 150;
+        const position = this.runwayMapData ? this.runwayMapData.position : { x: 0, y: 0.02, z: -30 };
+        const rotation = this.runwayMapData ? this.runwayMapData.rotation : 0;
+
+        console.log(`Creating runway with dimensions: ${runwayWidth}x${runwayLength} at position: ${position.x}, ${position.y}, ${position.z}`);
 
         // Create a plane geometry for the runway
         const runwayGeometry = new THREE.PlaneGeometry(runwayWidth, runwayLength);
@@ -40,9 +45,11 @@ export default class Runway {
         // Rotate the plane to lie flat on the ground (rotate around X axis by 90 degrees)
         this.runway.rotation.x = Math.PI / 2;
 
-        // Position the runway at the center of the scene, on the ground
-        // Move it 30 units in negative Z direction so plane starts at the beginning
-        this.runway.position.set(0, 0.02, -30); // Slightly above zero to avoid z-fighting with the ground
+        // Apply additional rotation from map if specified
+        this.runway.rotation.z = rotation;
+
+        // Position the runway based on map data
+        this.runway.position.set(position.x, position.y, position.z);
 
         // Add the runway to the scene
         this.scene.add(this.runway);
