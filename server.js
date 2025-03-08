@@ -442,6 +442,8 @@ function handleRespawnMessage(clientId, client, data) {
 
     // Add respawn flag to indicate this is a respawn event
     playerData.isRespawned = true;
+    playerData.isDestroyed = false; // Force the 'not destroyed' state explicitly
+    playerData.respawnTime = Date.now(); // Add timestamp to help clients identify new respawn events
 
     // Notify all clients about the respawn with full player data
     broadcastToAll({
@@ -454,6 +456,21 @@ function handleRespawnMessage(clientId, client, data) {
         type: 'update',
         players: [playerData]
     });
+
+    // Send another update message after a short delay to ensure visibility
+    setTimeout(() => {
+        // Get fresh player data
+        const updatedPlayerData = getPlayerData(client);
+        updatedPlayerData.isRespawned = true;
+        updatedPlayerData.isDestroyed = false;
+
+        broadcastToAll({
+            type: 'update',
+            players: [updatedPlayerData]
+        });
+
+        logDebug(`Sent follow-up update for respawned player ${client.callsign}`);
+    }, 1000);
 
     // Send notification
     broadcastToAll({

@@ -2,25 +2,35 @@
 import * as THREE from 'three';
 import PlaneFactory from '../entities/PlaneFactory.js';
 import AmmoSystem from '../entities/AmmoSystem.js';
+import EventBus from './EventBus.js';
 
 export default class NetworkManager {
     constructor(eventBus, playerPlane) {
-        // Core properties
-        this.eventBus = eventBus;
+        this.eventBus = eventBus || new EventBus();
         this.playerPlane = playerPlane;
-        this.socket = null;
+
+        // Connection settings
         this.connected = false;
+        this.socket = null;
         this.clientId = null;
-        this.playerCallsign = null;
+        this.serverUrl = null;
+        this.callsign = 'Unknown';
+        this.lastPingTime = 0;
+        this.lastServerPing = 0;
 
-        // Remote players state
-        this.remotePlanes = new Map(); // Map of remote planes by client ID
+        // Respawn state tracking
+        this.playerWasRespawned = false;
+        this.respawnFlagTimeout = null;
 
-        // Network settings
+        // Client-side throttling
+        this.lastFireTime = 0;
         this.lastUpdateTime = 0;
         this.updateInterval = 20; // 50 updates/second
         this.interpolationFactor = 0.05; // For smooth movement
         this.lastRemoteUpdateTime = 0;
+
+        // Remote players state
+        this.remotePlanes = new Map(); // Map of remote planes by client ID
 
         // Set up event listeners
         this._setupEventListeners();
@@ -195,12 +205,12 @@ export default class NetworkManager {
      */
     _setPlayerCallsign(callsign) {
         if (callsign) {
-            this.playerCallsign = callsign;
-            console.log(`Player callsign set to: ${this.playerCallsign}`);
+            this.callsign = callsign;
+            console.log(`Player callsign set to: ${this.callsign}`);
         } else {
             // Generate a random callsign if none provided
-            this.playerCallsign = `Pilot${Math.floor(Math.random() * 1000)}`;
-            console.log(`Generated random callsign: ${this.playerCallsign}`);
+            this.callsign = `Pilot${Math.floor(Math.random() * 1000)}`;
+            console.log(`Generated random callsign: ${this.callsign}`);
         }
     }
 
@@ -347,8 +357,17 @@ export default class NetworkManager {
 
         console.log(`Remote player ${planeId} was destroyed`);
 
-        // Mark the plane as destroyed
-        remotePlane.isDestroyed = true;
+        // Check if plane is already destroyed to avoid duplicate effects
+        if (remotePlane.isDestroyed) {
+            console.log(`Remote plane ${planeId} already marked as destroyed, skipping`);
+            return;
+        }
+
+        // Call the handleRemotePlayerDestroyed method to properly handle destruction and free-fall
+        this.handleRemotePlayerDestroyed({
+            id: planeId,
+            sourceId: data.sourceId
+        });
 
         // Create destruction effect
         if (remotePlane.mesh) {
@@ -358,10 +377,11 @@ export default class NetworkManager {
             });
         }
 
-        // Hide the plane but don't remove it yet (it will be respawned)
-        if (remotePlane.mesh) {
-            remotePlane.mesh.visible = false;
-        }
+        // Play destruction sound
+        this.eventBus.emit('sound.play', {
+            sound: 'explosion',
+            volume: 0.8
+        });
     }
 
     /**
@@ -461,7 +481,7 @@ export default class NetworkManager {
     _sendInitialPlayerData() {
         const initialData = {
             type: 'init',
-            callsign: this.playerCallsign,
+            callsign: this.callsign,
             position: this._getPlayerPosition(),
             rotation: this._getPlayerRotation(),
             health: this.playerPlane ? this.playerPlane.health : 100
@@ -818,37 +838,6 @@ export default class NetworkManager {
         if (data.isDestroyed && !remotePlane.isDestroyed) {
             remotePlane.destroy();
         }
-
-        // Check if the plane took damage and is still alive
-        else if (data.health < oldHealth && data.health > 0) {
-            // Play hit sound
-            this.eventBus.emit('sound.play', { sound: 'hit', volume: 0.3 });
-
-            // Create hit effect at the impact position if provided, otherwise at plane position
-            if (data.impactPosition) {
-                const impactPos = new THREE.Vector3(
-                    data.impactPosition.x,
-                    data.impactPosition.y,
-                    data.impactPosition.z
-                );
-
-                console.log('Creating hit effect at impact position');
-
-                // Emit hit effect event
-                this.eventBus.emit('effect.hit', {
-                    position: impactPos,
-                    playSound: false // Sound already played above
-                });
-            } else if (remotePlane.mesh) {
-                console.log('Creating hit effect at plane position (fallback)');
-
-                // Fallback to plane position if no impact position
-                this.eventBus.emit('effect.hit', {
-                    position: remotePlane.mesh.position.clone(),
-                    playSound: false
-                });
-            }
-        }
     }
 
     /**
@@ -857,22 +846,91 @@ export default class NetworkManager {
      */
     handleRemotePlayerDestroyed(data) {
         const remotePlane = this.remotePlanes.get(data.id);
-        if (!remotePlane || remotePlane.isDestroyed) return;
+        if (!remotePlane) {
+            console.warn(`Cannot handle destruction for unknown remote player ${data.id}`);
+            return;
+        }
 
-        console.log(`Remote player ${data.id} was destroyed`);
+        // Skip if already destroyed to avoid duplicate effects
+        if (remotePlane.isDestroyed) {
+            console.log(`Remote player ${data.id} already destroyed, skipping`);
+            return;
+        }
 
-        // Destroy the plane
-        remotePlane.destroy();
+        console.log(`Processing destruction for remote player ${data.id}`);
 
-        // Play explosion sound
-        this.eventBus.emit('sound.play', { sound: 'explosion', volume: 0.8 });
+        // Ensure freeFall is properly initialized before destroying
+        if (!remotePlane.freeFall) {
+            remotePlane.freeFall = {
+                active: false,
+                velocity: new THREE.Vector3(),
+                angularVelocity: new THREE.Vector3(),
+                gravity: 9.8,
+                groundLevel: 0
+            };
+        }
+
+        // Mark the plane as destroyed (before calling destroy() to avoid recursion)
+        remotePlane.isDestroyed = true;
+
+        // Make sure plane is visible for the free-fall animation
+        if (remotePlane.mesh) {
+            remotePlane.mesh.visible = true;
+
+            // Set health to 0
+            remotePlane.health = 0;
+
+            // Calculate initial velocity for free-fall based on plane's orientation
+            const forwardDirection = new THREE.Vector3(0, 0, -1).applyQuaternion(remotePlane.mesh.quaternion);
+
+            // Set velocity - use the plane's current direction
+            remotePlane.freeFall.velocity.copy(forwardDirection.multiplyScalar(20)); // Use a default speed
+
+            // Set random angular velocity for tumbling
+            remotePlane.freeFall.angularVelocity.set(
+                (Math.random() - 0.5) * 2,  // Random X rotation
+                (Math.random() - 0.5) * 0.5, // Less Y rotation (yaw)
+                (Math.random() - 0.5) * 3   // More Z rotation (roll)
+            );
+
+            // Activate free-fall
+            remotePlane.freeFall.active = true;
+
+            // Disable wing trails if present
+            if (remotePlane.wingTrails) {
+                if (remotePlane.wingTrails.left) remotePlane.wingTrails.left.mesh.visible = false;
+                if (remotePlane.wingTrails.right) remotePlane.wingTrails.right.mesh.visible = false;
+            }
+
+            console.log(`Remote player ${data.id} free-fall initialized with velocity:`, remotePlane.freeFall.velocity);
+        } else {
+            console.warn(`Remote plane ${data.id} has no mesh, cannot set up free-fall properly`);
+        }
 
         // Show notification
-        this.eventBus.emit('notification', {
-            message: `Remote player was shot down!`,
-            type: 'warning',
-            duration: 3000
-        });
+        if (data.sourceId === this.clientId) {
+            // We are the killer
+            this.eventBus.emit('notification', {
+                message: `You shot down a remote player!`,
+                type: 'success',
+                duration: 3000
+            });
+        } else {
+            // Someone else got the kill
+            this.eventBus.emit('notification', {
+                message: `Remote player was shot down!`,
+                type: 'warning',
+                duration: 3000
+            });
+        }
+
+        // Set up timer to completely remove the plane after 10 seconds
+        setTimeout(() => {
+            if (remotePlane && remotePlane.mesh) {
+                console.log(`Removing destroyed remote player ${data.id} after timeout`);
+                remotePlane.mesh.visible = false;
+            }
+        }, 10000);
     }
 
     /**
@@ -1003,6 +1061,15 @@ export default class NetworkManager {
             remotePlane.callsign = playerData.callsign || `Player-${playerId.substring(0, 6)}`;
             remotePlane.playerId = playerId;
 
+            // Initialize free-fall physics
+            remotePlane.freeFall = {
+                active: false,
+                velocity: new THREE.Vector3(),
+                angularVelocity: new THREE.Vector3(),
+                gravity: 9.8,
+                groundLevel: 0
+            };
+
             // Set initial position if provided
             if (playerData.position && remotePlane.mesh) {
                 remotePlane.mesh.position.set(
@@ -1074,14 +1141,53 @@ export default class NetworkManager {
             }
         }
 
-        // Skip updates for destroyed planes
-        if (remotePlane.isDestroyed && !data.isRespawned) return;
-
-        // Reset visibility if respawned
-        if (data.isRespawned && remotePlane.mesh) {
+        // CRITICAL FIX: If data explicitly says the plane is not destroyed, force visibility
+        if (data.isDestroyed === false && remotePlane.mesh) {
+            console.log(`Remote plane ${playerId} marked as not destroyed, forcing visibility`);
             remotePlane.isDestroyed = false;
             remotePlane.mesh.visible = true;
-            remotePlane.health = 100;
+
+            // Reset freeFall if it was active
+            if (remotePlane.freeFall) {
+                remotePlane.freeFall.active = false;
+            }
+
+            // Re-enable trails
+            if (remotePlane.wingTrails) {
+                if (remotePlane.wingTrails.left) remotePlane.wingTrails.left.mesh.visible = true;
+                if (remotePlane.wingTrails.right) remotePlane.wingTrails.right.mesh.visible = true;
+            }
+        }
+
+        // Skip updates for destroyed planes unless they respawned
+        if (remotePlane.isDestroyed && !data.isRespawned) return;
+
+        // Handle respawned planes
+        if (data.isRespawned && remotePlane.mesh) {
+            console.log(`Received update for respawned remote player ${playerId}`);
+
+            // Reset destroyed state
+            remotePlane.isDestroyed = false;
+
+            // Reset freeFall if it was active
+            if (remotePlane.freeFall) {
+                remotePlane.freeFall.active = false;
+            }
+
+            // Force visibility on
+            remotePlane.mesh.visible = true;
+
+            // Set health to full
+            remotePlane.health = data.health || 100;
+
+            // Re-enable wing trails if they exist
+            if (remotePlane.wingTrails) {
+                if (remotePlane.wingTrails.left) remotePlane.wingTrails.left.mesh.visible = true;
+                if (remotePlane.wingTrails.right) remotePlane.wingTrails.right.mesh.visible = true;
+            }
+
+            // Log state for debugging
+            console.log(`Respawned plane state: visible=${remotePlane.mesh.visible}, isDestroyed=${remotePlane.isDestroyed}`);
         }
 
         // Update position target
@@ -1109,23 +1215,17 @@ export default class NetworkManager {
         }
 
         // Update health if provided
-        if (data.health !== undefined) {
+        if (data.health !== undefined && remotePlane.health !== data.health) {
             remotePlane.health = data.health;
         }
 
-        // Handle destruction
-        if (data.isDestroyed && !remotePlane.isDestroyed) {
+        // Update destroyed state if needed
+        if (data.isDestroyed !== undefined && !remotePlane.isDestroyed && data.isDestroyed) {
             remotePlane.isDestroyed = true;
-
-            // Hide the plane
-            if (remotePlane.mesh) {
-                remotePlane.mesh.visible = false;
-            }
-
-            // Create explosion effect
-            this.eventBus.emit('effect.explosion', {
-                position: remotePlane.mesh.position.clone(),
-                scale: 2.0
+            // Handle destruction separately - call the destroy handler
+            this.handleRemotePlayerDestroyed({
+                id: playerId,
+                sourceId: data.sourceId || null
             });
         }
     }
@@ -1181,6 +1281,17 @@ export default class NetworkManager {
      * @returns {Object} Player update data
      */
     _getPlayerUpdateData() {
+        const wasRespawned = this.playerWasRespawned || false;
+
+        // Clear the respawned flag after a short while
+        if (wasRespawned && !this.respawnFlagTimeout) {
+            this.respawnFlagTimeout = setTimeout(() => {
+                this.playerWasRespawned = false;
+                this.respawnFlagTimeout = null;
+                console.log('Cleared respawned flag for local player');
+            }, 5000); // Keep respawned flag for 5 seconds
+        }
+
         return {
             position: this._getPlayerPosition(),
             rotation: this._getPlayerRotation(),
@@ -1190,7 +1301,8 @@ export default class NetworkManager {
                 z: this.playerPlane.velocity.z
             } : { x: 0, y: 0, z: 0 },
             health: this.playerPlane.health,
-            isDestroyed: this.playerPlane.isDestroyed || false
+            isDestroyed: this.playerPlane.isDestroyed || false,
+            isRespawned: wasRespawned
         };
     }
 
@@ -1220,8 +1332,14 @@ export default class NetworkManager {
         this.remotePlanes.forEach(remotePlane => {
             if (!remotePlane.mesh) return;
 
-            // Skip position/rotation updates for destroyed planes, but still update effects
-            if (!remotePlane.isDestroyed) {
+            // Handle different update logic based on plane state
+            if (remotePlane.isDestroyed) {
+                // Apply free-fall physics to destroyed planes
+                if (remotePlane.freeFall && remotePlane.freeFall.active) {
+                    this._updateRemotePlaneFreefall(remotePlane, deltaTime);
+                }
+            } else {
+                // Normal movement interpolation for active planes
                 // Apply interpolation for smooth movement
                 if (remotePlane.targetPosition) {
                     remotePlane.mesh.position.lerp(remotePlane.targetPosition, this.interpolationFactor);
@@ -1234,14 +1352,100 @@ export default class NetworkManager {
                 }
             }
 
-            // Update smoke effects based on health percentage
-            if (remotePlane.smokeFX && typeof remotePlane.health === 'number') {
-                const healthPercent = remotePlane.health / 100; // Assuming 100 is max health
+            // Update smoke effects based on health percentage or destruction state
+            if (remotePlane.smokeFX) {
+                let healthPercent;
+
+                if (remotePlane.isDestroyed) {
+                    // Heavy smoke for destroyed planes
+                    healthPercent = 0.1; // 10% health = very heavy smoke
+                } else if (typeof remotePlane.health === 'number') {
+                    // Normal health-based smoke for active planes
+                    healthPercent = remotePlane.health / 100;
+                } else {
+                    // Default if no health info is available
+                    healthPercent = 1.0;
+                }
+
                 // Update smoke effects
                 remotePlane.smokeFX.emitSmoke(remotePlane, healthPercent, deltaTime);
                 remotePlane.smokeFX.update(deltaTime);
+
+                // Debug log for smoke on destroyed planes
+                if (remotePlane.isDestroyed && Math.random() < 0.01) { // Log occasionally to avoid spam
+                    console.log(`Updating smoke for destroyed remote plane ${remotePlane.playerId}, health%: ${healthPercent}`);
+                }
+            }
+
+            // Update propeller rotation if present
+            if (remotePlane.propeller) {
+                const propSpeed = remotePlane.isDestroyed ? 0.1 : 1.0;
+                remotePlane.propeller.rotation.z += 5 * propSpeed * deltaTime;
             }
         });
+    }
+
+    /**
+     * Apply free-fall physics to a destroyed remote plane
+     * @private
+     * @param {Object} remotePlane - The remote plane object
+     * @param {number} deltaTime - Time since last frame in seconds
+     */
+    _updateRemotePlaneFreefall(remotePlane, deltaTime) {
+        const freeFall = remotePlane.freeFall;
+
+        // Skip if free-fall is not active
+        if (!freeFall || !freeFall.active) {
+            return;
+        }
+
+        // Apply gravity
+        freeFall.velocity.y -= freeFall.gravity * deltaTime;
+
+        // Apply drag (air resistance)
+        const dragFactor = 0.995;
+        freeFall.velocity.multiplyScalar(dragFactor);
+
+        // Update position
+        remotePlane.mesh.position.x += freeFall.velocity.x * deltaTime;
+        remotePlane.mesh.position.y += freeFall.velocity.y * deltaTime;
+        remotePlane.mesh.position.z += freeFall.velocity.z * deltaTime;
+
+        // Update rotation (tumbling)
+        remotePlane.mesh.rotation.x += freeFall.angularVelocity.x * deltaTime;
+        remotePlane.mesh.rotation.y += freeFall.angularVelocity.y * deltaTime;
+        remotePlane.mesh.rotation.z += freeFall.angularVelocity.z * deltaTime;
+
+        // Check if plane hit the ground
+        if (remotePlane.mesh.position.y <= freeFall.groundLevel) {
+            remotePlane.mesh.position.y = freeFall.groundLevel;
+
+            // Reduce velocity on impact
+            freeFall.velocity.multiplyScalar(0.3);
+            freeFall.velocity.y = 0;
+
+            // Reduce angular velocity
+            freeFall.angularVelocity.multiplyScalar(0.7);
+
+            // Emit smoke and debris on ground impact if the plane just hit the ground
+            if (!remotePlane.hasHitGround) {
+                remotePlane.hasHitGround = true;
+
+                // Emit ground impact effect
+                this.eventBus.emit('effect.groundImpact', {
+                    position: remotePlane.mesh.position.clone(),
+                    scale: 1.5
+                });
+
+                // Play impact sound
+                this.eventBus.emit('sound.play', {
+                    sound: 'impact',
+                    volume: 0.5
+                });
+
+                console.log(`Remote plane ${remotePlane.playerId} has hit the ground`);
+            }
+        }
     }
 
     /**
@@ -1323,9 +1527,20 @@ export default class NetworkManager {
      * This helps ensure other players know we've respawned and should be visible
      */
     sendRespawnNotification() {
-        if (!this.connected || !this.socket) return;
+        if (!this.connected || !this.socket || !this.playerPlane) return;
 
         console.log('Sending respawn notification to other players');
+
+        // Force local player state to be visible and not destroyed
+        if (this.playerPlane) {
+            this.playerPlane.isDestroyed = false;
+            if (this.playerPlane.mesh) {
+                this.playerPlane.mesh.visible = true;
+            }
+        }
+
+        // Set respawned flag for updates
+        this.playerWasRespawned = true;
 
         // Create respawn message
         const respawnMsg = {
@@ -1341,12 +1556,44 @@ export default class NetworkManager {
                 z: this.playerPlane.mesh.rotation.z
             },
             health: this.playerPlane.maxHealth,
-            isDestroyed: false
+            isDestroyed: false,
+            isRespawned: true, // Explicitly set respawn flag
+            respawnTime: Date.now() // Add timestamp for unique identification
         };
 
         // Send to server
         try {
             this.socket.send(JSON.stringify(respawnMsg));
+
+            // Set up a series of follow-up updates to ensure visibility
+            const followUpTimes = [100, 500, 1000, 2000, 5000]; // Multiple follow-ups at different times
+
+            followUpTimes.forEach(delay => {
+                setTimeout(() => {
+                    if (!this.connected || !this.socket || !this.playerPlane) return;
+
+                    console.log(`Sending follow-up update ${delay}ms after respawn`);
+
+                    // Include all plane data plus respawn flags
+                    const updateData = {
+                        ...this._getPlayerUpdateData(),
+                        isRespawned: true,
+                        isDestroyed: false,
+                        health: this.playerPlane.maxHealth,
+                        respawnTime: Date.now() // Fresh timestamp
+                    };
+
+                    this._sendMessage({
+                        type: 'update',
+                        player: updateData
+                    });
+
+                    // For debugging
+                    if (delay === followUpTimes[followUpTimes.length - 1]) {
+                        console.log('Sent final follow-up update after respawn');
+                    }
+                }, delay);
+            });
         } catch (error) {
             console.error('Error sending respawn notification:', error);
         }
@@ -1401,6 +1648,25 @@ export default class NetworkManager {
             if (this.playerPlane && this.playerPlane.scene) {
                 const planeFactory = new PlaneFactory(this.playerPlane.scene, this.eventBus);
                 remotePlane = this.createRemotePlane(planeFactory, playerData);
+
+                // Force respawn state to ensure visibility
+                if (remotePlane) {
+                    remotePlane.isRespawned = true;
+                    remotePlane.isDestroyed = false;
+                    if (remotePlane.mesh) {
+                        remotePlane.mesh.visible = true;
+
+                        // Ensure proper scale and rotation
+                        remotePlane.mesh.scale.set(1, 1, 1);
+
+                        // Log detailed state
+                        console.log(`New remote plane created for respawn:`, {
+                            id: playerId,
+                            visible: remotePlane.mesh.visible,
+                            position: remotePlane.mesh.position.toArray()
+                        });
+                    }
+                }
             } else {
                 console.warn('Cannot create remote plane for respawned player: scene not available');
                 return;
@@ -1409,42 +1675,117 @@ export default class NetworkManager {
             // Update existing plane
             console.log(`Updating existing remote plane for respawned player ${playerId}`);
 
-            // Reset destroyed state
+            // Force reset of key properties for visibility
             remotePlane.isDestroyed = false;
+            remotePlane.isRespawned = true;
 
-            // Make plane visible
+            // Reset freeFall state if active
+            if (remotePlane.freeFall) {
+                remotePlane.freeFall.active = false;
+                remotePlane.freeFall.velocity.set(0, 0, 0);
+                remotePlane.freeFall.angularVelocity.set(0, 0, 0);
+            }
+
+            // Reset hasHitGround if set
+            if (remotePlane.hasHitGround) {
+                delete remotePlane.hasHitGround;
+            }
+
+            // Make plane visible - CRITICAL FIX
             if (remotePlane.mesh) {
+                // Ensure visibility
                 remotePlane.mesh.visible = true;
-            }
 
-            // Update position if provided
-            if (playerData.position && remotePlane.mesh) {
-                remotePlane.mesh.position.set(
-                    playerData.position.x,
-                    playerData.position.y,
-                    playerData.position.z
-                );
-                remotePlane.targetPosition = remotePlane.mesh.position.clone();
-            }
+                // Reset transform completely to avoid scale/rotation issues
+                remotePlane.mesh.scale.set(1, 1, 1);
 
-            // Update rotation if provided
-            if (playerData.rotation && remotePlane.mesh) {
-                remotePlane.mesh.rotation.set(
-                    playerData.rotation.x,
-                    playerData.rotation.y,
-                    playerData.rotation.z
-                );
-                remotePlane.targetRotation = remotePlane.mesh.rotation.clone();
-            }
+                // Reset any custom material properties that might affect visibility
+                if (remotePlane.mesh.material) {
+                    if (Array.isArray(remotePlane.mesh.material)) {
+                        remotePlane.mesh.material.forEach(mat => {
+                            if (mat) {
+                                mat.transparent = true;
+                                mat.opacity = 1.0;
+                                mat.visible = true;
+                            }
+                        });
+                    } else if (remotePlane.mesh.material) {
+                        remotePlane.mesh.material.transparent = true;
+                        remotePlane.mesh.material.opacity = 1.0;
+                        remotePlane.mesh.material.visible = true;
+                    }
+                }
 
-            // Reset health
-            remotePlane.health = playerData.health || 100;
+                // Traverse all children to ensure visibility
+                remotePlane.mesh.traverse(child => {
+                    if (child.isMesh) {
+                        child.visible = true;
+                        if (child.material) {
+                            if (Array.isArray(child.material)) {
+                                child.material.forEach(mat => {
+                                    if (mat) {
+                                        mat.transparent = true;
+                                        mat.opacity = 1.0;
+                                        mat.visible = true;
+                                    }
+                                });
+                            } else {
+                                child.material.transparent = true;
+                                child.material.opacity = 1.0;
+                                child.material.visible = true;
+                            }
+                        }
+                    }
+                });
+
+                console.log(`Set mesh visibility to true for respawned player ${playerId} - FIXED`);
+            } else {
+                console.warn(`Remote plane ${playerId} has no mesh!`);
+            }
+        }
+
+        // Update position if provided
+        if (playerData.position && remotePlane.mesh) {
+            remotePlane.mesh.position.set(
+                playerData.position.x,
+                playerData.position.y,
+                playerData.position.z
+            );
+            remotePlane.targetPosition = remotePlane.mesh.position.clone();
+        }
+
+        // Update rotation if provided
+        if (playerData.rotation && remotePlane.mesh) {
+            remotePlane.mesh.rotation.set(
+                playerData.rotation.x,
+                playerData.rotation.y,
+                playerData.rotation.z
+            );
+            remotePlane.targetRotation = remotePlane.mesh.rotation.clone();
+        }
+
+        // Reset health
+        remotePlane.health = playerData.health || 100;
+
+        // Re-enable wing trails if they exist
+        if (remotePlane.wingTrails) {
+            if (remotePlane.wingTrails.left) remotePlane.wingTrails.left.mesh.visible = true;
+            if (remotePlane.wingTrails.right) remotePlane.wingTrails.right.mesh.visible = true;
         }
 
         // Create respawn effect
         if (remotePlane && remotePlane.mesh) {
             this.eventBus.emit('effect.respawn', {
                 position: remotePlane.mesh.position.clone()
+            });
+
+            // Debug - log plane state
+            console.log(`Respawned remote plane state:`, {
+                id: playerId,
+                visible: remotePlane.mesh.visible,
+                isDestroyed: remotePlane.isDestroyed,
+                position: remotePlane.mesh.position.toArray(),
+                health: remotePlane.health
             });
         }
     }
@@ -1457,7 +1798,7 @@ export default class NetworkManager {
         console.log('\n===== NETWORK MANAGER DEBUG INFO =====');
         console.log('Connected:', this.connected);
         console.log('Client ID:', this.clientId);
-        console.log('Player Callsign:', this.playerCallsign);
+        console.log('Player Callsign:', this.callsign);
 
         console.log('\nRemote Planes:', this.remotePlanes.size);
         this.remotePlanes.forEach((plane, id) => {
