@@ -12,6 +12,7 @@ export default class LandingPage {
         this.selectedMode = null;
         this.callsign = '';
         this.element = null;
+        this.callsignWarning = null;
     }
 
     /**
@@ -129,6 +130,11 @@ export default class LandingPage {
         `;
         this.callsignSection = callsignSection;
         content.appendChild(callsignSection);
+
+        // Add input event listener to callsign input for real-time validation
+        const callsignInput = callsignSection.querySelector('.callsign-input');
+        this.callsignInput = callsignInput;
+        callsignInput.addEventListener('input', () => this.validateForm());
 
         // Create sponsor section
         const sponsorSection = document.createElement('div');
@@ -250,10 +256,6 @@ export default class LandingPage {
         this.startButton = startButton;
         content.appendChild(startButton);
 
-        // Add reference to callsign input
-        this.callsignInput = callsignSection.querySelector('.callsign-input');
-        this.callsignInput.addEventListener('input', () => this.validateForm());
-
         this.element.appendChild(content);
         document.body.appendChild(this.element);
     }
@@ -282,6 +284,35 @@ export default class LandingPage {
     }
 
     /**
+     * Basic client-side check for potentially offensive words in callsign
+     * This is just a simple first-pass filter, the server has the final say
+     * @param {string} callsign - The callsign to check
+     * @returns {boolean} - True if the callsign appears clean
+     */
+    checkCallsign(callsign) {
+        if (!callsign || callsign.trim() === '') return false;
+
+        // Basic list of offensive words to check against
+        // This is a subset of the server's list for quick client-side validation
+        const basicOffensiveWords = [
+            "ass", "bastard", "bitch", "cunt", "damn", "dick", "fag", "faggot",
+            "fuck", "nigger", "pussy", "shit", "slut", "whore"
+        ];
+
+        // Convert to lowercase for comparison
+        const lowercaseCallsign = callsign.toLowerCase();
+
+        // Check if the callsign contains any offensive words
+        for (const word of basicOffensiveWords) {
+            if (lowercaseCallsign.includes(word)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Validate form and update button state
      */
     validateForm() {
@@ -293,7 +324,28 @@ export default class LandingPage {
         if (this.selectedMode === 'multi') {
             const callsign = this.callsignInput.value.trim();
             this.callsign = callsign;
-            this.startButton.disabled = callsign.length < 2;
+
+            // Check callsign length and for offensive content
+            const isValid = callsign.length >= 2 && this.checkCallsign(callsign);
+
+            // Show warning if callsign is invalid due to offensive content
+            if (callsign.length >= 2 && !this.checkCallsign(callsign)) {
+                // Check if warning already exists
+                if (!this.callsignWarning) {
+                    this.callsignWarning = document.createElement('div');
+                    this.callsignWarning.style.color = '#e74c3c';
+                    this.callsignWarning.style.fontSize = '12px';
+                    this.callsignWarning.style.marginTop = '5px';
+                    this.callsignWarning.textContent = 'Inappropriate callsign. Please choose another.';
+                    this.callsignSection.querySelector('.callsign-input').after(this.callsignWarning);
+                }
+            } else if (this.callsignWarning) {
+                // Remove warning if callsign is now valid
+                this.callsignWarning.remove();
+                this.callsignWarning = null;
+            }
+
+            this.startButton.disabled = !isValid;
         } else {
             this.startButton.disabled = false;
         }

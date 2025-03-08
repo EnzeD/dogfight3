@@ -13,8 +13,19 @@ import GameMap from '../scene/Map.js';
 import ProtectionZone from '../utils/ProtectionZone.js';
 
 export default class Game {
-    constructor(previewMode = false) {
+    /**
+     * @param {boolean} previewMode - Whether this is preview mode (landing page background)
+     * @param {Object} options - Game options
+     * @param {string} options.playerCallsign - Optional player callsign for multiplayer
+     */
+    constructor(previewMode = false, options = {}) {
         console.log('Initializing Game...');
+
+        // If player callsign is provided in options, store it
+        if (options.playerCallsign) {
+            this.playerCallsign = options.playerCallsign;
+            console.log('Player callsign set during Game initialization:', this.playerCallsign);
+        }
 
         // Create event bus for communication between modules
         this.eventBus = new EventBus();
@@ -238,6 +249,9 @@ export default class Game {
         if (this.isMultiplayer) {
             console.log('Initializing multiplayer mode');
 
+            // DIAGNOSTIC: Log if we have a player callsign
+            console.log('DIAGNOSTIC before NetworkManager creation: playerCallsign =', this.playerCallsign);
+
             // Create network manager
             this.networkManager = new NetworkManager(this.eventBus, this.playerPlane);
 
@@ -261,8 +275,14 @@ export default class Game {
 
             // Add callsign if it was set in main.js
             if (this.playerCallsign) {
+                console.log('DIAGNOSTIC: Adding callsign to connection data:', this.playerCallsign);
                 connectionData.callsign = this.playerCallsign;
+            } else {
+                console.log('DIAGNOSTIC: No playerCallsign available in Game instance');
             }
+
+            // DIAGNOSTIC: Log the final connection data
+            console.log('DIAGNOSTIC: Final connection data:', JSON.stringify(connectionData));
 
             this.eventBus.emit('network.connect', connectionData);
 

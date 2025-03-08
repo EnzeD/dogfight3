@@ -10,6 +10,21 @@ const PORT = process.env.PORT || 8080;
 const UPDATE_INTERVAL = 50; // ms
 const DEBUG = true; // Set to true for detailed logging
 
+// Simple profanity filter list
+const PROFANITY_LIST = [
+    "4r5e", "5h1t", "5hit", "a55", "anal", "anus", "ar5e", "arrse", "arse", "ass",
+    "ass-fucker", "asses", "assfucker", "assfukka", "asshole", "assholes", "asswhole",
+    "b!tch", "b00bs", "b17ch", "b1tch", "ballbag", "balls", "bastard", "beastial",
+    "bitch", "boob", "cawk", "clit", "cock", "coon", "crap", "cunt", "damn", "dick",
+    "dildo", "dyke", "f u c k", "f4nny", "fag", "fagging", "faggitt", "faggot", "fagot",
+    "fcuk", "fuck", "fuk", "gayboy", "gaygirl", "god-dam", "goddamn", "hell", "homo",
+    "jackoff", "jerk-off", "jizz", "knob", "kock", "masturbate", "muff", "nazi",
+    "n1gga", "n1gger", "nigg3r", "nigg4h", "nigga", "nigger", "nude", "nudity", "pecker",
+    "penis", "piss", "poop", "porn", "prick", "pussy", "retard", "sex", "sh!t", "sh1t",
+    "shit", "slut", "smegma", "spunk", "tit", "tosser", "turd", "twat", "vagina",
+    "wank", "whore"
+];
+
 // Server state
 const clients = new Map(); // clientId -> WebSocket connection
 let lastTimestamp = Date.now();
@@ -33,6 +48,31 @@ function logDebug(message) {
     if (DEBUG) {
         console.log(`[DEBUG] ${message}`);
     }
+}
+
+/**
+ * Sanitize a player's callsign to remove profanity
+ * @param {string} callsign - The callsign to sanitize
+ * @returns {string} - The sanitized callsign
+ */
+function sanitizeCallsign(callsign) {
+    if (!callsign) return null;
+
+    // Convert to lowercase for comparison
+    const lowercaseCallsign = callsign.toLowerCase();
+
+    // Check if the callsign contains any profane words
+    const containsProfanity = PROFANITY_LIST.some(word =>
+        lowercaseCallsign.includes(word.toLowerCase())
+    );
+
+    if (containsProfanity) {
+        console.log(`Profanity detected in callsign: ${callsign}`);
+        // Generate a random clean name instead
+        return `Pilot${Math.floor(Math.random() * 9000) + 1000}`;
+    }
+
+    return callsign;
 }
 
 /**
@@ -91,12 +131,8 @@ wss.on('connection', (socket) => {
     }));
     logDebug(`Sent existing ${existingPlayers.length} players to client ${clientId}`);
 
-    // Broadcast new player to all other clients
-    broadcast({
-        type: 'playerUpdate',
-        ...getPlayerData(clients.get(clientId))
-    }, clientId);
-    logDebug(`Broadcasted new player ${clientId} to other clients`);
+    // We'll wait for the client's init message before broadcasting to others
+    // This allows us to get the proper callsign first
 
     // Handle messages from client
     socket.on('message', (message) => {
@@ -125,6 +161,9 @@ wss.on('connection', (socket) => {
             id: clientId
         });
         logDebug(`Broadcasted disconnect of client ${clientId}`);
+
+        // Broadcast updated player count
+        broadcastPlayerCount();
     });
 });
 
@@ -143,10 +182,19 @@ function handleClientMessage(clientId, data) {
 
     // Handle client initialization
     if (data.type === 'init') {
+        console.log(`DIAGNOSTIC: Client ${clientId} init message full data:`, JSON.stringify(data));
         logDebug(`Client ${clientId} initialized with callsign: ${data.callsign}`);
 
-        // Store player data including callsign
-        client.callsign = data.callsign || `Pilot${clientId.substring(0, 4)}`;
+        // Store original callsign for comparison
+        const originalCallsign = data.callsign;
+
+        // Store player data including sanitized callsign
+        client.callsign = sanitizeCallsign(data.callsign) || `Pilot${clientId.substring(0, 4)}`;
+        console.log(`DIAGNOSTIC: Client ${clientId} callsign set to: ${client.callsign}`);
+
+        // Check if callsign was changed due to profanity
+        const callsignChanged = originalCallsign && client.callsign !== originalCallsign;
+
         client.position = data.position;
         client.rotation = data.rotation;
         client.health = data.health || 100;
@@ -176,12 +224,35 @@ function handleClientMessage(clientId, data) {
         };
         broadcast(joinMessage, clientId);
 
+        // Also send join message to the client themselves so they know if their callsign was changed
+        sendToClient(clientId, joinMessage);
+
+        // If callsign was changed, send a notification to the client
+        if (callsignChanged) {
+            sendToClient(clientId, {
+                type: 'notification',
+                message: `Your callsign contained inappropriate language and was changed to ${client.callsign}`,
+                notificationType: 'warning',
+                duration: 5000
+            });
+        }
+
+        // Broadcast complete player data including proper callsign to all other clients
+        broadcast({
+            type: 'playerUpdate',
+            ...getPlayerData(client)
+        }, clientId);
+        logDebug(`Broadcasted new player ${clientId} with callsign ${client.callsign} to other clients`);
+
         // Broadcast notification about new player
         broadcastToAll({
             type: 'notification',
             message: `${client.callsign} joined the battle!`,
-            type: 'info'
+            notificationType: 'info'
         });
+
+        // Broadcast player count update after new player joins
+        broadcastPlayerCount();
 
         // Log player count
         const activePlayers = Array.from(clients.values()).filter(c => c.socket.readyState === WebSocket.OPEN).length;
@@ -408,4 +479,35 @@ process.on('SIGINT', () => {
 // Start the server
 server.listen(PORT, () => {
     console.log(`Server is listening on port ${PORT}`);
-}); 
+});
+
+/**
+ * Send a message to a specific client
+ * @param {string} clientId - ID of client to send message to
+ * @param {Object} message - Message to send
+ */
+function sendToClient(clientId, message) {
+    const client = clients.get(clientId);
+    if (client && client.socket && client.socket.readyState === WebSocket.OPEN) {
+        const messageStr = JSON.stringify(message);
+        client.socket.send(messageStr);
+        if (DEBUG && message.type !== 'playerUpdate') {  // Don't log position updates
+            logDebug(`Sent ${message.type} message to client ${clientId}`);
+        }
+    } else {
+        console.error(`Cannot send message to client ${clientId}: client not found or not connected`);
+    }
+}
+
+/**
+ * Broadcast the current player count to all clients
+ */
+function broadcastPlayerCount() {
+    const activePlayers = Array.from(clients.values()).filter(c => c.socket.readyState === WebSocket.OPEN).length;
+    console.log(`Broadcasting active player count: ${activePlayers}`);
+
+    broadcastToAll({
+        type: 'playerCount',
+        count: activePlayers
+    });
+} 

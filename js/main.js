@@ -113,15 +113,33 @@ function startGame(options) {
         window.history.pushState({}, '', currentUrl);
     }
 
-    // Initialize game AFTER URL parameters are set
-    activeGame = new Game();
+    // FIRST create a temp game options object
+    const gameOptions = {
+        playerCallsign: options.mode === 'multi' ? options.callsign : null
+    };
+
+    // Initialize game with options AFTER URL parameters are set
+    activeGame = new Game(false, gameOptions);
 
     // Store game instance globally for debugging if needed
     window.game = activeGame;
 
     // Store callsign for network manager if in multiplayer mode
     if (options.mode === 'multi' && options.callsign) {
+        console.log('Setting player callsign on game instance:', options.callsign);
         activeGame.playerCallsign = options.callsign;
+
+        // Add a diagnostic timeout to check if the callsign is set on the game
+        setTimeout(() => {
+            console.log('DIAGNOSTIC: Game playerCallsign is:', activeGame.playerCallsign);
+
+            // Check if NetworkManager exists and has the callsign
+            if (activeGame.networkManager) {
+                console.log('DIAGNOSTIC: NetworkManager playerCallsign is:', activeGame.networkManager.playerCallsign);
+            } else {
+                console.log('DIAGNOSTIC: NetworkManager not yet initialized');
+            }
+        }, 2000);
     }
 }
 

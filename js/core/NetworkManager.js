@@ -203,6 +203,8 @@ export default class NetworkManager {
      */
     connect(data = {}) {
         // Store callsign if provided
+        console.log('DIAGNOSTIC NetworkManager.connect: Received data:', JSON.stringify(data));
+
         if (data.callsign) {
             this.playerCallsign = data.callsign;
             console.log(`Player callsign set to: ${this.playerCallsign}`);
@@ -273,6 +275,8 @@ export default class NetworkManager {
         console.log('Connected to multiplayer server');
         this.connected = true;
 
+        console.log('DIAGNOSTIC handleConnection: About to send player callsign:', this.playerCallsign);
+
         // Send player info with callsign to server
         const initialData = {
             type: 'init',
@@ -289,6 +293,8 @@ export default class NetworkManager {
             } : { x: 0, y: 0, z: 0 },
             health: this.playerPlane ? this.playerPlane.health : 100
         };
+
+        console.log('DIAGNOSTIC handleConnection: Sending initialData:', JSON.stringify(initialData));
 
         // Send initialization data to server
         this.socket.send(JSON.stringify(initialData));
@@ -318,6 +324,24 @@ export default class NetworkManager {
                 case 'players':
                     // Initialize existing players
                     this.initExistingPlayers(message.players);
+                    break;
+
+                case 'player.joined':
+                    // If this is about our own player, check if callsign was changed by server
+                    if (message.player && message.player.id === this.clientId) {
+                        // The server might have sanitized our callsign due to profanity
+                        if (message.player.callsign !== this.playerCallsign) {
+                            console.log(`Server changed callsign from "${this.playerCallsign}" to "${message.player.callsign}"`);
+                            this.playerCallsign = message.player.callsign;
+
+                            // Notify the user about the callsign change
+                            this.eventBus.emit('notification', {
+                                message: `Your callsign was changed to ${this.playerCallsign}`,
+                                type: 'warning',
+                                duration: 5000
+                            });
+                        }
+                    }
                     break;
 
                 case 'playerUpdate':
@@ -358,6 +382,13 @@ export default class NetworkManager {
                 case 'notification':
                     // Handle notification from the server
                     this.handleNotification(message);
+                    break;
+
+                case 'playerCount':
+                    // Handle player count update from the server
+                    console.log(`Received player count update: ${message.count} players connected`);
+                    // Forward to event bus for UI to display
+                    this.eventBus.emit('network.playerCount', { count: message.count });
                     break;
             }
         } catch (error) {
@@ -1044,7 +1075,7 @@ export default class NetworkManager {
             // Forward the notification to the UI
             this.eventBus.emit('notification', {
                 message: data.message,
-                type: data.type || 'info',
+                type: data.notificationType || data.type || 'info',
                 duration: data.duration || 3000
             });
         }

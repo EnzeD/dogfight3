@@ -5,6 +5,7 @@ import Notifications from './Notifications.js';
 import DebugPanel from './DebugPanel.js';
 import SettingsMenu from './SettingsMenu.js';
 import HealthDisplay from './HealthDisplay.js';
+import PlayerCountDisplay from './PlayerCountDisplay.js';
 
 export default class UIManager {
     constructor(eventBus, qualitySettings) {
@@ -18,6 +19,7 @@ export default class UIManager {
         this.debugPanel = null;
         this.settingsMenu = null;
         this.healthDisplay = null;
+        this.playerCountDisplay = null;
 
         // Multiplayer UI elements
         this.multiplayerIndicator = null;
@@ -88,6 +90,11 @@ export default class UIManager {
 
         this.eventBus.on('network.connected', () => {
             this.updateMultiplayerStatus('Connected', true);
+
+            // Initialize player count display when connected to multiplayer
+            if (!this.playerCountDisplay) {
+                this.playerCountDisplay = new PlayerCountDisplay(this.eventBus);
+            }
         });
 
         this.eventBus.on('network.disconnect', () => {
