@@ -17,3 +17,4 @@ Low poly Mountains and hallmarks
 ## Bugs
 
 Flickering of the runway
+Cleaning dead AI to free memory

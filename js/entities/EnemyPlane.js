@@ -355,12 +355,54 @@ export default class EnemyPlane extends WW2Plane {
                 this.explosionFX.update(deltaTime);
             }
 
+            // Continue updating wing trails even in free fall
+            if (this.wingTrails && this.wingTrails.left && this.wingTrails.right) {
+                this.updateWingTrails(deltaTime);
+            }
+
             return; // Skip normal update logic
         }
 
         // Keep customizing wing trails
         this.customizeWingTrails();
 
+        // If this is a remote player in multiplayer, only update animation and visuals
+        if (this.isRemotePlayer) {
+            // Update propeller animation for visual feedback
+            this.updatePropeller(deltaTime);
+
+            // Animate control surfaces based on recent inputs
+            this.updateControlSurfaces();
+
+            // Always update wing trails for remote players
+            if (this.wingTrails && this.wingTrails.left && this.wingTrails.right) {
+                this.updateWingTrails(deltaTime);
+            }
+
+            // Update smoke effects for low health
+            if (this.smokeFX) {
+                // Calculate health percentage
+                const healthPercent = this.currentHealth / this.maxHealth;
+
+                // Emit smoke when health is low
+                this.smokeFX.emitSmoke(this, healthPercent, deltaTime);
+
+                // Update smoke particles
+                this.smokeFX.update(deltaTime);
+            }
+
+            // Update explosion effects if active
+            if (this.explosionFX) {
+                this.explosionFX.update(deltaTime);
+            }
+
+            // Emit flight information updates
+            this.emitFlightInfoUpdate();
+
+            return; // Skip AI behavior for remote players
+        }
+
+        // Standard AI behavior for non-remote planes
         // Update flight behavior - simple waypoint navigation
         this.updateFlight(deltaTime);
 
@@ -371,7 +413,7 @@ export default class EnemyPlane extends WW2Plane {
         this.updateControlSurfaces();
 
         // Update wing trails if enabled
-        if (this.trailsEnabled && this.wingTrails.left && this.wingTrails.right) {
+        if (this.trailsEnabled && this.wingTrails && this.wingTrails.left && this.wingTrails.right) {
             this.updateWingTrails(deltaTime);
         }
 
@@ -592,6 +634,27 @@ export default class EnemyPlane extends WW2Plane {
         // Get speed as percentage (0-1)
         const speedFactor = this.speed / this.maxSpeed;
 
+        // Make sure maxSpeed is properly initialized
+        if (!this.maxSpeed || this.maxSpeed <= 0) {
+            this.maxSpeed = 100; // Default max speed if not set properly
+        }
+
+        // Create wing trails if they don't exist yet
+        if (!this.wingTrails || !this.wingTrails.left || !this.wingTrails.right) {
+            console.log("Initializing missing wing trails for plane");
+            // Default wing span for a WW2 fighter
+            const wingSpan = 10;
+            const wingHeight = 0;
+            const wingZ = 0;
+            this.initWingTrails(wingSpan, wingHeight, wingZ);
+            this.customizeWingTrails();
+        }
+
+        // Initialize trailsEnabled if it's undefined
+        if (this.trailsEnabled === undefined) {
+            this.trailsEnabled = true;
+        }
+
         // Only generate trails if:
         // 1. The plane is airborne
         // 2. Speed is at least 35% of max speed
@@ -605,9 +668,15 @@ export default class EnemyPlane extends WW2Plane {
             return;
         }
 
-        // Make sure trails are visible
-        this.wingTrails.left.mesh.visible = this.trailsEnabled;
-        this.wingTrails.right.mesh.visible = this.trailsEnabled;
+        // Special case for multiplayer - if this is a remote player, always show trails
+        if (this.isRemotePlayer && (this.wingTrails.left && this.wingTrails.right)) {
+            this.wingTrails.left.mesh.visible = true;
+            this.wingTrails.right.mesh.visible = true;
+        } else {
+            // Standard case - make sure trails are visible based on trailsEnabled flag
+            this.wingTrails.left.mesh.visible = this.trailsEnabled;
+            this.wingTrails.right.mesh.visible = this.trailsEnabled;
+        }
 
         // Calculate opacity based on speed
         const normalizedSpeedFactor = (speedFactor - 0.35) / 0.65; // 0 at 35% speed, 1 at 100% speed
@@ -616,22 +685,33 @@ export default class EnemyPlane extends WW2Plane {
         // Calculate width based on speed
         const width = this.trailBaseWidth + (speedFactor * 0.2); // Width increases slightly with speed
 
-        // Determine how often to add new points based on speed
-        const updateFrequency = Math.max(1, Math.floor(10 - speedFactor * 8));
+        // Get camera position for trail orientation
+        const cameraPosition = new THREE.Vector3();
 
-        // Only add points periodically to control density
-        if (Math.floor(performance.now() / 20) % updateFrequency !== 0) {
-            return;
+        // Try to find camera in scene
+        let cameraFound = false;
+        if (this.scene) {
+            this.scene.traverse(object => {
+                if (object.isCamera && !cameraFound) {
+                    cameraPosition.copy(object.position);
+                    cameraFound = true;
+                }
+            });
         }
 
-        // Get camera position vector from scene
-        const cameraPosition = new THREE.Vector3(0, 10, 20);
-        if (this.scene && this.scene.camera) {
-            cameraPosition.copy(this.scene.camera.position);
-        }
-
-        // Update each trail
+        // Update left and right trails
         this.updateSingleTrail('left', opacity, speedFactor, width, cameraPosition);
         this.updateSingleTrail('right', opacity, speedFactor, width, cameraPosition);
+
+        // Update last positions
+        if (!this.wingTrails.left.lastPos) {
+            this.wingTrails.left.lastPos = new THREE.Vector3();
+        }
+        if (!this.wingTrails.right.lastPos) {
+            this.wingTrails.right.lastPos = new THREE.Vector3();
+        }
+
+        this.wingTrails.left.lastPos.copy(this.getWingTipPosition('left'));
+        this.wingTrails.right.lastPos.copy(this.getWingTipPosition('right'));
     }
 } 

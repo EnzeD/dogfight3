@@ -38,6 +38,38 @@ export default class PlaneFactory {
         // Add any remote-player specific customizations here
         remotePlane.isRemotePlayer = true;
 
+        // Always force trails to be enabled for multiplayer planes
+        remotePlane.trailsEnabled = true;
+
+        // Initialize the plane's core properties
+        remotePlane.maxSpeed = 100;
+        remotePlane.speed = 0;
+        remotePlane.isAirborne = true;
+
+        // Add a small delay to initialize trails after the plane is fully created
+        setTimeout(() => {
+            console.log('Initializing trails for remote player plane');
+
+            // Initialize wing trails if they don't exist
+            if (!remotePlane.wingTrails || !remotePlane.wingTrails.left || !remotePlane.wingTrails.right) {
+                const wingSpan = 10; // Default wingspan
+                const wingHeight = 0;
+                const wingZ = 0;
+                remotePlane.initWingTrails(wingSpan, wingHeight, wingZ);
+            }
+
+            // Ensure trails are customized and visible
+            if (remotePlane.customizeWingTrails) {
+                remotePlane.customizeWingTrails();
+            }
+
+            // Ensure trails are visible
+            if (remotePlane.wingTrails && remotePlane.wingTrails.left && remotePlane.wingTrails.right) {
+                remotePlane.wingTrails.left.mesh.visible = true;
+                remotePlane.wingTrails.right.mesh.visible = true;
+            }
+        }, 100);
+
         return remotePlane;
     }
 
