@@ -23,7 +23,7 @@ export default class GameMap {
                 height: 10,
                 poleHeight: 15,
                 texture: 'assets/textures/billboard1.jpg',
-                clickURL: 'https://x.com/NicolasZu'
+                clickURL: 'https://x.com/leftcurvecletus'
             },
             {
                 position: { x: -70, y: 0, z: -160 }, // Second billboard slightly forward
