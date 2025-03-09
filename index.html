@@ -4,8 +4,13 @@
 <head>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>WW2 Dogfight Arena</title>
+
+    <!-- Import map polyfill for iOS Safari support -->
+    <script async src="https://unpkg.com/es-module-shims@1.7.3/dist/es-module-shims.js"></script>
 
     <!-- Import maps for ES modules -->
     <script type="importmap">
@@ -23,6 +28,7 @@
 
 <body>
     <!-- Three.js will append the canvas here dynamically -->
+    <div id="loading-screen">Loading...</div>
 
     <!-- Main game script using ES modules -->
     <script type="module" src="js/main.js"></script>

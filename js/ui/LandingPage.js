@@ -13,6 +13,17 @@ export default class LandingPage {
         this.callsign = '';
         this.element = null;
         this.callsignWarning = null;
+        this.isMobile = this.detectMobile();
+    }
+
+    /**
+     * Detect if the user is on a mobile device
+     * @returns {boolean} True if the user is on a mobile device
+     */
+    detectMobile() {
+        return ('ontouchstart' in window) ||
+            (navigator.maxTouchPoints > 0) ||
+            /Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(navigator.userAgent);
     }
 
     /**
@@ -253,33 +264,119 @@ export default class LandingPage {
         startButton.textContent = 'TAKE OFF!';
         startButton.disabled = true;
         startButton.addEventListener('click', () => this.startGame());
+
+        // Add a wrapper for the button
+        const buttonWrapper = document.createElement('div');
+        buttonWrapper.className = 'button-wrapper';
+        buttonWrapper.appendChild(startButton);
+
         this.startButton = startButton;
-        content.appendChild(startButton);
+        content.appendChild(buttonWrapper);
 
         this.element.appendChild(content);
         document.body.appendChild(this.element);
     }
 
     /**
-     * Handle mode selection
-     * @param {string} mode - Selected mode ('solo' or 'multi')
-     * @param {HTMLElement} selectedOption - The option element that was selected
-     * @param {HTMLElement} otherOption - The other option element
+     * Select a game mode
+     * @param {string} mode - The selected mode ('solo' or 'multi')
+     * @param {HTMLElement} selectedOption - The selected mode element
+     * @param {HTMLElement} otherOption - The other mode element
      */
     selectMode(mode, selectedOption, otherOption) {
+        // Set the selected mode
         this.selectedMode = mode;
 
-        // Toggle selected class
+        // Update the visual selection
         selectedOption.classList.add('selected');
         otherOption.classList.remove('selected');
 
-        // Show/hide callsign input based on mode
+        // Show the callsign input if multiplayer mode selected
         if (mode === 'multi') {
+            // Different flow for mobile vs desktop
+            if (this.isMobile) {
+                // On mobile: hide mode selection, show just callsign
+                const modeSelection = document.querySelector('.mode-selection');
+                if (modeSelection) modeSelection.style.display = 'none';
+
+                // Show mobile-specific back button
+                if (!document.querySelector('.mobile-back-button')) {
+                    const backButton = document.createElement('button');
+                    backButton.className = 'mobile-back-button';
+                    backButton.textContent = '← Back';
+                    backButton.addEventListener('click', () => {
+                        // Show mode selection again
+                        if (modeSelection) modeSelection.style.display = 'flex';
+                        // Hide callsign section
+                        if (this.callsignSection) this.callsignSection.classList.remove('visible');
+                        // Remove back button
+                        backButton.remove();
+                        // Reset selection
+                        this.selectedMode = null;
+                        selectedOption.classList.remove('selected');
+                    });
+
+                    // Add back button to the content
+                    const content = document.querySelector('.landing-content');
+                    content.insertBefore(backButton, this.callsignSection);
+                }
+            }
+
+            // Show callsign input for multi mode
             this.callsignSection.classList.add('visible');
+            this.callsignInput.focus();
         } else {
+            // Solo mode selected
             this.callsignSection.classList.remove('visible');
+
+            // On mobile: go straight to start for solo mode
+            if (this.isMobile) {
+                // Enable the start button
+                this.startButton.disabled = false;
+
+                if (!document.querySelector('.mobile-prompt')) {
+                    // Add a prompt for the user
+                    const prompt = document.createElement('div');
+                    prompt.className = 'mobile-prompt';
+                    prompt.textContent = 'Ready for solo mission!';
+
+                    // Add before the start button
+                    const buttonWrapper = document.querySelector('.button-wrapper');
+                    buttonWrapper.parentNode.insertBefore(prompt, buttonWrapper);
+                }
+
+                // For mobile solo mode, hide other elements to simplify the UI
+                const modeSelection = document.querySelector('.mode-selection');
+                if (modeSelection) modeSelection.style.display = 'none';
+
+                // Show mobile-specific back button
+                if (!document.querySelector('.mobile-back-button')) {
+                    const backButton = document.createElement('button');
+                    backButton.className = 'mobile-back-button';
+                    backButton.textContent = '← Back';
+                    backButton.addEventListener('click', () => {
+                        // Show mode selection again
+                        if (modeSelection) modeSelection.style.display = 'flex';
+                        // Remove the prompt
+                        const prompt = document.querySelector('.mobile-prompt');
+                        if (prompt) prompt.remove();
+                        // Remove back button
+                        backButton.remove();
+                        // Reset selection
+                        this.selectedMode = null;
+                        selectedOption.classList.remove('selected');
+                        // Disable start button
+                        this.startButton.disabled = true;
+                    });
+
+                    // Add back button to the content
+                    const content = document.querySelector('.landing-content');
+                    content.insertBefore(backButton, document.querySelector('.sponsor-section'));
+                }
+            }
         }
 
+        // Validate the form to update the start button state
         this.validateForm();
     }
 

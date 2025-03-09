@@ -88,18 +88,127 @@ export default class SceneManager {
      * Create the WebGL renderer
      */
     createRenderer() {
-        this.renderer = new THREE.WebGLRenderer({
-            antialias: true,
-            powerPreference: 'high-performance'
-        });
+        try {
+            // Check for WebGL support
+            if (!this.isWebGLAvailable()) {
+                this.showWebGLError();
+                return;
+            }
 
-        this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            // Create renderer with more iOS-friendly settings
+            this.renderer = new THREE.WebGLRenderer({
+                antialias: this.qualitySettings.getCurrentSettings().antialias,
+                powerPreference: 'default',
+                alpha: true,
+                precision: 'highp',
+                failIfMajorPerformanceCaveat: false
+            });
 
-        // Add the renderer's canvas to the DOM
-        document.body.appendChild(this.renderer.domElement);
+            // Use more conservative settings on mobile
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            if (isMobile) {
+                this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio on mobile
+            } else {
+                this.renderer.setPixelRatio(window.devicePixelRatio);
+            }
+
+            this.renderer.setSize(window.innerWidth, window.innerHeight);
+
+            // Only enable shadows if not on mobile
+            this.renderer.shadowMap.enabled = !isMobile || this.qualitySettings.getQuality() === 'high';
+            this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+            // Append the canvas to the document body
+            document.body.appendChild(this.renderer.domElement);
+
+            // Handle the loading screen
+            this.hideLoadingScreen();
+
+            // Setup resize handler
+            window.addEventListener('resize', this.onResize.bind(this));
+
+            console.log('WebGL renderer initialized successfully');
+        } catch (error) {
+            console.error('Error initializing WebGL renderer:', error);
+            this.showWebGLError();
+        }
+    }
+
+    /**
+     * Check if WebGL is available
+     * @returns {boolean} Whether WebGL is available
+     */
+    isWebGLAvailable() {
+        try {
+            const canvas = document.createElement('canvas');
+            return !!(window.WebGLRenderingContext &&
+                (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /**
+     * Show an error message when WebGL is not available
+     */
+    showWebGLError() {
+        // Remove loading screen if present
+        this.hideLoadingScreen();
+
+        const message = document.createElement('div');
+        message.id = 'webgl-error';
+        message.innerHTML = `
+            <div class="error-content">
+                <h2>WebGL Not Available</h2>
+                <p>Your browser or device doesn't seem to support WebGL, which is required for this game.</p>
+                <p>Please try a different browser or device.</p>
+            </div>
+        `;
+
+        const style = document.createElement('style');
+        style.textContent = `
+            #webgl-error {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.9);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 9999;
+                color: white;
+                font-family: Arial, sans-serif;
+                text-align: center;
+            }
+            .error-content {
+                max-width: 80%;
+                padding: 20px;
+                background-color: rgba(50, 50, 50, 0.8);
+                border-radius: 10px;
+                box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            }
+            .error-content h2 {
+                color: #ffcc00;
+                margin-top: 0;
+            }
+        `;
+
+        document.head.appendChild(style);
+        document.body.appendChild(message);
+
+        console.error('WebGL not available');
+    }
+
+    /**
+     * Hide the loading screen
+     */
+    hideLoadingScreen() {
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) {
+            loadingScreen.style.display = 'none';
+        }
     }
 
     /**

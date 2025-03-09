@@ -28,23 +28,25 @@ export default class UIManager {
 
         // Protection zone state
         this.isInProtectionZone = false;
+
+        // Mobile mode state
+        this.isMobileMode = false;
     }
 
     /**
      * Initialize UI components
      */
     init() {
-        // Create UI components
-        this.instructionsPanel = new InstructionsPanel(this.eventBus);
-        this.flightInfo = new FlightInfo(this.eventBus);
-        this.notifications = new Notifications(this.eventBus);
-        this.debugPanel = new DebugPanel(this.eventBus);
-        this.settingsMenu = new SettingsMenu(this.eventBus, this.qualitySettings);
-        this.healthDisplay = new HealthDisplay(this.eventBus);
-        this.leaderboardDisplay = new LeaderboardDisplay(this.eventBus);
+        // Initialize UI elements
+        this.createHUD();
 
-        // Create multiplayer indicator (hidden by default)
-        this.createMultiplayerUI();
+        // Create multiplayer UI elements if needed
+        if (this.isMultiplayer) {
+            this.createMultiplayerUI();
+        }
+
+        // Remove any mobile overlay UI elements that might be present
+        this.removeMobileOverlays();
 
         // Listen for events
         this.setupEventListeners();
@@ -203,5 +205,246 @@ export default class UIManager {
         } else {
             this.notifications.show('Exited Runway Protection Zone - Combat Enabled', 'warning', 3000);
         }
+    }
+
+    /**
+     * Shows a tutorial for mobile touch controls
+     */
+    showTouchControlsTutorial() {
+        // Tutorial removed to create cleaner UI
+        console.log('Touch controls tutorial disabled for cleaner UI');
+    }
+
+    /**
+     * Shows a temporary hint for touch controls that fades out
+     */
+    showTouchControlHint() {
+        // Hint removed to create cleaner UI
+        console.log('Touch controls hint disabled for cleaner UI');
+    }
+
+    /**
+     * Removes any mobile overlay UI elements that might interfere with touch interactions
+     */
+    removeMobileOverlays() {
+        // Remove any existing mobile UI elements
+        const mobileUIElements = [
+            '.touch-controls-tutorial',
+            '.touch-control-hint',
+            '.mobile-message',
+            '.mobile-fire-button',
+            '.tutorial-content',
+            '#mobile-fire-button'
+        ];
+
+        mobileUIElements.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(element => {
+                if (element && element.parentNode) {
+                    element.parentNode.removeChild(element);
+                    console.log(`Removed mobile UI element: ${selector}`);
+                }
+            });
+        });
+
+        // Remove any inline styles that might be blocking touch
+        document.querySelectorAll('div[style*="position: fixed"]').forEach(el => {
+            // Only remove potential UI overlays that might block interaction
+            if (el.className &&
+                (el.className.includes('tutorial') ||
+                    el.className.includes('hint') ||
+                    el.className.includes('mobile'))) {
+                el.parentNode.removeChild(el);
+                console.log('Removed potential UI overlay');
+            }
+        });
+    }
+
+    /**
+     * Creates the main HUD elements
+     */
+    createHUD() {
+        // Create UI components - restored from previous code
+        this.instructionsPanel = new InstructionsPanel(this.eventBus);
+        this.flightInfo = new FlightInfo(this.eventBus);
+        this.notifications = new Notifications(this.eventBus);
+        this.debugPanel = new DebugPanel(this.eventBus);
+        this.settingsMenu = new SettingsMenu(this.eventBus, this.qualitySettings);
+        this.healthDisplay = new HealthDisplay(this.eventBus);
+        this.leaderboardDisplay = new LeaderboardDisplay(this.eventBus);
+    }
+
+    /**
+     * Enables mobile-specific UI mode
+     */
+    enableMobileMode() {
+        console.log('Enabling mobile UI mode - hiding desktop UI');
+
+        // First, remove all desktop UI elements
+        this.hideAllDesktopUI();
+
+        // Set a flag to indicate we're in mobile mode
+        this.isMobileMode = true;
+    }
+
+    /**
+     * Hides all desktop UI elements to create a clean mobile interface
+     */
+    hideAllDesktopUI() {
+        // Create a style element to hide desktop UI
+        const mobileStyle = document.createElement('style');
+        mobileStyle.id = 'mobile-ui-style';
+        mobileStyle.textContent = `
+            /* Hide all desktop UI panels */
+            .instructions-panel,
+            .flight-info,
+            .health-display,
+            .debug-panel,
+            .settings-panel,
+            .leaderboard-display,
+            .multiplayer-status,
+            .notification-container {
+                display: none !important;
+            }
+            
+            /* Style for mobile HUD */
+            .mobile-hud {
+                position: fixed;
+                top: 10px;
+                left: 10px;
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+                z-index: 1000;
+                font-family: 'Special Elite', monospace;
+            }
+            
+            .mobile-speed-indicator,
+            .mobile-altitude-indicator {
+                background-color: rgba(0, 0, 0, 0.6);
+                border: 1px solid #f8d742;
+                padding: 4px 8px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                width: 80px;
+                border-radius: 3px;
+            }
+            
+            .mobile-indicator-label {
+                color: #f8d742;
+                font-size: 12px;
+            }
+            
+            .mobile-indicator-value {
+                color: white;
+                font-size: 14px;
+            }
+            
+            /* Mobile menu button */
+            .mobile-menu-button {
+                position: fixed;
+                bottom: 10px;
+                right: 10px;
+                width: 50px;
+                height: 50px;
+                background-color: rgba(0, 0, 0, 0.6);
+                border: 1px solid #f8d742;
+                border-radius: 50%;
+                color: #f8d742;
+                font-size: 24px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                cursor: pointer;
+                z-index: 1000;
+            }
+            
+            /* Mobile menu */
+            .mobile-menu {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background-color: rgba(0, 0, 0, 0.85);
+                border: 2px solid #f8d742;
+                border-radius: 5px;
+                width: 80%;
+                max-width: 300px;
+                z-index: 2000;
+                display: none;
+            }
+            
+            .mobile-menu.visible {
+                display: block;
+            }
+            
+            .mobile-menu-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px;
+                border-bottom: 1px solid #f8d742;
+            }
+            
+            .mobile-menu-header h3 {
+                color: #f8d742;
+                margin: 0;
+                font-size: 18px;
+                font-family: 'Black Ops One', cursive;
+            }
+            
+            .mobile-menu-close {
+                background: none;
+                border: none;
+                color: white;
+                font-size: 20px;
+                cursor: pointer;
+            }
+            
+            .mobile-menu-content {
+                padding: 10px;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .mobile-menu-item {
+                background-color: rgba(50, 50, 50, 0.8);
+                border: 1px solid #666;
+                border-radius: 3px;
+                color: white;
+                padding: 10px;
+                font-family: 'Special Elite', monospace;
+                font-size: 14px;
+                cursor: pointer;
+                text-align: left;
+            }
+            
+            .mobile-menu-item:active {
+                background-color: rgba(80, 80, 80, 0.8);
+            }
+        `;
+
+        document.head.appendChild(mobileStyle);
+
+        // Hide any existing UI elements programmatically
+        const uiElements = [
+            '.instructions-panel',
+            '.flight-info',
+            '.health-display',
+            '.debug-panel',
+            '.settings-panel',
+            '.leaderboard-display',
+            '.multiplayer-status',
+            '.notification-container'
+        ];
+
+        uiElements.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(element => {
+                element.style.display = 'none';
+            });
+        });
     }
 } 

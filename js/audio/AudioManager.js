@@ -14,6 +14,10 @@ export default class AudioManager {
         this.isMuted = false;
         this.autoplayAttempted = false;
 
+        // iOS-specific flags
+        this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        this.audioUnlocked = false;
+
         // Setup event listeners
         this.setupEventListeners();
     }
@@ -31,10 +35,58 @@ export default class AudioManager {
         // Add sound toggle button
         this.addSoundToggle();
 
-        // Don't attempt autoplay - removed to prevent automatic sound starting
-        // this.attemptAutoplay();
+        // Make all touch events attempt to unlock audio on iOS
+        if (this.isIOS) {
+            this.setupIOSAudioUnlock();
+        }
 
-        console.log('AudioManager initialized');
+        console.log('AudioManager initialized', this.isIOS ? '(iOS detected)' : '');
+    }
+
+    /**
+     * Setup special handling for iOS audio unlock
+     */
+    setupIOSAudioUnlock() {
+        const unlockAudio = () => {
+            if (this.audioUnlocked) return;
+
+            // Create and play an empty buffer
+            if (this.audioContext) {
+                const buffer = this.audioContext.createBuffer(1, 1, 22050);
+                const source = this.audioContext.createBufferSource();
+                source.buffer = buffer;
+                source.connect(this.audioContext.destination);
+
+                // Play the empty sound (needed for iOS)
+                if (source.start) {
+                    source.start(0);
+                } else if (source.noteOn) {
+                    source.noteOn(0);
+                }
+
+                // Resume the audio context (needed for newer versions)
+                if (this.audioContext.state === 'suspended') {
+                    this.audioContext.resume().then(() => {
+                        console.log('Audio context resumed');
+                    });
+                }
+
+                console.log('iOS audio unlock attempted');
+                this.audioUnlocked = true;
+
+                // Now that audio is unlocked, start our actual sounds
+                this.startAudio();
+            }
+        };
+
+        // Add unlock handlers to various touch events
+        const events = ['touchstart', 'touchend', 'mousedown', 'keydown'];
+        events.forEach(event => {
+            document.addEventListener(event, unlockAudio, false);
+        });
+
+        // Also attempt unlock when game starts
+        this.eventBus.on('game.started', unlockAudio);
     }
 
     /**
@@ -72,9 +124,43 @@ export default class AudioManager {
      */
     initAudioContext() {
         try {
-            // Create audio context
+            // Create audio context with specific options for iOS
             const AudioContext = window.AudioContext || window.webkitAudioContext;
-            this.audioContext = new AudioContext();
+
+            // Use more iOS-friendly options
+            const contextOptions = {
+                latencyHint: 'interactive',
+                sampleRate: 44100
+            };
+
+            this.audioContext = new AudioContext(contextOptions);
+
+            // Log the audio context state
+            console.log('Audio context created, state:', this.audioContext.state);
+            if (window.updateAudioStatus) {
+                window.updateAudioStatus('Context created: ' + this.audioContext.state);
+            }
+
+            // For iOS, we'll need user interaction to start
+            if (this.audioContext.state === 'suspended' && 'ontouchstart' in window) {
+                const resumeAudio = () => {
+                    if (this.audioContext.state === 'suspended') {
+                        this.audioContext.resume().then(() => {
+                            console.log('Audio context resumed');
+                            if (window.updateAudioStatus) {
+                                window.updateAudioStatus('Context resumed after touch');
+                            }
+                        }).catch(err => {
+                            console.error('Error resuming audio context:', err);
+                            if (window.updateAudioStatus) {
+                                window.updateAudioStatus('Error resuming: ' + err.message);
+                            }
+                        });
+                    }
+                };
+
+                document.addEventListener('touchstart', resumeAudio, false);
+            }
 
             // Create main gain node for engine sound
             this.engineGainNode = this.audioContext.createGain();
@@ -109,8 +195,10 @@ export default class AudioManager {
 
             // Load engine sound
             this.loadEngineSound();
+
+            console.log('Audio context and nodes initialized successfully');
         } catch (error) {
-            console.error('Audio initialization failed:', error);
+            console.error('Error initializing audio context:', error);
             this.eventBus.emit('notification', {
                 message: 'Audio initialization failed',
                 type: 'error'
@@ -201,28 +289,53 @@ export default class AudioManager {
      * Start the audio system
      */
     startAudio() {
-        if (this.isSoundInitialized && !this.isAudioStarted) {
-            // Resume audio context (needed for Chrome's autoplay policy)
-            this.audioContext.resume().then(() => {
-                // Start engine sound
-                this.startEngineSound();
+        if (!this.audioContext || this.isAudioStarted) return;
 
-                this.isAudioStarted = true;
+        try {
+            // Resume the audio context (needed for Chrome)
+            if (this.audioContext.state === 'suspended') {
+                this.audioContext.resume().then(() => {
+                    console.log('Audio context resumed');
+                    if (window.updateAudioStatus) {
+                        window.updateAudioStatus('Context resumed');
+                    }
 
-                // Notify user
-                this.eventBus.emit('notification', {
-                    message: 'Audio enabled',
-                    type: 'success'
+                    // Notify user
+                    this.eventBus.emit('notification', {
+                        message: 'Audio enabled',
+                        type: 'success'
+                    });
+
+                    // Update audio enabler button
+                    const enablerButton = document.getElementById('audio-enabler');
+                    if (enablerButton) {
+                        enablerButton.style.display = 'none';
+                    }
+                }).catch(err => {
+                    console.error('Error resuming audio context:', err);
+                    if (window.updateAudioStatus) {
+                        window.updateAudioStatus('Error resuming: ' + err.message);
+                    }
                 });
+            }
 
-                // Update audio enabler button
-                const enablerButton = document.getElementById('audio-enabler');
-                if (enablerButton) {
-                    enablerButton.style.display = 'none';
-                }
-            }).catch(error => {
-                console.warn('Could not auto-start audio. User interaction required.', error);
-            });
+            // Load and start engine sound if not already started
+            if (!this.engineComponents && this.isSoundInitialized) {
+                // Start the engine sound (loaded earlier)
+                this.startEngineSound();
+            }
+
+            this.isAudioStarted = true;
+            console.log('Audio system started');
+
+            if (window.updateAudioStatus) {
+                window.updateAudioStatus('Started');
+            }
+        } catch (error) {
+            console.error('Error starting audio:', error);
+            if (window.updateAudioStatus) {
+                window.updateAudioStatus('Error starting: ' + error.message);
+            }
         }
     }
 

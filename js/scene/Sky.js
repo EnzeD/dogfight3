@@ -18,7 +18,7 @@ export default class Sky {
      */
     createSky() {
         // Create a large box geometry
-        const skyGeometry = new THREE.BoxGeometry(10000, 10000, 10000);
+        const skyGeometry = new THREE.BoxGeometry(2000, 2000, 2000);
 
         // Create a gradient material with blue at top and lighter blue at bottom
         const skyMaterial = new THREE.MeshBasicMaterial({
@@ -39,7 +39,7 @@ export default class Sky {
         if (!this.sun) return; // Skip if there's no directional light
 
         // Create a sphere for the sun
-        const sunGeometry = new THREE.SphereGeometry(15, 16, 16);
+        const sunGeometry = new THREE.SphereGeometry(1, 1, 1);
 
         // Create an emissive material (glowing)
         const sunMaterial = new THREE.MeshBasicMaterial({

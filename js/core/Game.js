@@ -21,64 +21,188 @@ export default class Game {
     constructor(previewMode = false, options = {}) {
         console.log('Initializing Game...');
 
-        // If player callsign is provided in options, store it
-        if (options.playerCallsign) {
-            this.playerCallsign = options.playerCallsign;
-            console.log('Player callsign set during Game initialization:', this.playerCallsign);
+        try {
+            // Detect iOS for special handling
+            this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            console.log('iOS detection:', this.isIOS ? 'iOS device detected' : 'Not an iOS device');
+
+            // If player callsign is provided in options, store it
+            if (options.playerCallsign) {
+                this.playerCallsign = options.playerCallsign;
+                console.log('Player callsign set during Game initialization:', this.playerCallsign);
+            }
+
+            // Create event bus for communication between modules
+            this.eventBus = new EventBus();
+
+            // Initialize quality settings
+            this.qualitySettings = new QualitySettings();
+            console.log(`Game quality set to: ${this.qualitySettings.getQuality()}`);
+
+            // Create the game map (single instance for deterministic world)
+            this.map = new GameMap();
+
+            // Performance tracking
+            this.lastFrameTime = 0;
+            this.deltaTime = 0;
+            this.frameCount = 0;
+            this.fps = 0;
+            this.lastFpsUpdateTime = 0;
+
+            // Debug performance metrics
+            this.perfMetrics = {
+                frameTime: 0,
+                renderTime: 0,
+                updateTime: 0,
+                jsHeapSize: 0,
+                jsHeapSizeLimit: 0,
+                jsHeapSizeUsed: 0,
+                objectCount: 0,
+                triangleCount: 0
+            };
+            this.lastMetricsUpdateTime = 0;
+            this.debugEnabled = false;
+
+            // Game state
+            this.isPaused = false;
+            this.isPreviewMode = previewMode;
+
+            // Initialize array to hold all planes (player and enemies)
+            this.planes = [];
+            this.enemyPlanes = [];
+
+            // Multiplayer status
+            this.isMultiplayer = false;
+            this.networkManager = null;
+
+            // Create core systems in a specific order to prevent dependencies issues
+            this.initializeCoreModules();
+
+            // Initialize the game
+            this.init();
+        } catch (error) {
+            console.error('Error in Game constructor:', error);
+            this.handleInitializationError(error);
+            throw error; // Re-throw to be caught by main.js
+        }
+    }
+
+    /**
+     * Initialize core modules in the correct order
+     */
+    initializeCoreModules() {
+        try {
+            // First, create scene manager
+            this.sceneManager = new SceneManager(this.eventBus, this.qualitySettings);
+            console.log('SceneManager created');
+
+            // Next, create input manager
+            this.inputManager = new InputManager(this.eventBus);
+            console.log('InputManager created');
+
+            // Then, create audio manager (often needs user interaction on mobile)
+            this.audioManager = new AudioManager(this.eventBus);
+            console.log('AudioManager created');
+
+            // Finally, create UI manager (depends on other managers)
+            this.uiManager = new UIManager(this.eventBus, this.qualitySettings);
+            console.log('UIManager created');
+
+            // Create performance monitor last
+            this.performanceMonitor = new PerformanceMonitor(this.eventBus);
+            console.log('PerformanceMonitor created');
+        } catch (error) {
+            console.error('Error initializing core modules:', error);
+            this.handleInitializationError(error);
+            throw error;
+        }
+    }
+
+    /**
+     * Handle initialization errors
+     * @param {Error} error - The error that occurred
+     */
+    handleInitializationError(error) {
+        console.error('Game initialization failed:', error);
+
+        // Hide loading screen if it exists
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) {
+            loadingScreen.style.display = 'none';
         }
 
-        // Create event bus for communication between modules
-        this.eventBus = new EventBus();
+        // Create an error message for user
+        const errorMessage = document.createElement('div');
+        errorMessage.className = 'game-error';
+        errorMessage.innerHTML = `
+            <div class="error-content">
+                <h2>Game Initialization Failed</h2>
+                <p>There was a problem loading the game components.</p>
+                <p class="error-details">Error: ${error.message}</p>
+                <button id="retry-game">Retry</button>
+            </div>
+        `;
 
-        // Initialize quality settings
-        this.qualitySettings = new QualitySettings();
-        console.log(`Game quality set to: ${this.qualitySettings.getQuality()}`);
+        // Add styles
+        const style = document.createElement('style');
+        style.textContent = `
+            .game-error {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.9);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 9999;
+                color: white;
+                font-family: 'Special Elite', monospace;
+            }
+            .error-content {
+                max-width: 80%;
+                padding: 30px;
+                background-color: rgba(40, 40, 40, 0.9);
+                border: 2px solid #f8d742;
+                border-radius: 10px;
+                text-align: center;
+            }
+            .error-content h2 {
+                color: #f8d742;
+                margin-top: 0;
+            }
+            .error-details {
+                font-family: monospace;
+                background-color: rgba(0, 0, 0, 0.3);
+                padding: 10px;
+                border-radius: 5px;
+                margin: 15px 0;
+                text-align: left;
+                overflow-wrap: break-word;
+            }
+            #retry-game {
+                background-color: #f8d742;
+                color: #000;
+                border: none;
+                padding: 10px 20px;
+                cursor: pointer;
+                font-family: 'Special Elite', monospace;
+                font-weight: bold;
+                border-radius: 5px;
+            }
+        `;
 
-        // Create the game map (single instance for deterministic world)
-        this.map = new GameMap();
+        document.head.appendChild(style);
+        document.body.appendChild(errorMessage);
 
-        // Create core systems
-        this.sceneManager = new SceneManager(this.eventBus, this.qualitySettings);
-        this.inputManager = new InputManager(this.eventBus);
-        this.audioManager = new AudioManager(this.eventBus);
-        this.uiManager = new UIManager(this.eventBus, this.qualitySettings);
-        this.performanceMonitor = new PerformanceMonitor(this.eventBus);
-
-        // Performance tracking
-        this.lastFrameTime = 0;
-        this.deltaTime = 0;
-        this.frameCount = 0;
-        this.fps = 0;
-        this.lastFpsUpdateTime = 0;
-
-        // Debug performance metrics
-        this.perfMetrics = {
-            frameTime: 0,
-            renderTime: 0,
-            updateTime: 0,
-            jsHeapSize: 0,
-            jsHeapSizeLimit: 0,
-            jsHeapSizeUsed: 0,
-            objectCount: 0,
-            triangleCount: 0
-        };
-        this.lastMetricsUpdateTime = 0;
-        this.debugEnabled = false;
-
-        // Game state
-        this.isPaused = false;
-        this.isPreviewMode = previewMode;
-
-        // Initialize array to hold all planes (player and enemies)
-        this.planes = [];
-        this.enemyPlanes = [];
-
-        // Multiplayer status
-        this.isMultiplayer = false;
-        this.networkManager = null;
-
-        // Initialize the game
-        this.init();
+        // Add retry button functionality
+        const retryButton = document.getElementById('retry-game');
+        if (retryButton) {
+            retryButton.addEventListener('click', () => {
+                window.location.reload();
+            });
+        }
     }
 
     init() {
@@ -99,7 +223,7 @@ export default class Game {
             // Create the runway protection zone
             this.createProtectionZone();
 
-            // Check multiplayer mode after player plane creation
+            // Check if multiplayer mode from URL and initialize network if needed
             this.checkMultiplayerMode();
 
             // Only create an AI enemy in single player mode
@@ -127,6 +251,9 @@ export default class Game {
 
             // Show instructions
             this.uiManager.showInstructions();
+
+            // Remove any mobile UI elements that might be blocking touches
+            this.ensureMobileInteractivity();
         } else {
             // Preview mode setup
             // Set up a cinematic camera view
@@ -144,8 +271,185 @@ export default class Game {
         // Setup window resize handler
         window.addEventListener('resize', this.onWindowResize.bind(this));
 
-        // Start the game loop
+        // Start the animation loop
         this.animate();
+
+        console.log('Game initialization complete');
+    }
+
+    /**
+     * Ensures mobile interactivity by removing any UI elements that might block touches
+     * and setting up a proper mobile UI
+     */
+    ensureMobileInteractivity() {
+        // Check if we're on a mobile device
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+        if (isMobile) {
+            console.log('Mobile device detected, setting up mobile-specific UI');
+
+            // Remove all desktop UI elements
+            this.setupMobileUI();
+
+            // Remove any elements that might be blocking touch
+            const mobileOverlays = [
+                '.mobile-message',
+                '.touch-controls-tutorial',
+                '.touch-control-hint',
+                '#mobile-fire-button',
+                '.mobile-fire-button',
+                '.tutorial-content'
+            ];
+
+            mobileOverlays.forEach(selector => {
+                const elements = document.querySelectorAll(selector);
+                elements.forEach(element => {
+                    if (element && element.parentNode) {
+                        element.parentNode.removeChild(element);
+                        console.log(`Removed potential touch blocker: ${selector}`);
+                    }
+                });
+            });
+
+            // Look for any fixed position elements that might be blocking touches
+            document.querySelectorAll('div[style*="position: fixed"]').forEach(el => {
+                // Only remove if it appears to be a UI overlay
+                if (el.className && (
+                    el.className.includes('tutorial') ||
+                    el.className.includes('hint') ||
+                    el.className.includes('mobile') ||
+                    el.className.includes('message')
+                )) {
+                    if (el.parentNode) {
+                        el.parentNode.removeChild(el);
+                        console.log('Removed fixed position UI overlay');
+                    }
+                }
+            });
+
+            // Make sure touch events are handled
+            document.addEventListener('touchstart', function (e) {
+                // Allow default touch behavior for standard interactions
+                // This ensures iOS doesn't block basic interactions
+            }, false);
+        }
+    }
+
+    /**
+     * Sets up a minimal, mobile-friendly UI
+     */
+    setupMobileUI() {
+        // Tell the UI manager to switch to mobile mode
+        this.uiManager.enableMobileMode();
+
+        // Create minimal mobile controls if needed
+        // Mobile devices will rely primarily on touch for flying
+
+        // Add a minimal HUD for mobile with just essential info
+        if (!document.querySelector('.mobile-hud')) {
+            const mobileHUD = document.createElement('div');
+            mobileHUD.className = 'mobile-hud';
+
+            // Add minimal speed and altitude indicators
+            mobileHUD.innerHTML = `
+                <div class="mobile-speed-indicator">
+                    <div class="mobile-indicator-label">SPD</div>
+                    <div class="mobile-indicator-value" id="mobile-speed">0</div>
+                </div>
+                <div class="mobile-altitude-indicator">
+                    <div class="mobile-indicator-label">ALT</div>
+                    <div class="mobile-indicator-value" id="mobile-altitude">0</div>
+                </div>
+            `;
+
+            document.body.appendChild(mobileHUD);
+
+            // Update the HUD values
+            this.eventBus.on('plane.update', (planeData) => {
+                if (planeData.speed !== undefined) {
+                    const speedElement = document.getElementById('mobile-speed');
+                    if (speedElement) {
+                        speedElement.textContent = Math.round(planeData.speed);
+                    }
+                }
+
+                if (planeData.altitude !== undefined) {
+                    const altElement = document.getElementById('mobile-altitude');
+                    if (altElement) {
+                        altElement.textContent = Math.round(planeData.altitude);
+                    }
+                }
+            });
+
+            // Add a minimal menu button for essential functions
+            const menuButton = document.createElement('button');
+            menuButton.className = 'mobile-menu-button';
+            menuButton.innerHTML = '☰';
+            menuButton.addEventListener('click', () => {
+                // Toggle a minimal mobile menu
+                this.toggleMobileMenu();
+            });
+
+            document.body.appendChild(menuButton);
+        }
+    }
+
+    /**
+     * Toggles the mobile menu with essential functions
+     */
+    toggleMobileMenu() {
+        let mobileMenu = document.querySelector('.mobile-menu');
+
+        if (mobileMenu) {
+            // If menu exists, toggle its visibility
+            mobileMenu.classList.toggle('visible');
+            return;
+        }
+
+        // Create the menu if it doesn't exist
+        mobileMenu = document.createElement('div');
+        mobileMenu.className = 'mobile-menu visible';
+
+        // Add essential controls
+        mobileMenu.innerHTML = `
+            <div class="mobile-menu-header">
+                <h3>Game Menu</h3>
+                <button class="mobile-menu-close">✕</button>
+            </div>
+            <div class="mobile-menu-content">
+                <button class="mobile-menu-item" id="mobile-audio-toggle">Enable Audio</button>
+                <button class="mobile-menu-item" id="mobile-camera-toggle">Change Camera</button>
+                <button class="mobile-menu-item" id="mobile-stabilize-toggle">Auto-Stabilize</button>
+                <button class="mobile-menu-item" id="mobile-restart">Restart</button>
+            </div>
+        `;
+
+        document.body.appendChild(mobileMenu);
+
+        // Set up button handlers
+        document.querySelector('.mobile-menu-close').addEventListener('click', () => {
+            mobileMenu.classList.remove('visible');
+        });
+
+        document.getElementById('mobile-audio-toggle').addEventListener('click', () => {
+            this.audioManager.toggleSound();
+            mobileMenu.classList.remove('visible');
+        });
+
+        document.getElementById('mobile-camera-toggle').addEventListener('click', () => {
+            this.eventBus.emit('input.action', { action: 'toggleCameraMode', state: 'down' });
+            mobileMenu.classList.remove('visible');
+        });
+
+        document.getElementById('mobile-stabilize-toggle').addEventListener('click', () => {
+            this.eventBus.emit('input.action', { action: 'toggleAutoStabilization', state: 'down' });
+            mobileMenu.classList.remove('visible');
+        });
+
+        document.getElementById('mobile-restart').addEventListener('click', () => {
+            this.restartGame();
+            mobileMenu.classList.remove('visible');
+        });
     }
 
     /**
