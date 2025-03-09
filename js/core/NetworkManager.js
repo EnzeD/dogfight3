@@ -52,6 +52,15 @@ export default class NetworkManager {
         this.eventBus.on('plane.fire', this.sendFireEvent.bind(this));
         this.eventBus.on('plane.damage', this.handleDamageEvent.bind(this));
         this.eventBus.on('plane.destroyed', this.handleDestroyedEvent.bind(this));
+
+        // Add leaderboard request handler
+        this.eventBus.on('network.request.leaderboard', this.requestLeaderboard.bind(this));
+
+        // Set up damage handler for player-to-player collisions
+        this._setupCollisionHandler();
+
+        // Set up damage handler for remote planes
+        this._setupRemoteDamageHandler();
     }
 
     /**
@@ -589,6 +598,9 @@ export default class NetworkManager {
                     break;
                 case 'player_count':
                     this._handlePlayerCount(message);
+                    break;
+                case 'leaderboard':
+                    this._handleLeaderboard(message);
                     break;
                 default:
                     console.warn('Unknown message type:', message.type);
@@ -1822,5 +1834,31 @@ export default class NetworkManager {
         }
 
         return 'Debug info printed to console';
+    }
+
+    /**
+     * Handle leaderboard request
+     * @param {Object} data - Leaderboard request data
+     */
+    requestLeaderboard(data) {
+        // Implementation of leaderboard request handling
+        console.log('Leaderboard request received:', data);
+    }
+
+    /**
+     * Handle leaderboard data from the server
+     * @private
+     * @param {Object} data - Leaderboard data
+     */
+    _handleLeaderboard(data) {
+        if (!data.data || !Array.isArray(data.data)) {
+            console.warn('Received invalid leaderboard data:', data);
+            return;
+        }
+
+        console.log(`Received leaderboard data with ${data.data.length} players`);
+
+        // Forward leaderboard data to UI
+        this.eventBus.emit('leaderboard.update', data.data);
     }
 } 

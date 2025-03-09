@@ -29,6 +29,9 @@ const PROFANITY_LIST = [
 const clients = new Map(); // clientId -> Client object
 let lastTimestamp = Date.now();
 
+// Player statistics tracking
+const playerStats = new Map(); // clientId -> stats object
+
 // Create Express app and HTTP server
 const app = express();
 const server = http.createServer(app);
@@ -101,6 +104,9 @@ function getPlayerData(client) {
  * @returns {Object} - The new client object
  */
 function createClientObject(clientId, socket) {
+    // Initialize player stats when a new client is created
+    initPlayerStats(clientId);
+
     return {
         socket,
         id: clientId,
@@ -110,8 +116,68 @@ function createClientObject(clientId, socket) {
         health: 100,
         isDestroyed: false,
         lastUpdate: Date.now(),
-        callsign: null
+        callsign: null,
+        joinTime: Date.now() // Track when player joined
     };
+}
+
+/**
+ * Initialize stats for a new player
+ * @param {string} clientId - The client ID
+ */
+function initPlayerStats(clientId) {
+    playerStats.set(clientId, {
+        kills: 0,
+        deaths: 0,
+        joinTime: Date.now()
+    });
+
+    logDebug(`Initialized stats for player ${clientId}`);
+}
+
+/**
+ * Get stats for a player
+ * @param {string} clientId - The client ID
+ * @returns {Object} - The player's stats
+ */
+function getPlayerStats(clientId) {
+    // If player doesn't have stats yet, initialize them
+    if (!playerStats.has(clientId)) {
+        initPlayerStats(clientId);
+    }
+
+    return playerStats.get(clientId);
+}
+
+/**
+ * Get leaderboard data for all players
+ * @returns {Array} - Array of player stats for the leaderboard
+ */
+function getLeaderboardData() {
+    const leaderboard = [];
+
+    clients.forEach((client, clientId) => {
+        const stats = getPlayerStats(clientId);
+        const timeOnServer = Date.now() - stats.joinTime;
+        const minutesOnServer = Math.floor(timeOnServer / 60000);
+
+        // Calculate K/D ratio (prevent division by zero)
+        const kdRatio = stats.deaths > 0 ? (stats.kills / stats.deaths).toFixed(2) : stats.kills.toFixed(2);
+
+        leaderboard.push({
+            id: clientId,
+            callsign: client.callsign || 'Unknown',
+            kills: stats.kills,
+            deaths: stats.deaths,
+            kdRatio: kdRatio,
+            timeOnServer: minutesOnServer
+        });
+    });
+
+    // Sort by kills (descending)
+    leaderboard.sort((a, b) => b.kills - a.kills);
+
+    return leaderboard;
 }
 
 /**
@@ -239,6 +305,9 @@ function handleClientMessage(clientId, data) {
             break;
         case 'hit_effect':
             handleHitEffectMessage(clientId, client, data);
+            break;
+        case 'leaderboard':
+            handleLeaderboardRequest(clientId);
             break;
         default:
             logDebug(`Unknown message type: ${data.type} from client ${clientId}`);
@@ -380,6 +449,18 @@ function handleDamageMessage(clientId, client, data) {
         targetClient.isDestroyed = true;
         targetClient.health = 0;
 
+        // Update kill/death stats
+        const sourceStats = getPlayerStats(clientId);
+        const targetStats = getPlayerStats(targetId);
+
+        // Increment kill count for the shooter
+        sourceStats.kills += 1;
+
+        // Increment death count for the target
+        targetStats.deaths += 1;
+
+        logDebug(`Updated stats: ${client.callsign} kills=${sourceStats.kills}, ${targetClient.callsign} deaths=${targetStats.deaths}`);
+
         logDebug(`Player ${targetClient.callsign} was destroyed by ${client.callsign}`);
 
         // Notify all clients about the destruction
@@ -395,6 +476,9 @@ function handleDamageMessage(clientId, client, data) {
             message: `${client.callsign} shot down ${targetClient.callsign}!`,
             notificationType: 'success'
         });
+
+        // Send updated leaderboard to all clients
+        broadcastLeaderboard();
     }
 
     // Forward damage event to the target
@@ -662,4 +746,35 @@ process.on('SIGINT', () => {
 // Start the server
 server.listen(PORT, () => {
     console.log(`Server is listening on port ${PORT}`);
-}); 
+});
+
+/**
+ * Broadcast leaderboard to all clients
+ */
+function broadcastLeaderboard() {
+    const leaderboard = getLeaderboardData();
+
+    broadcastToAll({
+        type: 'leaderboard',
+        data: leaderboard
+    });
+
+    logDebug(`Sent leaderboard update to all clients with ${leaderboard.length} players`);
+}
+
+/**
+ * Handle client leaderboard request
+ * @param {string} clientId - Client ID
+ */
+function handleLeaderboardRequest(clientId) {
+    // Get current leaderboard data
+    const leaderboard = getLeaderboardData();
+
+    // Send leaderboard to the requesting client
+    sendToClient(clientId, {
+        type: 'leaderboard',
+        data: leaderboard
+    });
+
+    logDebug(`Sent leaderboard data to client ${clientId}`);
+} 

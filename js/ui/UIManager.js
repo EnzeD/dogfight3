@@ -6,6 +6,7 @@ import DebugPanel from './DebugPanel.js';
 import SettingsMenu from './SettingsMenu.js';
 import HealthDisplay from './HealthDisplay.js';
 import PlayerCountDisplay from './PlayerCountDisplay.js';
+import LeaderboardDisplay from './LeaderboardDisplay.js';
 
 export default class UIManager {
     constructor(eventBus, qualitySettings) {
@@ -20,6 +21,7 @@ export default class UIManager {
         this.settingsMenu = null;
         this.healthDisplay = null;
         this.playerCountDisplay = null;
+        this.leaderboardDisplay = null;
 
         // Multiplayer UI elements
         this.multiplayerIndicator = null;
@@ -39,6 +41,7 @@ export default class UIManager {
         this.debugPanel = new DebugPanel(this.eventBus);
         this.settingsMenu = new SettingsMenu(this.eventBus, this.qualitySettings);
         this.healthDisplay = new HealthDisplay(this.eventBus);
+        this.leaderboardDisplay = new LeaderboardDisplay(this.eventBus);
 
         // Create multiplayer indicator (hidden by default)
         this.createMultiplayerUI();

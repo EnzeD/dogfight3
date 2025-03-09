@@ -63,6 +63,7 @@ export default class InstructionsPanel {
                 <li>R - Restart game after death</li>
                 <li>T - Toggle wing trails</li>
                 <li>B - Toggle hitboxes (debug)</li>
+                <li>TAB - Show/hide leaderboard</li>
             </ul>
             <p style="margin-bottom: 0; font-style: italic; text-align: center;">
                 Click this panel to close

@@ -190,6 +190,9 @@ export default class Game {
                 this.debugHealPlayer();
             } else if (data.action === 'toggleHitboxes' && data.state === 'down') {
                 this.toggleHitboxes();
+            } else if (data.action === 'toggleLeaderboard' && data.state === 'down') {
+                // Toggle leaderboard visibility
+                this.eventBus.emit('leaderboard.toggle');
             }
         });
     }

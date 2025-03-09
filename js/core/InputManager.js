@@ -9,7 +9,7 @@ export default class InputManager {
         this.lastUserInteractionTime = 0;
 
         // Key mappings
-        this.keyMappings = {
+        this.keyMap = {
             // Throttle controls
             'w': 'throttleUp',
             'z': 'throttleUp', // For AZERTY keyboards
@@ -37,7 +37,8 @@ export default class InputManager {
             'j': 'debugDamage',     // Test damage system
             'k': 'debugHeal',       // Test healing system
             'r': 'restartGame',     // Restart game after player death
-            'b': 'toggleHitboxes'   // Toggle hitbox visualization
+            'b': 'toggleHitboxes',   // Toggle hitbox visualization
+            'tab': 'toggleLeaderboard' // Toggle leaderboard display
         };
     }
 
@@ -57,12 +58,17 @@ export default class InputManager {
     onKeyDown(event) {
         const key = event.key.toLowerCase();
 
+        // Prevent default browser behavior for certain keys
+        if (key === 'tab') {
+            event.preventDefault();
+        }
+
         // Only process if the key wasn't already pressed (prevents key repeat)
         if (!this.keysPressed[key]) {
             this.keysPressed[key] = true;
 
             // Emit specific events for one-time actions
-            const action = this.keyMappings[key];
+            const action = this.keyMap[key];
             if (action) {
                 this.eventBus.emit('input.action', { action, state: 'down' });
             }
@@ -71,10 +77,16 @@ export default class InputManager {
 
     onKeyUp(event) {
         const key = event.key.toLowerCase();
+
+        // Prevent default browser behavior for certain keys
+        if (key === 'tab') {
+            event.preventDefault();
+        }
+
         this.keysPressed[key] = false;
 
         // Emit key up event
-        const action = this.keyMappings[key];
+        const action = this.keyMap[key];
         if (action) {
             this.eventBus.emit('input.action', { action, state: 'up' });
         }
@@ -115,7 +127,7 @@ export default class InputManager {
      * @returns {boolean} Whether the action is active
      */
     isActionActive(action) {
-        for (const [key, mappedAction] of Object.entries(this.keyMappings)) {
+        for (const [key, mappedAction] of Object.entries(this.keyMap)) {
             if (mappedAction === action && this.keysPressed[key]) {
                 return true;
             }
