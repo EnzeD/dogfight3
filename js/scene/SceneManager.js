@@ -8,6 +8,7 @@ import Camera from './Camera.js';
 import Trees from './Trees.js';  // Import the new Trees class
 import Villages from './Villages.js';  // Import the new Villages class
 import Skyscrapers from './Skyscrapers.js';  // Import the new Skyscrapers class
+import Billboard from './Billboard.js';  // Import the new Billboard class
 import GameMap from './Map.js';  // Import the GameMap class for static map data
 
 export default class SceneManager {
@@ -30,6 +31,7 @@ export default class SceneManager {
         this.trees = null; // Store reference to the trees
         this.villages = null; // Store reference to the villages
         this.skyscrapers = null; // Store reference to the skyscrapers
+        this.billboards = null; // Store reference to the billboards
 
         // Main actor (plane)
         this.mainActor = null;
@@ -68,6 +70,7 @@ export default class SceneManager {
         this.trees = new Trees(this.scene, this.eventBus, this.qualitySettings, this.gameMap.trees); // Pass tree config
         this.villages = new Villages(this.scene, this.eventBus, this.runway, this.qualitySettings, this.gameMap.villages); // Pass village config
         this.skyscrapers = new Skyscrapers(this.scene, this.eventBus, this.qualitySettings, this.gameMap.skyscrapers); // Pass skyscraper config
+        this.billboards = new Billboard(this.scene, this.gameMap.billboards); // Pass billboard config
 
         console.log(`SceneManager initialized with quality: ${this.qualitySettings.getQuality()}`);
     }
@@ -223,6 +226,11 @@ export default class SceneManager {
             this.skyscrapers.update(deltaTime);
         }
 
+        // Update billboards if needed
+        if (this.billboards) {
+            this.billboards.update(deltaTime);
+        }
+
         // Update camera to follow the main actor
         if (this.camera && this.mainActor) {
             this.camera.update(deltaTime);
@@ -268,6 +276,78 @@ export default class SceneManager {
         // Restore rendering
         if (this.renderer) {
             this.renderer.setAnimationLoop(() => this.eventBus.emit('animation.frame'));
+        }
+    }
+
+    /**
+     * Process raycasting to handle hovering and clicking on objects
+     * @param {THREE.Raycaster} raycaster - The raycaster for intersection testing
+     * @param {boolean} isClicking - Whether the user is clicking
+     */
+    processRaycast(raycaster, isClicking) {
+        // Get all clickable objects from various components
+        let allClickableObjects = [];
+
+        // Add runway clickable objects
+        if (this.runway && this.runway.getClickableObjects) {
+            allClickableObjects = allClickableObjects.concat(this.runway.getClickableObjects());
+        }
+
+        // Add billboard clickable objects
+        if (this.billboards && this.billboards.getClickableObjects) {
+            allClickableObjects = allClickableObjects.concat(this.billboards.getClickableObjects());
+        }
+
+        // ... any other clickable objects from other components ...
+
+        // Find intersections
+        const intersects = raycaster.intersectObjects(allClickableObjects);
+
+        // Keep track of which component handles the current hover
+        let runwayHandled = false;
+        let billboardHandled = false;
+
+        // Handle intersections
+        if (intersects.length > 0) {
+            const firstIntersect = intersects[0];
+            const userData = firstIntersect.object.userData;
+
+            // Handle billboard hover effect
+            if (this.billboards && userData && userData.type === 'billboard') {
+                this.billboards.handleHoverEffect(firstIntersect, true);
+                billboardHandled = true;
+
+                // Handle click if user is clicking
+                if (isClicking && userData.clickURL) {
+                    window.open(userData.clickURL, '_blank');
+                }
+            }
+
+            // Handle runway logo hover effect
+            // Check for isClickable and url properties as used in Runway.js
+            if (this.runway && userData && userData.isClickable && userData.url) {
+                this.runway.handleHoverEffect(firstIntersect, true);
+                runwayHandled = true;
+
+                // Handle click if user is clicking
+                if (isClicking) {
+                    window.open(userData.url, '_blank');
+                }
+            }
+        }
+
+        // Reset any hover effects for components that aren't being hovered
+        if (this.runway && !runwayHandled) {
+            this.runway.handleHoverEffect(null, false);
+        }
+
+        if (this.billboards && !billboardHandled) {
+            this.billboards.handleHoverEffect(null, false);
+        }
+
+        // Reset cursor if no hover is active
+        if (!runwayHandled && !billboardHandled) {
+            document.body.style.cursor = 'auto';
         }
     }
 } 

@@ -774,9 +774,6 @@ export default class Game {
         this.raycaster = new THREE.Raycaster();
         this.mouse = new THREE.Vector2();
 
-        // Current hover state
-        this.currentIntersection = null;
-
         // Add mouse move event listener
         window.addEventListener('mousemove', (event) => this.onMouseMove(event), false);
 
@@ -796,32 +793,8 @@ export default class Game {
         // Update the raycaster
         this.raycaster.setFromCamera(this.mouse, this.sceneManager.camera.getCamera());
 
-        // Get all clickable objects from the runway
-        const clickableObjects = this.sceneManager.runway ?
-            this.sceneManager.runway.getClickableObjects() : [];
-
-        // Check for intersections
-        const intersects = this.raycaster.intersectObjects(clickableObjects);
-
-        // Handle hover state changes
-        if (intersects.length > 0) {
-            const newIntersection = intersects[0];
-
-            // If hovering over a new object, reset the old one
-            if (this.currentIntersection &&
-                this.currentIntersection.object !== newIntersection.object) {
-                this.sceneManager.runway.handleHoverEffect(this.currentIntersection, false);
-            }
-
-            // Set hover effect on the current object
-            this.currentIntersection = newIntersection;
-            this.sceneManager.runway.handleHoverEffect(this.currentIntersection, true);
-        }
-        // If not hovering over any object but was previously
-        else if (this.currentIntersection) {
-            this.sceneManager.runway.handleHoverEffect(this.currentIntersection, false);
-            this.currentIntersection = null;
-        }
+        // Use the scene manager's processRaycast method to handle all interactive objects
+        this.sceneManager.processRaycast(this.raycaster, false);
     }
 
     /**
@@ -829,22 +802,19 @@ export default class Game {
      * @param {MouseEvent} event - Mouse click event
      */
     onMouseClick(event) {
-        // If not hovering over anything, do nothing
-        if (!this.currentIntersection) return;
+        // Calculate mouse position in normalized device coordinates
+        this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-        const clickedObject = this.currentIntersection.object;
+        // Update the raycaster
+        this.raycaster.setFromCamera(this.mouse, this.sceneManager.camera.getCamera());
 
-        // Check if the clicked object is clickable and has a URL
-        if (clickedObject.userData && clickedObject.userData.isClickable && clickedObject.userData.url) {
-            // Open the URL in a new tab
-            window.open(clickedObject.userData.url, '_blank');
+        // Use the scene manager's processRaycast method with isClicking=true
+        this.sceneManager.processRaycast(this.raycaster, true);
 
-            // Play a click sound if available
-            if (this.audioManager && this.audioManager.playUISound) {
-                this.audioManager.playUISound('click');
-            }
-
-            console.log(`Clicked on ${clickedObject.userData.side} logo panel`);
+        // Play a click sound if available
+        if (this.audioManager && this.audioManager.playUISound) {
+            this.audioManager.playUISound('click');
         }
     }
 } 

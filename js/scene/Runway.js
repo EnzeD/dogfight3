@@ -619,7 +619,20 @@ export default class Runway {
      * @param {boolean} isHovering - Whether the object is being hovered over
      */
     handleHoverEffect(intersection, isHovering) {
-        if (intersection && intersection.object.userData && intersection.object.userData.isClickable) {
+        // Handle case when not hovering over any object (intersection is null)
+        if (!intersection) {
+            // Reset all clickable objects to their normal state
+            this.clickableObjects.forEach(obj => {
+                obj.scale.set(1, 1, 1);
+                if (obj.material && obj.material.emissiveIntensity !== undefined) {
+                    obj.material.emissiveIntensity = 0.8; // Reset brightness
+                    obj.material.needsUpdate = true;
+                }
+            });
+            return;
+        }
+
+        if (intersection.object.userData && intersection.object.userData.isClickable) {
             const obj = intersection.object;
             if (isHovering) {
                 // Scale up slightly and brighten when hovered

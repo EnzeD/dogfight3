@@ -13,6 +13,38 @@ export default class GameMap {
             length: 200         // Length of the runway
         };
 
+        // Billboard configurations
+        // These billboards will be placed on the left side at the end of the runway
+        this.billboards = [
+            {
+                position: { x: -70, y: 0, z: -210 }, // First billboard at the end of runway
+                rotation: Math.PI / 4, // 45 degrees - angled to face toward the runway
+                width: 20,
+                height: 10,
+                poleHeight: 15,
+                texture: 'assets/textures/billboard1.jpg',
+                clickURL: 'https://x.com/NicolasZu'
+            },
+            {
+                position: { x: -70, y: 0, z: -160 }, // Second billboard slightly forward
+                rotation: Math.PI / 4, // 45 degrees - angled to face toward the runway
+                width: 20,
+                height: 10,
+                poleHeight: 15,
+                texture: 'assets/textures/billboard2.png', // Texture should display "@sjanuskas"
+                clickURL: 'https://x.com/sjanuskas' // Twitter/X profile link
+            },
+            {
+                position: { x: -70, y: 0, z: -110 }, // Third billboard further forward
+                rotation: Math.PI / 4, // 45 degrees - angled to face toward the runway
+                width: 20,
+                height: 10,
+                poleHeight: 15,
+                texture: 'assets/textures/billboard3.png', // Default texture path
+                clickURL: 'https://swim.endacott.me' // URL to navigate to when clicked
+            }
+        ];
+
         // Tree configurations with exact positions
         this.trees = {
             // Base tree types and their fixed positions (no randomness)
