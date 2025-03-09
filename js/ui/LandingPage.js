@@ -173,7 +173,8 @@ export default class LandingPage {
                 price: '€29.00',
                 interval: 'per month',
                 image: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2Y4ZDc0MiI+PHBhdGggZD0iTTIwLDRINEMyLjg5LDQgMiw0Ljg5IDIsNlYxOEEyLDIgMCAwLDAgNCwyMEgyMEEyLDIgMCAwLDAgMjIsMThWNkMyMiw0Ljg5IDIxLjEsNCAyMCw0TTQsNkgyMFY4SDRWNk00LDE4VjEySDE0VjE4SDRNMjAsMThIMTZWMTJIMjBWMThNNiwxNEg4VjE2SDZWMTRaIi8+PC9zdmc+',
-                url: 'https://buy.stripe.com/eVa17v8WKa2U6OY144'
+                url: 'https://buy.stripe.com/eVa17v8WKa2U6OY144',
+                sold: true
             },
             {
                 name: 'Sponsor Village',
@@ -194,13 +195,19 @@ export default class LandingPage {
                 price: '€500.00',
                 interval: 'per month',
                 image: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2Y4ZDc0MiI+PHBhdGggZD0iTTEyLDJMOSwxMkw5LDIxSDZWMjNIMThWMjFIMTVWMTJMMTIsMk0xMiwzLjl2MkgxMS42TDEyLDMuOU0xMS43LDhIMTIuM0wxMi42LDEwSDExLjRMMTEuNyw4TTEzLDEzSDExVjIxSDEzVjEzWiIvPjwvc3ZnPg==',
-                url: 'https://buy.stripe.com/6oE6rP2yma2U0qA4gi'
+                url: 'https://buy.stripe.com/6oE6rP2yma2U0qA4gi',
+                sold: true
             }
         ];
 
         sponsorProducts.forEach(product => {
             const option = document.createElement('div');
             option.className = 'sponsor-option';
+
+            // Create purchase button or sold label based on product availability
+            const purchaseElement = product.sold
+                ? `<div class="sponsor-sold">SOLD</div>`
+                : `<a href="${product.url}" target="_blank" class="sponsor-button">PURCHASE</a>`;
 
             const optionHTML = `
                 <img src="${product.image}" alt="${product.name}" class="sponsor-icon">
@@ -209,7 +216,7 @@ export default class LandingPage {
                     <span class="price">${product.price}</span>
                     <span class="interval">${product.interval}</span>
                 </div>
-                <a href="${product.url}" target="_blank" class="sponsor-button">PURCHASE</a>
+                ${purchaseElement}
             `;
 
             option.innerHTML = optionHTML;

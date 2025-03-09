@@ -580,6 +580,20 @@ canvas {
     box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
 }
 
+.sponsor-sold {
+    font-family: 'Black Ops One', cursive;
+    font-size: 0.7rem;
+    background-color: #555;
+    color: #888;
+    border: none;
+    padding: 5px 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: inline-block;
+    margin-top: auto;
+    cursor: not-allowed;
+}
+
 .sponsor-option:hover {
     transform: translateY(-3px);
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
