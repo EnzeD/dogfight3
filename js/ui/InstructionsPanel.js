@@ -109,6 +109,9 @@ export default class InstructionsPanel {
         // Emit event that instructions are being hidden
         if (this.eventBus) {
             this.eventBus.emit('instructions.hidden');
+
+            // Also emit an event to start the game
+            this.eventBus.emit('game.start');
         }
 
         // Remove from DOM after transition

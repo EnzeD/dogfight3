@@ -149,6 +149,19 @@ export default class Game {
 
         // Start the game loop
         this.animate();
+
+        // Set up event listeners
+        this.setupEventListeners();
+    }
+
+    /**
+     * Set up event listeners
+     */
+    setupEventListeners() {
+        // Listen for game.start event to start the game when instructions are closed
+        this.eventBus.on('game.start', () => {
+            this.startGame();
+        });
     }
 
     /**
@@ -816,5 +829,43 @@ export default class Game {
         if (this.audioManager && this.audioManager.playUISound) {
             this.audioManager.playUISound('click');
         }
+    }
+
+    /**
+     * Start the game (called when player clicks start button)
+     */
+    startGame() {
+        // Hide the instructions panel
+        this.uiManager.hideInstructions();
+
+        // Unpause game if it was paused
+        this.resumeGame();
+
+        // Enable input
+        this.inputManager.enable();
+
+        // Start engine sound
+        this.audioManager.playEngineSound();
+
+        // Emit game started event
+        this.eventBus.emit('game.started');
+
+        console.log('Game started');
+    }
+
+    /**
+     * Return to menu (called when player dies or clicks menu button)
+     */
+    returnToMenu() {
+        // Show the instructions panel
+        this.uiManager.showInstructions();
+
+        // Pause game mechanics
+        this.pauseGame();
+
+        // Emit menu event
+        this.eventBus.emit('game.menu');
+
+        console.log('Returned to menu');
     }
 } 

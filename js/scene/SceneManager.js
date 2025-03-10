@@ -36,6 +36,10 @@ export default class SceneManager {
         // Main actor (plane)
         this.mainActor = null;
 
+        // Game state
+        this.isMainMenuActive = true; // Default to true since game starts at menu
+        this.adsClickable = false; // Control whether ads are clickable
+
         // Get current quality settings
         this.settings = this.qualitySettings.getCurrentSettings();
 
@@ -73,6 +77,20 @@ export default class SceneManager {
         this.billboards = new Billboard(this.scene, this.gameMap.billboards); // Pass billboard config
 
         console.log(`SceneManager initialized with quality: ${this.qualitySettings.getQuality()}`);
+
+        // Listen for game state changes
+        this.eventBus.on('game.started', () => {
+            this.isMainMenuActive = false;
+            this.adsClickable = true; // Enable ad clicks once game has started
+        });
+
+        this.eventBus.on('game.menu', () => {
+            this.isMainMenuActive = true;
+            this.adsClickable = false; // Disable ad clicks when on menu
+        });
+
+        // Set initial state
+        this.adsClickable = !this.isMainMenuActive;
     }
 
     /**
@@ -159,6 +177,12 @@ export default class SceneManager {
      */
     setMainActor(actor) {
         this.mainActor = actor;
+
+        // If the main actor is set, we're likely in gameplay and not on the menu
+        if (actor) {
+            this.isMainMenuActive = false;
+            this.adsClickable = true;
+        }
 
         // Inform the camera about the main actor
         if (this.camera) {
@@ -314,24 +338,32 @@ export default class SceneManager {
 
             // Handle billboard hover effect
             if (this.billboards && userData && userData.type === 'billboard') {
-                this.billboards.handleHoverEffect(firstIntersect, true);
-                billboardHandled = true;
+                // Show hover effect only if ads are clickable or we're in gameplay
+                if (this.adsClickable) {
+                    this.billboards.handleHoverEffect(firstIntersect, true);
+                    billboardHandled = true;
+                    document.body.style.cursor = 'pointer';
 
-                // Handle click if user is clicking
-                if (isClicking && userData.clickURL) {
-                    window.open(userData.clickURL, '_blank');
+                    // Handle click if user is clicking
+                    if (isClicking && userData.clickURL) {
+                        window.open(userData.clickURL, '_blank');
+                    }
                 }
             }
 
             // Handle runway logo hover effect
             // Check for isClickable and url properties as used in Runway.js
             if (this.runway && userData && userData.isClickable && userData.url) {
-                this.runway.handleHoverEffect(firstIntersect, true);
-                runwayHandled = true;
+                // Show hover effect only if ads are clickable or we're in gameplay
+                if (this.adsClickable) {
+                    this.runway.handleHoverEffect(firstIntersect, true);
+                    runwayHandled = true;
+                    document.body.style.cursor = 'pointer';
 
-                // Handle click if user is clicking
-                if (isClicking) {
-                    window.open(userData.url, '_blank');
+                    // Handle click if user is clicking
+                    if (isClicking) {
+                        window.open(userData.url, '_blank');
+                    }
                 }
             }
         }

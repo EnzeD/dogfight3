@@ -141,6 +141,9 @@ function startGame(options) {
             }
         }, 2000);
     }
+
+    // Call the new startGame method to properly set game state
+    activeGame.startGame();
 }
 
 // Initialize the game once the window loads

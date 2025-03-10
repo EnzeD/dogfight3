@@ -374,6 +374,8 @@ export default class LandingPage {
         // After animation, remove element and call onStart
         setTimeout(() => {
             this.element.remove();
+
+            // Call the provided onStart callback
             this.onStart(options);
         }, 500);
     }
