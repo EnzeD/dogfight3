@@ -1,4 +1,6 @@
 // Audio Manager for handling game audio
+import * as THREE from 'three';
+
 export default class AudioManager {
     constructor(eventBus) {
         this.eventBus = eventBus;
@@ -13,6 +15,11 @@ export default class AudioManager {
         this.isAudioStarted = false;
         this.isMuted = false;
         this.autoplayAttempted = false;
+
+        // For listener tracking
+        this.lastListenerUpdateTime = 0;
+        this.listenerUpdateInterval = 16; // Update every 16ms (approx 60fps)
+        this.listenerHasBeenUpdated = false; // Track if listener was ever positioned
 
         // Setup event listeners
         this.setupEventListeners();
@@ -71,10 +78,43 @@ export default class AudioManager {
      * Initialize the audio context
      */
     initAudioContext() {
+        // Don't reinitialize if already done
+        if (this.audioContext) {
+            return;
+        }
+
         try {
-            // Create audio context
             const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContext) {
+                console.error('Web Audio API not supported by browser');
+                return;
+            }
+
+            // Create audio context
             this.audioContext = new AudioContext();
+
+            // Initialize the listener position to the origin (0,0,0)
+            if (this.audioContext.listener) {
+                if (this.audioContext.listener.positionX) {
+                    // Modern API
+                    this.audioContext.listener.positionX.value = 0;
+                    this.audioContext.listener.positionY.value = 0;
+                    this.audioContext.listener.positionZ.value = 0;
+
+                    // Set forward/up orientation (looking forward along negative Z axis)
+                    this.audioContext.listener.forwardX.value = 0;
+                    this.audioContext.listener.forwardY.value = 0;
+                    this.audioContext.listener.forwardZ.value = -1;
+                    this.audioContext.listener.upX.value = 0;
+                    this.audioContext.listener.upY.value = 1;
+                    this.audioContext.listener.upZ.value = 0;
+                } else {
+                    // Legacy API
+                    this.audioContext.listener.setPosition(0, 0, 0);
+                    this.audioContext.listener.setOrientation(0, 0, -1, 0, 1, 0);
+                }
+                console.log('Audio listener initialized at origin position');
+            }
 
             // Create main gain node for engine sound
             this.engineGainNode = this.audioContext.createGain();
@@ -110,11 +150,7 @@ export default class AudioManager {
             // Load engine sound
             this.loadEngineSound();
         } catch (error) {
-            console.error('Audio initialization failed:', error);
-            this.eventBus.emit('notification', {
-                message: 'Audio initialization failed',
-                type: 'error'
-            });
+            console.error('Error creating AudioContext:', error);
         }
     }
 
@@ -275,11 +311,22 @@ export default class AudioManager {
     }
 
     /**
-     * Update audio based on game state
+     * Update audio system each frame
      * @param {Object} plane - The player's plane
      */
     update(plane) {
-        if (!this.isSoundInitialized || !this.isAudioStarted || this.isMuted) {
+        // First check if audio is started at all
+        if (!this.isAudioStarted) {
+            return;
+        }
+
+        // Update listener position if we have a valid audio context and plane
+        if (this.audioContext && plane) {
+            this.updateListenerPosition(plane);
+        }
+
+        // Skip engine sound updates if sound isn't fully initialized or is muted
+        if (!this.isSoundInitialized || this.isMuted) {
             return;
         }
 
@@ -382,6 +429,79 @@ export default class AudioManager {
                 1.0 + 0.25 * speedFactor * Math.sin(vibratoTime * vibratoFreq),
                 vibratoTime
             );
+        }
+    }
+
+    /**
+     * Update the audio listener position to match the player's position
+     * @param {Object} plane - The player's plane
+     */
+    updateListenerPosition(plane) {
+        if (!this.audioContext || !this.audioContext.listener) {
+            console.warn('Audio context or listener not available for position update');
+            return;
+        }
+
+        if (!plane) {
+            console.warn('No plane provided for listener position update');
+            return;
+        }
+
+        if (!plane.mesh) {
+            console.warn('Plane has no mesh for listener position update');
+            return;
+        }
+
+        try {
+            // Get current time
+            const now = performance.now();
+
+            // Always update on first call, then throttle updates
+            if (!this.listenerHasBeenUpdated || now - this.lastListenerUpdateTime >= this.listenerUpdateInterval) {
+                this.lastListenerUpdateTime = now;
+
+                // Get player's position
+                const position = plane.mesh.position.clone();
+
+                // Get player's forward and up vectors
+                const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(plane.mesh.quaternion).normalize();
+                const up = new THREE.Vector3(0, 1, 0).applyQuaternion(plane.mesh.quaternion).normalize();
+
+                // Log first update and occasionally log additional updates
+                if (!this.listenerHasBeenUpdated) {
+                    console.log(`FIRST audio listener position set to: (${position.x.toFixed(1)}, ${position.y.toFixed(1)}, ${position.z.toFixed(1)})`);
+                } else if (Math.random() < 0.01) { // Log only 1% of the time to avoid console spam
+                    console.log(`Audio listener position updated to: (${position.x.toFixed(1)}, ${position.y.toFixed(1)}, ${position.z.toFixed(1)})`);
+                }
+
+                // Set listener position
+                if (this.audioContext.listener.positionX) {
+                    // Modern API
+                    this.audioContext.listener.positionX.value = position.x;
+                    this.audioContext.listener.positionY.value = position.y;
+                    this.audioContext.listener.positionZ.value = position.z;
+
+                    // Set orientation (forward and up vectors)
+                    this.audioContext.listener.forwardX.value = forward.x;
+                    this.audioContext.listener.forwardY.value = forward.y;
+                    this.audioContext.listener.forwardZ.value = forward.z;
+                    this.audioContext.listener.upX.value = up.x;
+                    this.audioContext.listener.upY.value = up.y;
+                    this.audioContext.listener.upZ.value = up.z;
+                } else {
+                    // Legacy API
+                    this.audioContext.listener.setPosition(position.x, position.y, position.z);
+                    this.audioContext.listener.setOrientation(
+                        forward.x, forward.y, forward.z,
+                        up.x, up.y, up.z
+                    );
+                }
+
+                // Mark that the listener has been updated
+                this.listenerHasBeenUpdated = true;
+            }
+        } catch (error) {
+            console.warn('Error updating audio listener position:', error);
         }
     }
 
@@ -508,8 +628,10 @@ export default class AudioManager {
 
     /**
      * Play gunfire sound
+     * @param {number} volumeFactor - Optional volume factor based on distance (0-1)
+     * @param {Object} options - Optional settings like position
      */
-    playGunfireSound() {
+    playGunfireSound(volumeFactor = 1.0, options = {}) {
         if (!this.isAudioStarted || this.isMuted) {
             console.log('Cannot play gunfire sound: audio not started or muted');
             return;
@@ -530,14 +652,68 @@ export default class AudioManager {
             // Add slight pitch variation for more realistic machine gun effect
             source.detune.value = (Math.random() * 200 - 100); // Random detune +/- 100 cents
 
-            // Create gain node
+            // Ensure volumeFactor is a valid number between 0 and 1
+            if (typeof volumeFactor !== 'number' || isNaN(volumeFactor)) {
+                volumeFactor = 1.0;
+            }
+            volumeFactor = Math.max(0, Math.min(1, volumeFactor));
+
+            // Create gain node with distance-based attenuation
             const gainNode = this.audioContext.createGain();
-            gainNode.gain.value = 0.4; // Slightly lower volume to avoid clipping
+            const baseVolume = 0.4; // Base volume for local gunfire
+            gainNode.gain.value = baseVolume * volumeFactor;
+
+            // Get planeId for logging
+            const planeId = options.planeId || 'unknown';
+
+            console.log(`Playing gunfire for ${planeId} with volume factor: ${volumeFactor.toFixed(2)}, final gain: ${gainNode.gain.value.toFixed(2)}`);
 
             // Optional: Add lowpass filter to soften harshness
             const filter = this.audioContext.createBiquadFilter();
             filter.type = 'lowpass';
-            filter.frequency.value = 4000;
+
+            // Apply more filtering to distant sounds to simulate air absorption
+            if (volumeFactor < 0.7) {
+                // Lower frequencies pass through better at a distance
+                filter.frequency.value = 2000 + (volumeFactor * 2000); // 2000-4000Hz based on distance
+            } else {
+                filter.frequency.value = 4000; // Normal close-range value
+            }
+
+            // Create a panner node for spatial audio if position is provided
+            let panner = null;
+            if (options && options.position && this.audioContext.createPanner) {
+                try {
+                    const position = options.position;
+
+                    // Debug the position we're using for audio
+                    console.log(`Creating spatial audio for gunfire at: (${position.x.toFixed(1)}, ${position.y.toFixed(1)}, ${position.z.toFixed(1)})`);
+
+                    panner = this.audioContext.createPanner();
+                    panner.panningModel = 'HRTF'; // Higher quality 3D spatial model
+                    panner.distanceModel = 'exponential';
+                    panner.refDistance = 100;
+                    panner.maxDistance = 2000;
+                    panner.rolloffFactor = 1.5;
+
+                    // Set the position of the sound
+                    panner.setPosition(
+                        position.x || 0,
+                        position.y || 0,
+                        position.z || 0
+                    );
+                } catch (error) {
+                    console.warn('Spatial audio not supported, falling back to stereo', error);
+                    panner = null;
+                }
+            } else {
+                // Log why we're not using spatial audio
+                const reason = !options ? 'no options' :
+                    !options.position ? 'no position' :
+                        !this.audioContext.createPanner ? 'no panner support' :
+                            'unknown';
+                console.log(`Not using spatial audio for gunfire: ${reason}`);
+            }
 
             // Create a simple reverb effect for spatial feel
             try {
@@ -545,7 +721,7 @@ export default class AudioManager {
                 const reverbBuffer = this.createReverbEffect(0.1); // Short reverb
                 convolver.buffer = reverbBuffer;
 
-                // Connect nodes with reverb
+                // Connect nodes
                 source.connect(filter);
                 filter.connect(gainNode);
 
@@ -555,10 +731,17 @@ export default class AudioManager {
                 dryGain.gain.value = 0.8;
                 wetGain.gain.value = 0.2;
 
-                gainNode.connect(dryGain);
-                gainNode.connect(convolver);
-                convolver.connect(wetGain);
+                // If we have a panner, insert it in the chain
+                if (panner) {
+                    gainNode.connect(panner);
+                    panner.connect(dryGain);
+                    panner.connect(convolver);
+                } else {
+                    gainNode.connect(dryGain);
+                    gainNode.connect(convolver);
+                }
 
+                convolver.connect(wetGain);
                 dryGain.connect(this.audioContext.destination);
                 wetGain.connect(this.audioContext.destination);
             } catch (error) {
@@ -566,7 +749,14 @@ export default class AudioManager {
                 console.warn('Reverb unavailable, using basic sound', error);
                 source.connect(filter);
                 filter.connect(gainNode);
-                gainNode.connect(this.audioContext.destination);
+
+                // If we have a panner, insert it in the chain
+                if (panner) {
+                    gainNode.connect(panner);
+                    panner.connect(this.audioContext.destination);
+                } else {
+                    gainNode.connect(this.audioContext.destination);
+                }
             }
 
             // Play sound
@@ -676,7 +866,7 @@ export default class AudioManager {
      * Play hit sound effect
      */
     playHitSound() {
-        if (!this.audioContext || !this.isAudioStarted || this.isMuted) return;
+        if (!this.audioContext || !this.isAudioStarted) return;
 
         try {
             const hitSoundNodes = this.createHitSound();
@@ -840,7 +1030,7 @@ export default class AudioManager {
     }
 
     /**
-     * Set up event listeners
+     * Set up event listeners for audio events
      */
     setupEventListeners() {
         // Listen for key events to toggle sound
@@ -858,17 +1048,30 @@ export default class AudioManager {
 
         // Listen for sound events
         this.eventBus.on('sound.play', (data) => {
+            // Process gunfire sound events
             if (data.sound === 'gunfire') {
+                // Extract audio options from data
+                const options = {
+                    position: data.position || null,
+                    distance: data.distance || 0,
+                    planeId: data.planeId || 'local'  // Track which plane is firing
+                };
+
+                // Log detailed debugging for spatial sound setup
+                if (options.position) {
+                    console.log(`Gunfire event from ${options.planeId} with position:`, options.position);
+                }
+
                 // Ensure audio is started
                 if (!this.isAudioStarted) {
-                    console.log('Gunfire event received, initializing audio');
+                    console.log(`Gunfire event from ${options.planeId} received, initializing audio`);
                     this.startAudio();
                     // Small delay to allow audio initialization before playing
                     setTimeout(() => {
-                        this.playGunfireSound();
+                        this.playGunfireSound(data.volumeFactor, options);
                     }, 100);
                 } else {
-                    this.playGunfireSound();
+                    this.playGunfireSound(data.volumeFactor, options);
                 }
             }
 
@@ -878,13 +1081,8 @@ export default class AudioManager {
                 if (!this.isAudioStarted) {
                     console.log('Hit sound event received, initializing audio');
                     this.startAudio();
-                    // Small delay to allow audio initialization before playing
-                    setTimeout(() => {
-                        this.playHitSound();
-                    }, 100);
-                } else {
-                    this.playHitSound();
                 }
+                this.playHitSound();
             }
 
             // Handle explosion sound effects
@@ -893,13 +1091,8 @@ export default class AudioManager {
                 if (!this.isAudioStarted) {
                     console.log('Explosion sound event received, initializing audio');
                     this.startAudio();
-                    // Small delay to allow audio initialization before playing
-                    setTimeout(() => {
-                        this.playExplosionSound();
-                    }, 100);
-                } else {
-                    this.playExplosionSound();
                 }
+                this.playExplosionSound();
             }
         });
     }

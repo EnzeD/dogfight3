@@ -137,14 +137,14 @@ export default class SceneManager {
         this.sun.castShadow = true;
 
         // Configure shadow properties - optimized for smooth but crisp shadows
-        this.sun.shadow.mapSize.width = 16384;
-        this.sun.shadow.mapSize.height = 16384;
+        this.sun.shadow.mapSize.width = 16384 / 2;
+        this.sun.shadow.mapSize.height = 16384 / 2;
         this.sun.shadow.camera.near = 10;
-        this.sun.shadow.camera.far = 6000;
-        this.sun.shadow.camera.left = -2000;
-        this.sun.shadow.camera.right = 2000;
-        this.sun.shadow.camera.top = 2000;
-        this.sun.shadow.camera.bottom = -2000;
+        this.sun.shadow.camera.far = 4000;
+        this.sun.shadow.camera.left = -1500;
+        this.sun.shadow.camera.right = 1500;
+        this.sun.shadow.camera.top = 1500;
+        this.sun.shadow.camera.bottom = -1500;
         this.sun.shadow.bias = -0.00004;
         this.sun.shadow.normalBias = 0.003;
         this.sun.shadow.radius = 1.5;

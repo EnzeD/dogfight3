@@ -297,6 +297,11 @@ export default class Game {
             // Register with ammo system if available
             if (this.playerPlane && this.playerPlane.ammoSystem) {
                 this.playerPlane.ammoSystem.addPlane(remotePlane);
+
+                // Ensure the remote plane has a reference to the scene for bullet creation
+                if (!remotePlane.scene && this.sceneManager) {
+                    remotePlane.scene = this.sceneManager.scene;
+                }
             }
         });
 

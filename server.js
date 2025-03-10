@@ -409,13 +409,23 @@ function handleUpdateMessage(clientId, client, data) {
  * @param {Object} data - Message data
  */
 function handleFireMessage(clientId, client, data) {
+    // Record the firing event with timestamp
+    client.lastFired = Date.now();
+
+    // Ensure velocity data is valid
+    const velocity = data.velocity || { x: 0, y: 0, z: 0 };
+
     // Forward the fire event to all other clients
     broadcast({
         type: 'fire',
         playerId: clientId,
         position: data.position,
         rotation: data.rotation,
-        velocity: data.velocity
+        velocity: {
+            x: parseFloat(velocity.x) || 0,
+            y: parseFloat(velocity.y) || 0,
+            z: parseFloat(velocity.z) || 0
+        }
     }, clientId);
 }
 

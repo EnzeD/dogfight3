@@ -15,6 +15,9 @@ export default class AmmoSystem {
         this.lastFireTime = 0;
         this.bulletDamage = 10; // Damage amount per bullet hit
 
+        // Flag to control sound effects (enabled by default for player's bullets)
+        this.playSoundEffects = true;
+
         // Store active bullets
         this.bullets = [];
 
@@ -313,11 +316,25 @@ export default class AmmoSystem {
         this.createBullet(leftWingPos, leftBulletDirection, planeVelocity);
         this.createBullet(rightWingPos, rightBulletDirection, planeVelocity);
 
-        // Play sound effect with debugging
-        if (this.debugSound) {
-            console.log('Attempting to play gunfire sound');
+        // Play sound effect only if enabled
+        if (this.playSoundEffects) {
+            if (this.debugSound) {
+                console.log('Attempting to play gunfire sound');
+            }
+
+            // Use the actual firing position for positional audio (average of the two wing positions)
+            const firingPosition = new THREE.Vector3();
+            firingPosition.addVectors(leftWingPos, rightWingPos).multiplyScalar(0.5);
+
+            // Local player gunfire is always at full volume
+            this.eventBus.emit('sound.play', {
+                sound: 'gunfire',
+                volumeFactor: 1.0,  // Full volume for local player
+                distance: 0,        // Zero distance (we're the source)
+                position: firingPosition, // Use the actual firing position
+                planeId: 'local-player' // Identify as local player
+            });
         }
-        this.eventBus.emit('sound.play', { sound: 'gunfire' });
     }
 
     /**
@@ -360,11 +377,19 @@ export default class AmmoSystem {
         bullet.glowMesh.quaternion.copy(bullet.mesh.quaternion);
 
         // Set velocity: direction * speed + plane velocity
-        bullet.velocity.copy(direction).multiplyScalar(this.bulletSpeed);
+        bullet.velocity = direction.clone().multiplyScalar(this.bulletSpeed);
 
-        // Add plane velocity if provided
-        if (planeVelocity) {
+        // Add plane velocity if provided and valid
+        if (planeVelocity &&
+            !isNaN(planeVelocity.x) &&
+            !isNaN(planeVelocity.y) &&
+            !isNaN(planeVelocity.z)) {
             bullet.velocity.add(planeVelocity);
+        }
+
+        // Log velocity for debugging (in case of remote bullets)
+        if (this.currentSourcePlane && this.currentSourcePlane.isRemotePlayer) {
+            console.log('Remote bullet velocity:', bullet.velocity);
         }
 
         // Add to active bullets
