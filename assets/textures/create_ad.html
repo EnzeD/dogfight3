@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate Your Ad Here Texture</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+
+        canvas {
+            border: 1px solid #ccc;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Your Ad Here Texture Generator</h1>
+    <canvas id="adCanvas" width="800" height="400"></canvas>
+    <button id="downloadBtn">Download as PNG</button>
+
+    <script>
+        // Get the canvas element and its context
+        const canvas = document.getElementById('adCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Fill the background with black
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Add the "Your Ad Here" text
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 120px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('Your Ad', canvas.width / 2, canvas.height / 2 - 60);
+        ctx.fillText('Here', canvas.width / 2, canvas.height / 2 + 60);
+
+        // Add download functionality
+        document.getElementById('downloadBtn').addEventListener('click', function () {
+            const link = document.createElement('a');
+            link.download = 'your_ad_here.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+    </script>
+</body>
+
+</html>

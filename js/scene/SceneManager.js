@@ -9,6 +9,7 @@ import Trees from './Trees.js';  // Import the new Trees class
 import Villages from './Villages.js';  // Import the new Villages class
 import Skyscrapers from './Skyscrapers.js';  // Import the new Skyscrapers class
 import Billboard from './Billboard.js';  // Import the new Billboard class
+import Zeppelin from './Zeppelin.js';  // Import the new Zeppelin class
 import GameMap from './Map.js';  // Import the GameMap class for static map data
 
 export default class SceneManager {
@@ -32,6 +33,7 @@ export default class SceneManager {
         this.villages = null; // Store reference to the villages
         this.skyscrapers = null; // Store reference to the skyscrapers
         this.billboards = null; // Store reference to the billboards
+        this.zeppelin = null; // Store reference to the zeppelin
 
         // Main actor (plane)
         this.mainActor = null;
@@ -75,6 +77,7 @@ export default class SceneManager {
         this.villages = new Villages(this.scene, this.eventBus, this.runway, this.qualitySettings, this.gameMap.villages); // Pass village config
         this.skyscrapers = new Skyscrapers(this.scene, this.eventBus, this.qualitySettings, this.gameMap.skyscrapers); // Pass skyscraper config
         this.billboards = new Billboard(this.scene, this.gameMap.billboards); // Pass billboard config
+        this.zeppelin = new Zeppelin(this.scene, this.gameMap.zeppelin); // Pass zeppelin config
 
         console.log(`SceneManager initialized with quality: ${this.qualitySettings.getQuality()}`);
 
@@ -255,6 +258,11 @@ export default class SceneManager {
             this.billboards.update(deltaTime);
         }
 
+        // Update zeppelin if needed
+        if (this.zeppelin) {
+            this.zeppelin.update(deltaTime);
+        }
+
         // Update camera to follow the main actor
         if (this.camera && this.mainActor) {
             this.camera.update(deltaTime);
@@ -322,6 +330,11 @@ export default class SceneManager {
             allClickableObjects = allClickableObjects.concat(this.billboards.getClickableObjects());
         }
 
+        // Add zeppelin ad clickable objects
+        if (this.zeppelin && this.zeppelin.getClickableObjects) {
+            allClickableObjects = allClickableObjects.concat(this.zeppelin.getClickableObjects());
+        }
+
         // ... any other clickable objects from other components ...
 
         // Find intersections
@@ -330,6 +343,7 @@ export default class SceneManager {
         // Keep track of which component handles the current hover
         let runwayHandled = false;
         let billboardHandled = false;
+        let zeppelinAdHandled = false;
 
         // Handle intersections
         if (intersects.length > 0) {
@@ -342,6 +356,21 @@ export default class SceneManager {
                 if (this.adsClickable) {
                     this.billboards.handleHoverEffect(firstIntersect, true);
                     billboardHandled = true;
+                    document.body.style.cursor = 'pointer';
+
+                    // Handle click if user is clicking
+                    if (isClicking && userData.clickURL) {
+                        window.open(userData.clickURL, '_blank');
+                    }
+                }
+            }
+
+            // Handle zeppelin ad hover effect
+            if (this.zeppelin && userData && userData.type === 'zeppelinAd') {
+                // Show hover effect only if ads are clickable or we're in gameplay
+                if (this.adsClickable) {
+                    this.zeppelin.handleHoverEffect(firstIntersect, true);
+                    zeppelinAdHandled = true;
                     document.body.style.cursor = 'pointer';
 
                     // Handle click if user is clicking
@@ -377,8 +406,12 @@ export default class SceneManager {
             this.billboards.handleHoverEffect(null, false);
         }
 
+        if (this.zeppelin && !zeppelinAdHandled) {
+            this.zeppelin.handleHoverEffect(null, false);
+        }
+
         // Reset cursor if no hover is active
-        if (!runwayHandled && !billboardHandled) {
+        if (!runwayHandled && !billboardHandled && !zeppelinAdHandled) {
             document.body.style.cursor = 'auto';
         }
     }

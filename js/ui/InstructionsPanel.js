@@ -53,16 +53,11 @@ export default class InstructionsPanel {
             <p><strong>Camera Controls:</strong></p>
             <ul style="padding-left: 20px;">
                 <li>Left Click + Drag - Rotate camera</li>
-                <li>Right Click + Drag - Pan camera</li>
-                <li>Scroll - Zoom in/out</li>
-                <li>C - Toggle camera mode</li>
             </ul>
             <p><strong>Game Controls:</strong></p>
             <ul style="padding-left: 20px;">
-                <li>E - Spawn 20 enemy planes</li>
+                <li>E - Spawn 5 enemy planes</li>
                 <li>R - Restart game after death</li>
-                <li>T - Toggle wing trails</li>
-                <li>B - Toggle hitboxes (debug)</li>
                 <li>TAB - Show/hide leaderboard</li>
             </ul>
             <p style="margin-bottom: 0; font-style: italic; text-align: center;">

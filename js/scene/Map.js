@@ -32,7 +32,7 @@ export default class GameMap {
                 height: 10,
                 poleHeight: 15,
                 texture: 'assets/textures/billboard2.png', // Texture should display "@sjanuskas"
-                clickURL: 'https://x.com/sjanuskas' // Twitter/X profile link
+                clickURL: 'https://gaimes.store' // Twitter/X profile link
             },
             {
                 position: { x: -70, y: 0, z: -110 }, // Third billboard further forward
@@ -286,6 +286,45 @@ export default class GameMap {
                 { x: 450, y: 360, z: -100 },
                 { x: 0, y: 350, z: 0 }
             ]
+        };
+
+        // Zeppelin configuration - hovering over the city
+        this.zeppelin = {
+            // Position settings
+            position: {
+                x: 400,  // Left/right (positive = right)
+                y: 250,  // Up/down (higher value = higher in the sky)
+                z: -800  // Forward/backward (negative = into the screen)
+            },
+
+            // Rotation settings (in radians)
+            rotation: {
+                y: 0 - Math.PI / 8 // Rotation around vertical axis (Math.PI/2 = 90 degrees = show flank)
+            },
+
+            // Size settings
+            scale: 3,  // Overall size multiplier
+
+            // Quality settings (lower = better performance)
+            quality: {
+                segments: 4,      // Segments for curved surfaces (8, 16, or 32)
+                radialSegments: 4, // Radial segments for cylindrical parts (4, 8, or 16)
+                detailLevel: 'medium'  // 'low', 'medium', or 'high'
+            },
+
+            // Visual settings
+            colors: {
+                hull: 0xD5D8DC,     // Silver-gray for the hull
+                fabric: 0x800020    // Burgundy for the fabric parts
+            },
+
+            // Advertisement settings - Upload your PNG and set the click URL here
+            advertisement: {
+                texture: 'assets/textures/your_ad_here.png',  // Updated to use the "Your Ad Here" texture
+                clickURL: 'https://www.pykaso.ai/?utm_source=flyzullo&utm_medium=ads&utm_campaign=zeppelin',  // URL to navigate to when clicked
+                width: 80,  // Width of the ad space
+                height: 40   // Height of the ad space
+            }
         };
     }
 } 

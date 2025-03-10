@@ -197,7 +197,7 @@ export default class Game {
             if (data.action === 'restartGame' && data.state === 'down') {
                 this.restartGame();
             } else if (data.action === 'spawnEnemies' && data.state === 'down') {
-                this.spawnMultipleEnemies(20);
+                this.spawnMultipleEnemies(5);
             } else if (data.action === 'displayHealth' && data.state === 'down') {
                 this.displayHealthDebug();
             } else if (data.action === 'debugDamage' && data.state === 'down') {
@@ -372,7 +372,7 @@ export default class Game {
      * Creates multiple enemy planes at random positions around the player
      * @param {number} count - Number of enemy planes to create
      */
-    spawnMultipleEnemies(count = 20) {
+    spawnMultipleEnemies(count = 5) {
         // Only allow in single player mode
         if (this.isMultiplayer) {
             console.log('Cannot spawn enemies in multiplayer mode');
