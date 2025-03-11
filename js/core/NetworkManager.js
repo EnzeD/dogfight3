@@ -945,7 +945,19 @@ export default class NetworkManager {
             // Use proper method if available (which will trigger proper events and smoke effects)
             remotePlane.setHealth(data.health);
         } else {
-            console.log(`Remote plane ${data.id} health updated to ${data.health}`);
+            // Fallback for planes without setHealth method - update currentHealth directly
+            remotePlane.currentHealth = data.health;
+            remotePlane.maxHealth = remotePlane.maxHealth || 100;
+
+            // Manually trigger smoke effects if possible
+            if (remotePlane.smokeFX) {
+                const healthPercent = remotePlane.currentHealth / remotePlane.maxHealth;
+                // Force immediate smoke emission for visual feedback
+                remotePlane.smokeFX.emitSmoke(remotePlane, healthPercent, 0.016);
+                console.log(`Triggered smoke effects for wounded remote plane ${data.id}`);
+            } else {
+                console.warn(`Remote plane ${data.id} has no smokeFX`);
+            }
         }
 
         // Update destroyed state if needed
@@ -1399,7 +1411,25 @@ export default class NetworkManager {
 
         // Update health if provided
         if (typeof data.health === 'number') {
+            const oldHealth = remotePlane.health || 100;
             remotePlane.health = data.health;
+
+            // CRITICAL FIX: Ensure currentHealth is updated for smoke effects
+            remotePlane.currentHealth = data.health;
+            remotePlane.maxHealth = remotePlane.maxHealth || 100;
+
+            // Log health changes for debugging
+            if (oldHealth !== data.health) {
+                console.log(`Remote plane ${playerId} health changed from ${oldHealth} to ${data.health}`);
+
+                // Immediately trigger smoke effects for visual feedback when health drops
+                if (data.health < oldHealth && remotePlane.smokeFX) {
+                    const healthPercent = remotePlane.currentHealth / remotePlane.maxHealth;
+                    // Force immediate smoke emission for damage visual feedback
+                    remotePlane.smokeFX.emitSmoke(remotePlane, healthPercent, 0.016);
+                    console.log(`Triggered smoke effects for wounded remote plane ${playerId}`);
+                }
+            }
         }
 
         // Update destroyed state if provided (this is separate from isRespawned to avoid conflicts)
