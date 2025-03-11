@@ -326,5 +326,23 @@ export default class GameMap {
                 height: 40   // Height of the ad space
             }
         };
+
+        // Ground logo configuration - on the ground near a village
+        this.groundLogo = {
+            // Position settings
+            position: {
+                x: 500,  // Left/right (positive = right)
+                y: 0.1,  // Very slightly above ground to prevent z-fighting
+                z: 300   // Forward/backward (positive = forward)
+            },
+
+            // Size settings - match the same dimensions as the zeppelin ad
+            width: 502,   // Width of the ad panel
+            height: 109,  // Height of the ad panel
+
+            // Advertisement settings - same as zeppelin
+            texture: 'assets/textures/village1.png',  // Same texture as zeppelin
+            clickURL: 'https://softgen.ai/?utm_source=flyzullo&utm_medium=ads&utm_campaign=zeppelin'  // Same URL as zeppelin
+        };
     }
 } 

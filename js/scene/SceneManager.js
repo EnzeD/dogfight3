@@ -10,6 +10,7 @@ import Villages from './Villages.js';  // Import the new Villages class
 import Skyscrapers from './Skyscrapers.js';  // Import the new Skyscrapers class
 import Billboard from './Billboard.js';  // Import the new Billboard class
 import Zeppelin from './Zeppelin.js';  // Import the new Zeppelin class
+import GroundLogo from './GroundLogo.js';  // Import the new GroundLogo class
 import GameMap from './Map.js';  // Import the GameMap class for static map data
 
 export default class SceneManager {
@@ -34,6 +35,7 @@ export default class SceneManager {
         this.skyscrapers = null; // Store reference to the skyscrapers
         this.billboards = null; // Store reference to the billboards
         this.zeppelin = null; // Store reference to the zeppelin
+        this.groundLogo = null; // Store reference to the ground logo
 
         // Main actor (plane)
         this.mainActor = null;
@@ -78,6 +80,7 @@ export default class SceneManager {
         this.skyscrapers = new Skyscrapers(this.scene, this.eventBus, this.qualitySettings, this.gameMap.skyscrapers); // Pass skyscraper config
         this.billboards = new Billboard(this.scene, this.gameMap.billboards); // Pass billboard config
         this.zeppelin = new Zeppelin(this.scene, this.gameMap.zeppelin); // Pass zeppelin config
+        this.groundLogo = new GroundLogo(this.scene, this.gameMap.groundLogo); // Pass ground logo config
 
         console.log(`SceneManager initialized with quality: ${this.qualitySettings.getQuality()}`);
 
@@ -263,6 +266,11 @@ export default class SceneManager {
             this.zeppelin.update(deltaTime);
         }
 
+        // Update ground logo if needed
+        if (this.groundLogo) {
+            this.groundLogo.update(deltaTime);
+        }
+
         // Update camera to follow the main actor
         if (this.camera && this.mainActor) {
             this.camera.update(deltaTime);
@@ -335,6 +343,11 @@ export default class SceneManager {
             allClickableObjects = allClickableObjects.concat(this.zeppelin.getClickableObjects());
         }
 
+        // Add ground logo clickable objects
+        if (this.groundLogo && this.groundLogo.getClickableObjects) {
+            allClickableObjects = allClickableObjects.concat(this.groundLogo.getClickableObjects());
+        }
+
         // ... any other clickable objects from other components ...
 
         // Find intersections
@@ -344,6 +357,7 @@ export default class SceneManager {
         let runwayHandled = false;
         let billboardHandled = false;
         let zeppelinAdHandled = false;
+        let groundLogoHandled = false;
 
         // Handle intersections
         if (intersects.length > 0) {
@@ -395,6 +409,21 @@ export default class SceneManager {
                     }
                 }
             }
+
+            // Handle ground logo hover effect
+            if (this.groundLogo && userData && userData.type === 'groundLogo') {
+                // Show hover effect only if ads are clickable or we're in gameplay
+                if (this.adsClickable) {
+                    this.groundLogo.handleHoverEffect(firstIntersect, true);
+                    groundLogoHandled = true;
+                    document.body.style.cursor = 'pointer';
+
+                    // Handle click if user is clicking
+                    if (isClicking && userData.clickURL) {
+                        window.open(userData.clickURL, '_blank');
+                    }
+                }
+            }
         }
 
         // Reset any hover effects for components that aren't being hovered
@@ -410,8 +439,13 @@ export default class SceneManager {
             this.zeppelin.handleHoverEffect(null, false);
         }
 
+        // Reset ground logo hover effect if not handled
+        if (this.groundLogo && !groundLogoHandled) {
+            this.groundLogo.handleHoverEffect(null, false);
+        }
+
         // Reset cursor if no hover is active
-        if (!runwayHandled && !billboardHandled && !zeppelinAdHandled) {
+        if (!runwayHandled && !billboardHandled && !zeppelinAdHandled && !groundLogoHandled) {
             document.body.style.cursor = 'auto';
         }
     }
