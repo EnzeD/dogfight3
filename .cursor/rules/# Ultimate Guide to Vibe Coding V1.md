@@ -1,5 +1,5 @@
 # Ultimate Guide to Vibe Coding V1.0
-**Author:** [Nicolas Zullo](https://x.com/NicolasZu)  
+**Author:** [Nicolas Zullo, https://x.com/NicolasZu](https://x.com/NicolasZu)  
 **Date:** March 12, 2025  
 
 ---
@@ -24,7 +24,7 @@ Setting up everything correctly is key. If you’re serious about creating a ful
 ### 2. Tech Stack and `.cursor/rules`
 - Ask **Grok 3 Thinking** to recommend the best tech stack for your game (e.g., ThreeJS and WebSocket for a multiplayer 3D game).  
   - Challenge it to propose the *simplest yet most robust stack possible*.  
-- Download the PDF from [https://docs.cursor.com/context/rules-for-ai](https://docs.cursor.com/context/rules-for-ai), upload it, and prompt Grok to write a set of 6-10 rules for Cursor as if it’s a senior game developer specializing in your chosen stack.  
+- Download the PDF version of [https://docs.cursor.com/context/rules-for-ai](https://docs.cursor.com/context/rules-for-ai), upload it, and prompt Grok to write a set of 6-10 rules for Cursor as if it’s a senior game developer specializing in your chosen stack.  
   - Ensure one rule emphasizes **modularity** (multiple files) and avoids a **monolith** (one giant file).  
   - Example: Rules might include best practices for networking to optimize performance and maintain clean code.  
 
@@ -55,9 +55,16 @@ Setting up everything correctly is key. If you’re serious about creating a ful
 ---
 
 ## Vibe Coding the Base Game
-Now the fun begins!  
+Now the fun begins!
+
+### Making sure everything is clear
+- Select **Claude Sonnet 3.7 Thinking** in Cursor. 
+- Prompt: Read all the documents in `/memory-bank`, is implementation-plan.md` clear? What are your questions to make it 100% clear for you?
+- He usually asks 9-10 questions, answer them and prompt to edit the `implementation-plan.md` accordingly.
+
+### Your first implemenation prompt
 - Select **Claude Sonnet 3.7 Thinking** in Cursor.  
-- Prompt: Read all the documents in /memory-bank, and proceed with Step 1 of the implementation plan. I will run the test. Do not start Step 2 until I validate the test. Once I validate it, open progress.md and document what you did for future developers. Then add any architectural insights to architecture.md to explain what each file does.
+- Prompt: Read all the documents in `/memory-bank`, and proceed with Step 1 of the implementation plan. I will run the test. Do not start Step 2 until I validate the test. Once I validate it, open progress.md and document what you did for future developers. Then add any architectural insights to `architecture.md` to explain what each file does.
 
 - **Voice Option:** Install [Superwhisper](https://superwhisper.com) to speak casually with Claude instead of typing.  
 
@@ -65,14 +72,14 @@ Now the fun begins!
 - After completing Step 1:  
 - Commit your changes to Git (if unfamiliar, ask Grok 3 for help).  
 - Start a new composer (`Cmd + N`, `Cmd + I`).  
-- Prompt:  Now go through all files in the memory-bank, read progress.md to understand prior work, and proceed with Step 2. Do not start Step 3 until I validate the test.
+- Prompt: Now go through all files in the memory-bank, read progress.md to understand prior work, and proceed with Step 2. Do not start Step 3 until I validate the test.
 - Repeat this process until the entire `implementation-plan.md` is complete.  
 
 ---
 
 ## Adding Details
-Congratulations—you’ve built the base game! It might be rough and lack features, but now you can experiment and refine it.  
-- Want fog, post-processing, effects, or sounds?  
+Congratulations, you’ve built the base game! It might be rough and lack features, but now you can experiment and refine it.  
+- Want fog, post-processing, effects, or sounds?  A better plane/car/castle? A gorgeous sky?
 - For each major feature, create a new `feature-implementation.md` file with short steps and tests.  
 - Implement and test incrementally.  
 
@@ -82,12 +89,12 @@ Congratulations—you’ve built the base game! It might be rough and lack featu
 - If a prompt fails or breaks the game:  
 - Click “restore” in Cursor and refine your prompt until it works.  
 - For errors:  
-- **JavaScript:** Open the console (`F12`), copy the error, and paste it into Cursor—or provide a screenshot for visual glitches.  
+- **If JavaScript:** Open the console (`F12`), copy the error, and paste it into Cursor—or provide a screenshot for visual glitches.  
 - **Lazy Option:** Install [BrowserTools](https://browsertools.agentdesk.ai/installation) to skip manual copying/screenshotting.  
 - If stuck:  
 - Revert to your last Git commit (`git reset`) and retry with new prompts.  
 - If *really* stuck:  
-- Use “reprompting” (look it up) and ask **Grok 3 Thinking** for assistance.  
+- Use [RepoPrompt](https://repoprompt.com/) and ask **Grok 3 Thinking** for assistance.  
 
 ---
 
@@ -100,5 +107,8 @@ Congratulations—you’ve built the base game! It might be rough and lack featu
 ## Frequently Asked Questions
 **Q: Your plane is amazing, but I can’t replicate it in one prompt!**  
 **A:** It’s not one prompt—it’s ~30 prompts, guided by a `plane-implementation.md` file. Use sharp, specific prompts like “cut out space in the wings for ailerons,” not vague ones like “make a plane.”
+
+**Q: I don't know how to setup a server for my multiplayer game**  
+**A:** Ask Grok 3.
 
 ---
