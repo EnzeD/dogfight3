@@ -26,21 +26,23 @@ Setting up everything correctly is key. If you’re serious about creating a ful
   - Challenge it to propose the *simplest yet most robust stack possible*.  
 - Download the PDF version of [https://docs.cursor.com/context/rules-for-ai](https://docs.cursor.com/context/rules-for-ai), upload it, and prompt Grok to write a set of 6-10 rules for Cursor as if it’s a senior game developer specializing in your chosen stack.  
   - Ensure one rule emphasizes **modularity** (multiple files) and avoids a **monolith** (one giant file).  
-  - Example: Rules might include best practices for networking to optimize performance and maintain clean code.  
+  - Example: Rules might include best practices for networking
+  - *This is mandatory if you want a game that is as optimized as possible, and code as clean as possible.*
+
 
 ### 3. Implementation Plan
 - Provide **Grok 3 Thinking** with:  
   - The Game Design Document  
-  - The tech stack recommendation  
+  - The tech stack recommendations
   - The Cursor rules  
-- Ask it to create a detailed **Implementation Plan** in Markdown (`.md`) with step-by-step instructions for your AI developers.  
+- Ask it to create a detailed **Implementation Plan** in Markdown (`.md`) which is a step-by-step instructions for your AI developers.  
   - Steps should be small and specific.  
   - Each step must include a test to validate correct implementation.  
   - No code—just clear, concrete instructions.  
   - Focus on the *base game*, not the full feature set (details come later).  
 
 ### 4. Memory Bank
-- Create a new folder in Cursor and name a subfolder `memory-bank`.  
+- Create a new folder, open it in Cursor, create another folder, name it`memory-bank`.  
 - Add the following files:  
   - `game-design-document.md`  
   - `tech-stack.md`  
@@ -60,13 +62,13 @@ Now the fun begins!
 ### Making sure everything is clear
 - Select **Claude Sonnet 3.7 Thinking** in Cursor. 
 - Prompt: Read all the documents in `/memory-bank`, is implementation-plan.md` clear? What are your questions to make it 100% clear for you?
-- He usually asks 9-10 questions, answer them and prompt to edit the `implementation-plan.md` accordingly.
+- He usually asks 9-10 questions, answer them and prompt him to edit the `implementation-plan.md` accordingly, so it's even better.
 
-### Your first implemenation prompt
+### Your first implementation prompt
 - Select **Claude Sonnet 3.7 Thinking** in Cursor.  
-- Prompt: Read all the documents in `/memory-bank`, and proceed with Step 1 of the implementation plan. I will run the test. Do not start Step 2 until I validate the test. Once I validate it, open progress.md and document what you did for future developers. Then add any architectural insights to `architecture.md` to explain what each file does.
+- Prompt: Read all the documents in `/memory-bank`, and proceed with Step 1 of the implementation plan. I will run the tests. Do not start Step 2 until I validate the tests. Once I validate them, open `progress.md` and document what you did for future developers. Then add any architectural insights to `architecture.md` to explain what each file does.
 
-- **Voice Option:** Install [Superwhisper](https://superwhisper.com) to speak casually with Claude instead of typing.  
+- **Extreme vibe:** Install [Superwhisper](https://superwhisper.com) to speak casually with Claude instead of typing.  
 
 ### Workflow
 - After completing Step 1:  
@@ -101,6 +103,7 @@ Congratulations, you’ve built the base game! It might be rough and lack featur
 ## Other Tips
 - **Small Edits:** Use Claude Sonnet 3.5.  
 - **Great Copywriting:** Use GPT-4.5.  
+- **Better prompt outputs:** Add “think as long as needed to get this right, I am not in a hurry. What matters is that you follow precisely what I ask you and execute it perfectly. Ask me questions if I am not precise enough."
 
 ---
 
