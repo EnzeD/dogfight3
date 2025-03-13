@@ -4,7 +4,11 @@
 <head>
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
     <title>WW2 Dogfight Arena</title>
 
     <!-- Import maps for ES modules -->
@@ -28,6 +32,27 @@
         gtag('js', new Date());
 
         gtag('config', 'G-BPFNTM4VXN');
+    </script>
+
+    <!-- Prevent browser bounce/overscroll effect on mobile -->
+    <script>
+        document.addEventListener('touchmove', function (e) {
+            if (e.touches.length > 1) {
+                e.preventDefault(); // Prevent pinch zoom
+            }
+        }, { passive: false });
+
+        // Lock screen orientation to landscape on mobile if possible
+        if (window.screen && window.screen.orientation) {
+            try {
+                window.screen.orientation.lock('landscape').catch(function () {
+                    // Silently fail if permission denied or not supported
+                    console.log('Orientation lock not available');
+                });
+            } catch (e) {
+                console.log('Orientation API not supported');
+            }
+        }
     </script>
 </head>
 

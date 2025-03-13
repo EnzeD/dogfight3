@@ -2,13 +2,59 @@
 export default class QualitySettings {
     constructor() {
         // Define quality levels
-        this.qualityLevels = ['low', 'medium', 'high'];
+        this.qualityLevels = ['ultra-low', 'low', 'medium', 'high'];
 
         // Set default quality (medium)
         this.currentQuality = this.loadSavedQuality() || 'medium';
 
         // Quality presets
         this.presets = {
+            // Ultra low quality settings for mobile devices
+            'ultra-low': {
+                clouds: {
+                    count: 20,
+                    segmentsX: 3,
+                    segmentsY: 2,
+                    massive: false,
+                    big: 0,         // % chance for big clouds
+                    medium: 20,     // % chance for medium clouds
+                    small: 80       // % chance for small clouds
+                },
+                trees: {
+                    count: {
+                        pine: 3,
+                        oak: 2,
+                        palm: 1,
+                        birch: 2,
+                        willow: 0
+                    },
+                    segments: 3,    // cylinder/cone segments
+                    foliageDetail: 0 // subdivisions for foliage
+                },
+                villages: {
+                    count: 0,
+                    housesPerVillage: 0
+                },
+                skyscrapers: {
+                    count: 3,
+                    segments: 3
+                },
+                fogDensity: 0.001,  // Very dense fog to hide distant objects
+                renderDistance: 1000, // Very short render distance
+                maxEnemies: 2,      // Very few enemies
+                particleMultiplier: 0.25, // Reduce particles by 75%
+                shadowsEnabled: false,
+                postProcessing: false,
+                textureQuality: 0.25, // Quarter resolution textures
+                useInstancedMeshes: true, // Use instanced meshes for better performance
+                maxParticles: 50,   // Very few particles
+                mobilePriority: {   // What to prioritize on mobile
+                    fps: 2,         // High priority for framerate
+                    memory: 3,      // Highest priority for memory conservation
+                    visual: 0       // Low priority for visuals
+                }
+            },
+
             // Low quality settings
             low: {
                 clouds: {
@@ -39,7 +85,20 @@ export default class QualitySettings {
                     count: 5,
                     segments: 4
                 },
-                fogDensity: 0.0008  // Denser fog to hide distant objects
+                fogDensity: 0.0008,  // Denser fog to hide distant objects
+                renderDistance: 2000, // Short render distance
+                maxEnemies: 3,      // Few enemies
+                particleMultiplier: 0.5, // Reduce particles by 50%
+                shadowsEnabled: false,
+                postProcessing: false,
+                textureQuality: 0.5, // Half resolution textures
+                useInstancedMeshes: true, // Use instanced meshes for better performance
+                maxParticles: 100,  // Few particles
+                mobilePriority: {   // What to prioritize on mobile
+                    fps: 3,         // Highest priority for framerate
+                    memory: 2,      // High priority for memory conservation
+                    visual: 1       // Medium priority for visuals
+                }
             },
 
             // Medium quality settings (default)
@@ -73,7 +132,16 @@ export default class QualitySettings {
                     count: 10,
                     segments: 6
                 },
-                fogDensity: 0.0006
+                fogDensity: 0.0006,
+                renderDistance: 4000, // Medium render distance
+                maxEnemies: 5,      // Medium enemy count
+                particleMultiplier: 1.0, // Normal particle count
+                shadowsEnabled: true,
+                postProcessing: true,
+                textureQuality: 1.0, // Full resolution textures
+                useInstancedMeshes: true, // Use instanced meshes for better performance
+                maxParticles: 250,  // Medium particle count
+                mobilePriority: null // Not applicable
             },
 
             // High quality settings
@@ -107,7 +175,16 @@ export default class QualitySettings {
                     count: 15,
                     segments: 8
                 },
-                fogDensity: 0.0004
+                fogDensity: 0.0004,
+                renderDistance: 8000, // Long render distance
+                maxEnemies: 8,      // High enemy count
+                particleMultiplier: 1.5, // 50% more particles
+                shadowsEnabled: true,
+                postProcessing: true,
+                textureQuality: 1.0, // Full resolution textures
+                useInstancedMeshes: false, // Don't need instanced meshes at high quality (better detail)
+                maxParticles: 500,  // Lots of particles
+                mobilePriority: null // Not applicable
             }
         };
     }
@@ -122,7 +199,7 @@ export default class QualitySettings {
 
     /**
      * Set quality level
-     * @param {string} level - Quality level ('low', 'medium', or 'high')
+     * @param {string} level - Quality level ('ultra-low', 'low', 'medium', or 'high')
      * @returns {boolean} True if quality was changed, false otherwise
      */
     setQuality(level) {

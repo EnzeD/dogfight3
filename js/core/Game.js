@@ -17,6 +17,8 @@ export default class Game {
      * @param {boolean} previewMode - Whether this is preview mode (landing page background)
      * @param {Object} options - Game options
      * @param {string} options.playerCallsign - Optional player callsign for multiplayer
+     * @param {boolean} options.isMobile - Whether the game is running on a mobile device
+     * @param {string} options.mobileQuality - Quality level for mobile ('ultra-low', 'low')
      */
     constructor(previewMode = false, options = {}) {
         console.log('Initializing Game...');
@@ -27,11 +29,28 @@ export default class Game {
             console.log('Player callsign set during Game initialization:', this.playerCallsign);
         }
 
+        // Store mobile status
+        this.isMobile = options.isMobile || false;
+        this.mobileQuality = options.mobileQuality || null;
+        if (this.isMobile) {
+            console.log(`Mobile device detected. Setting quality to: ${this.mobileQuality}`);
+        }
+
         // Create event bus for communication between modules
         this.eventBus = new EventBus();
 
         // Initialize quality settings
         this.qualitySettings = new QualitySettings();
+
+        // Set quality based on mobile settings if applicable
+        if (this.isMobile && this.mobileQuality) {
+            if (this.mobileQuality === 'ultra-low') {
+                this.qualitySettings.setQuality('ultra-low');
+            } else {
+                this.qualitySettings.setQuality('low');
+            }
+        }
+
         console.log(`Game quality set to: ${this.qualitySettings.getQuality()}`);
 
         // Create the game map (single instance for deterministic world)

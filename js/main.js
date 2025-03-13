@@ -78,6 +78,8 @@ function showMobileMessage() {
  * @param {Object} options - Game options from landing page
  * @param {string} options.mode - Game mode ('solo' or 'multi')
  * @param {string} options.callsign - Player's callsign (for multiplayer)
+ * @param {boolean} options.isMobile - Whether the player is on a mobile device
+ * @param {string} options.mobileQuality - Quality setting for mobile ('ultra-low', 'low')
  */
 function startGame(options) {
     console.log('Starting game with options:', options);
@@ -115,7 +117,9 @@ function startGame(options) {
 
     // FIRST create a temp game options object
     const gameOptions = {
-        playerCallsign: options.mode === 'multi' ? options.callsign : null
+        playerCallsign: options.mode === 'multi' ? options.callsign : null,
+        isMobile: options.isMobile || false,
+        mobileQuality: options.mobileQuality || null
     };
 
     // Initialize game with options AFTER URL parameters are set
@@ -149,17 +153,16 @@ function startGame(options) {
 // Initialize the game once the window loads
 window.addEventListener('load', () => {
     // Check if user is on a mobile device
-    if (isMobileDevice()) {
-        console.log('Mobile device detected, showing message instead of loading game');
-        showMobileMessage();
-    } else {
-        console.log('Starting preview mode and showing game mode selection screen');
+    const isMobile = isMobileDevice();
+    console.log('Mobile device detected:', isMobile);
 
-        // Create preview game instance
+    // Create and show landing page - now the landing page handles mobile detection and options
+    const landingPage = new LandingPage(startGame);
+    landingPage.show();
+
+    // Only create preview game if not on mobile to save resources
+    if (!isMobile) {
+        console.log('Starting preview mode');
         previewGame = new Game(true);
-
-        // Create and show landing page
-        const landingPage = new LandingPage(startGame);
-        landingPage.show();
     }
 }); 
