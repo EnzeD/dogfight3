@@ -13,9 +13,27 @@ export default class GroundLogo {
 
         // Store clickable objects for raycasting
         this.clickableObjects = [];
+        this.logoMesh = null;
 
-        // Load default texture if needed
-        this.defaultTexture = new THREE.TextureLoader().load('assets/textures/your_ad_here.png');
+        // Load default texture with fallback
+        this.defaultTexture = this.createFallbackTexture();
+        new THREE.TextureLoader().load('assets/textures/your_ad_here.png',
+            // Success callback
+            (texture) => {
+                this.defaultTexture = texture;
+                if (this.logoMesh) {
+                    this.logoMesh.material.map = texture;
+                    this.logoMesh.material.needsUpdate = true;
+                }
+            },
+            // Progress callback
+            null,
+            // Error callback - create a fallback texture
+            (error) => {
+                console.warn('Failed to load your_ad_here.png, using generated fallback texture');
+                // Already using the fallback texture generated in constructor
+            }
+        );
 
         // Create materials
         this.createMaterials();
@@ -117,16 +135,16 @@ export default class GroundLogo {
 
         // Create the actual ad surface - top side of the flat billboard
         const adSurfaceGeometry = new THREE.PlaneGeometry(adWidth - frameWidth * 2, adHeight - frameWidth * 2);
-        const adSurface = new THREE.Mesh(adSurfaceGeometry, adMaterial);
+        this.logoMesh = new THREE.Mesh(adSurfaceGeometry, adMaterial);
 
         // Position the ad on top of the backing panel
-        adSurface.position.set(0, panelDepth / 2 + 0.1, 0);
+        this.logoMesh.position.set(0, panelDepth / 2 + 0.1, 0);
 
-        // Rotate the ad surface to lie flat, facing up
-        adSurface.rotation.x = -Math.PI / 2;
+        // Rotate to lay flat
+        this.logoMesh.rotation.x = -Math.PI / 2;
 
         // Add user data for click handling
-        adSurface.userData = {
+        this.logoMesh.userData = {
             type: 'groundLogo',
             id: 'groundLogo_panel',
             clickURL: adSettings.clickURL,
@@ -135,11 +153,11 @@ export default class GroundLogo {
 
         // Add parts to logo group
         this.logoGroup.add(panelBacking);
-        this.logoGroup.add(adSurface);
+        this.logoGroup.add(this.logoMesh);
 
         // Add to clickable objects if it has a URL
         if (adSettings.clickURL) {
-            this.clickableObjects.push(adSurface);
+            this.clickableObjects.push(this.logoMesh);
         }
 
         // Add the logo group to the scene
@@ -183,11 +201,10 @@ export default class GroundLogo {
      * @param {string} texturePath - Path to the new texture
      */
     updateLogoTexture(texturePath) {
-        if (this.logoGroup && this.logoGroup.children.length > 2) {
-            const adSurface = this.logoGroup.children[2]; // Third child is the ad surface
+        if (this.logoMesh) {
             const newTexture = new THREE.TextureLoader().load(texturePath);
 
-            const adMaterial = adSurface.material;
+            const adMaterial = this.logoMesh.material;
             adMaterial.map = newTexture;
             adMaterial.emissiveMap = newTexture;
             adMaterial.needsUpdate = true;
@@ -263,5 +280,40 @@ export default class GroundLogo {
     // Add the wrapper method for compatibility
     createBillboardFrame(parentGroup, width, height, depth, frameWidth) {
         this.createFlatBillboardFrame(parentGroup, width, height, depth, frameWidth);
+    }
+
+    /**
+     * Create a fallback texture when the default ad texture cannot be loaded
+     * @returns {THREE.Texture} A generated fallback texture
+     */
+    createFallbackTexture() {
+        // Create a canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+
+        // Fill with dark green background (ground-like)
+        ctx.fillStyle = '#114422';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Add a border
+        ctx.strokeStyle = '#FFAA00';
+        ctx.lineWidth = 8;
+        ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+        // Add text
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 40px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('YOUR AD HERE', canvas.width / 2, canvas.height / 2 - 30);
+
+        ctx.font = '25px Arial';
+        ctx.fillText('Place Your Logo on Our Ground', canvas.width / 2, canvas.height / 2 + 30);
+
+        // Create texture from canvas
+        const texture = new THREE.CanvasTexture(canvas);
+        return texture;
     }
 } 

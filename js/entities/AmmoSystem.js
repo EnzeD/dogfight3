@@ -15,6 +15,15 @@ export default class AmmoSystem {
         this.lastFireTime = 0;
         this.bulletDamage = 10; // Damage amount per bullet hit
 
+        // Heat system properties
+        this.heat = 0;
+        this.maxHeat = 100;
+        this.heatPerShot = 8;
+        this.coolingRate = 45; // Units per second
+        this.isOverheated = false;
+        this.overheatCooldownTime = 4000; // ms to cool down from overheat
+        this.overheatStartTime = 0;
+
         // Flag to control sound effects (enabled by default for player's bullets)
         this.playSoundEffects = true;
 
@@ -73,6 +82,20 @@ export default class AmmoSystem {
 
         // Debug flag for sound issues
         this.debugSound = false; // Turn off debug messages for production
+
+        // Set up event listeners for heat system
+        this.setupHeatEventListeners();
+    }
+
+    /**
+     * Set up event listeners for the heat system
+     */
+    setupHeatEventListeners() {
+        // Emit initial heat state
+        this.eventBus.emit('weapon.heat', {
+            heat: this.heat,
+            maxHeat: this.maxHeat
+        });
     }
 
     /**
@@ -260,10 +283,28 @@ export default class AmmoSystem {
     fireBullets(plane, planeVelocity) {
         const now = performance.now();
 
-        // Check cooldown
-        if (now - this.lastFireTime < this.fireCooldown) {
+        // Check cooldown and overheat state
+        if (now - this.lastFireTime < this.fireCooldown || this.isOverheated) {
             return;
         }
+
+        // Add heat when firing
+        this.heat = Math.min(this.maxHeat, this.heat + this.heatPerShot);
+
+        // Check for overheat
+        if (this.heat >= this.maxHeat && !this.isOverheated) {
+            this.isOverheated = true;
+            this.overheatStartTime = now;
+            this.eventBus.emit('weapon.overheat');
+            this.eventBus.emit('sound.play', { sound: 'overheat' });
+            return;
+        }
+
+        // Emit current heat level
+        this.eventBus.emit('weapon.heat', {
+            heat: this.heat,
+            maxHeat: this.maxHeat
+        });
 
         this.lastFireTime = now;
 
@@ -397,11 +438,35 @@ export default class AmmoSystem {
     }
 
     /**
-     * Update all active bullets
+     * Update all active bullets and heat system
      * @param {number} deltaTime - Time since last update in seconds
      */
     update(deltaTime) {
         const now = performance.now();
+
+        // Update heat system
+        if (this.isOverheated) {
+            // Check if cooldown period is over
+            if (now - this.overheatStartTime >= this.overheatCooldownTime) {
+                this.isOverheated = false;
+                this.heat = 0;
+                this.eventBus.emit('weapon.cooled');
+                this.eventBus.emit('weapon.heat', {
+                    heat: this.heat,
+                    maxHeat: this.maxHeat
+                });
+            }
+        } else {
+            // Cool down weapon when not firing
+            if (now - this.lastFireTime > this.fireCooldown) {
+                this.heat = Math.max(0, this.heat - this.coolingRate * deltaTime);
+                this.eventBus.emit('weapon.heat', {
+                    heat: this.heat,
+                    maxHeat: this.maxHeat
+                });
+            }
+        }
+
         const toRemove = [];
 
         // Update each bullet

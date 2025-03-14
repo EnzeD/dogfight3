@@ -4,9 +4,18 @@ export default class QualitySettings {
         // Define quality levels
         this.qualityLevels = ['low', 'medium', 'high'];
 
+        // Initialize properties needed by the UI
+        this.quality = 'medium';  // Default quality level
+        this.shadows = true;      // Default shadow setting
+        this.antialiasing = true; // Default antialiasing setting
+        this.resolution = 1.0;    // Default resolution (100%)
+
         // Set default quality (medium) or auto-detect for mobile
         const isMobile = this.detectMobileDevice();
         this.currentQuality = this.loadSavedQuality() || (isMobile ? 'low' : 'medium');
+
+        // Update the quality property to match currentQuality
+        this.quality = this.currentQuality;
 
         if (isMobile && !this.loadSavedQuality()) {
             console.log('Mobile device detected, automatically setting quality to low');
@@ -133,6 +142,11 @@ export default class QualitySettings {
                 antialiasing: true              // Full anti-aliasing
             }
         };
+
+        // Update shadows and antialiasing based on current quality
+        const settings = this.presets[this.currentQuality];
+        this.shadows = settings.shadowsEnabled;
+        this.antialiasing = settings.antialiasing;
     }
 
     /**
@@ -220,5 +234,41 @@ export default class QualitySettings {
             console.warn('Could not load quality setting:', e);
         }
         return null;
+    }
+
+    /**
+     * Set quality preset and update all related settings
+     * @param {string} preset - Quality preset ('low', 'medium', 'high')
+     */
+    setQualityPreset(preset) {
+        if (this.qualityLevels.includes(preset)) {
+            this.quality = preset;
+            this.currentQuality = preset;
+
+            // Update related settings
+            const settings = this.presets[preset];
+            this.shadows = settings.shadowsEnabled;
+            this.antialiasing = settings.antialiasing;
+
+            // Save the quality setting
+            this.saveQuality(preset);
+
+            console.log(`Quality preset changed to ${preset}`);
+        } else {
+            console.warn(`Invalid quality preset: ${preset}`);
+        }
+    }
+
+    /**
+     * Set resolution scaling
+     * @param {number} scale - Resolution scale (0.5, 0.75, 1.0)
+     */
+    setResolution(scale) {
+        if ([0.5, 0.75, 1.0].includes(scale)) {
+            this.resolution = scale;
+            console.log(`Resolution set to ${scale * 100}%`);
+        } else {
+            console.warn(`Invalid resolution scale: ${scale}`);
+        }
     }
 } 

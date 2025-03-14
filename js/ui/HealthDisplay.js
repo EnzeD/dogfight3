@@ -7,12 +7,21 @@ export default class HealthDisplay {
         this.healthText = null;
         this.currentHealth = 100;
         this.maxHealth = 100;
+        this.isMobile = this.checkIfMobile();
 
         // Create the health display
         this.createHealthDisplay();
 
         // Set up event listeners
         this.setupEventListeners();
+    }
+
+    /**
+     * Check if the device is mobile
+     * @returns {boolean} True if mobile device
+     */
+    checkIfMobile() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
     }
 
     /**
@@ -23,128 +32,113 @@ export default class HealthDisplay {
         this.container = document.createElement('div');
         this.container.id = 'health-display-container';
 
-        // Style the container
+        // Style the container - compact for mobile
         this.container.style.position = 'absolute';
-        this.container.style.bottom = '10px'; // Align with the bottom edge
-        this.container.style.right = '10px'; // Align with the right edge
+        this.container.style.bottom = '10px';
+        this.container.style.right = '10px';
         this.container.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
         this.container.style.color = 'white';
-        this.container.style.padding = '10px';
+        this.container.style.padding = '5px 10px';
         this.container.style.fontFamily = 'Arial, sans-serif';
-        this.container.style.fontSize = '14px';
+        this.container.style.fontSize = '12px';
         this.container.style.borderRadius = '8px';
         this.container.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
         this.container.style.backdropFilter = 'blur(5px)';
         this.container.style.border = '1px solid rgba(255,255,255,0.1)';
-        this.container.style.width = '250px'; // Match the width of flight info panel
+        this.container.style.width = 'auto';
         this.container.style.zIndex = '1000';
+        this.container.style.display = 'flex';
+        this.container.style.flexDirection = 'column';
+        this.container.style.alignItems = 'center';
 
-        // Create health bar content with simpler implementation that matches the style of the speed bar
+        // Set container content
         this.container.innerHTML = `
-            <div style="margin-bottom: 5px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
-                    <span><strong>Health:</strong></span>
-                    <span id="health-value">100%</span>
-                </div>
-                <div id="health-gauge-container" style="position: relative; width: 100%; height: 20px; background-color: #333; border-radius: 10px; overflow: hidden;">
-                    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to right, #e74c3c, #f1c40f, #2ecc71);"></div>
-                    <div id="health-bar" style="position: absolute; top: 0; left: 0; height: 100%; width: 100%; background-color: rgba(0,0,0,0.7); transform-origin: right; transition: transform 0.3s ease;"></div>
-                </div>
+            <span style="font-size: 10px; opacity: 0.8;">HEALTH</span>
+            <div id="health-bar-container" style="width: 60px; height: 8px; background-color: #333; border-radius: 4px; overflow: hidden; margin-top: 3px;">
+                <div id="health-bar" style="width: 100%; height: 100%; background-color: #4CAF50; transition: width 0.3s ease, background-color 0.3s ease;"></div>
             </div>
+            <span id="health-text" style="font-size: 11px; font-weight: bold; margin-top: 3px;">100%</span>
         `;
 
         // Add to document
         document.body.appendChild(this.container);
 
-        // Get references to elements
+        // Get references to UI elements
         this.healthBar = document.getElementById('health-bar');
-        this.healthText = document.getElementById('health-value');
+        this.healthText = document.getElementById('health-text');
     }
 
     /**
-     * Set up event listeners for health updates
+     * Set up event listeners
      */
     setupEventListeners() {
-        // Listen for health update events
-        this.eventBus.on('plane.health.update', (data, source) => {
-            if (source === 'player') {
-                this.updateHealth(data.newHealth, data.maxHealth);
-            }
-        });
-
         // Listen for damage events
-        this.eventBus.on('plane.damage', (data, source) => {
-            if (source === 'player') {
-                this.updateHealth(data.newHealth, data.maxHealth);
-                this.flashDamage();
-            }
+        this.eventBus.on('player.damage', (amount) => {
+            // Flash red when taking damage
+            this.flashDamage();
         });
 
-        // Listen for destroyed event
-        this.eventBus.on('plane.destroyed', (data, source) => {
-            if (source === 'player') {
-                this.updateHealth(0, this.maxHealth);
-                this.showDestroyed();
-            }
+        // Listen for heal events
+        this.eventBus.on('player.heal', (amount) => {
+            // Update health (the actual value will be updated via the plane object)
+            this.updateHealth(this.currentHealth + amount, this.maxHealth);
         });
 
-        // Also listen for regular flight info updates as a backup
-        this.eventBus.on('flight.info.update', (data, source) => {
-            if (source === 'player' && data.health !== undefined) {
-                this.updateHealth(data.health, this.maxHealth);
-                if (data.isDestroyed) {
-                    this.showDestroyed();
-                }
-            }
+        // Listen for player death
+        this.eventBus.on('player.destroyed', () => {
+            this.showDestroyed();
+        });
+
+        // Listen for player respawn
+        this.eventBus.on('player.respawn', () => {
+            // Reset health on respawn
+            this.updateHealth(this.maxHealth, this.maxHealth);
         });
     }
 
     /**
-     * Update the health display
-     * @param {number} health - Current health
-     * @param {number} maxHealth - Maximum health
+     * Update health display
      */
     updateHealth(health, maxHealth) {
+        // Store the values
         this.currentHealth = health;
-        this.maxHealth = maxHealth || this.maxHealth;
+        this.maxHealth = maxHealth;
 
-        // Calculate percentage
-        const percentage = Math.max(0, Math.min(100, Math.round((health / this.maxHealth) * 100)));
+        // Calculate health percentage
+        const healthPercent = Math.max(0, Math.min(100, (health / maxHealth) * 100));
 
-        // Update health bar width using transform scale from right origin
+        // Update the health bar width
         if (this.healthBar) {
-            this.healthBar.style.transform = `scaleX(${1 - percentage / 100})`;
+            this.healthBar.style.width = `${healthPercent}%`;
+
+            // Color based on health percentage
+            if (healthPercent <= 20) {
+                this.healthBar.style.backgroundColor = '#F44336'; // Red for critical health
+            } else if (healthPercent <= 50) {
+                this.healthBar.style.backgroundColor = '#FF9800'; // Orange for medium health
+            } else {
+                this.healthBar.style.backgroundColor = '#4CAF50'; // Green for good health
+            }
         }
 
-        // Update text
+        // Update the health text
         if (this.healthText) {
-            this.healthText.textContent = `${percentage}%`;
-
-            // Update color based on health percentage
-            if (percentage <= 25) {
-                this.healthText.style.color = '#e74c3c'; // Red for low health
-            } else if (percentage <= 50) {
-                this.healthText.style.color = '#f1c40f'; // Yellow for medium health
-            } else {
-                this.healthText.style.color = '#2ecc71'; // Green for good health
-            }
+            this.healthText.textContent = `${Math.round(healthPercent)}%`;
         }
     }
 
     /**
-     * Show visual effect when taking damage
+     * Flash red when taking damage
      */
     flashDamage() {
         if (this.container) {
-            // Add a flash effect to the container
-            this.container.style.boxShadow = '0 0 15px rgba(231, 76, 60, 0.8)';
-            this.container.style.border = '1px solid rgba(231, 76, 60, 0.6)';
+            // Add flash effect
+            this.container.style.backgroundColor = 'rgba(255, 0, 0, 0.7)';
 
             // Reset after animation
             setTimeout(() => {
-                this.container.style.boxShadow = '0 2px 10px rgba(0,0,0,0.2)';
-                this.container.style.border = '1px solid rgba(255,255,255,0.1)';
-            }, 500);
+                this.container.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+            }, 150);
         }
     }
 
@@ -152,24 +146,17 @@ export default class HealthDisplay {
      * Show destroyed state
      */
     showDestroyed() {
-        if (this.container && this.healthText) {
-            this.healthText.innerHTML = '<span style="color: #e74c3c; font-weight: bold;">DESTROYED</span>';
-            this.container.style.boxShadow = '0 0 15px rgba(231, 76, 60, 0.8)';
-            this.container.style.border = '1px solid rgba(231, 76, 60, 0.6)';
+        if (this.healthBar && this.healthText) {
+            this.healthBar.style.width = '0%';
+            this.healthText.textContent = 'DESTROYED';
+            this.healthText.style.color = '#F44336';
         }
     }
 
     /**
-     * Direct method to update health display from UIManager
-     * @param {Object} planeData - Data from the player's plane
+     * Update with plane data
      */
     update(planeData) {
-        if (planeData.health !== undefined) {
-            this.updateHealth(planeData.health, this.maxHealth);
-
-            if (planeData.isDestroyed) {
-                this.showDestroyed();
-            }
-        }
+        this.updateHealth(planeData.health, planeData.maxHealth);
     }
 } 

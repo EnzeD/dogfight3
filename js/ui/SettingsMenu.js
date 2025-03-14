@@ -5,12 +5,21 @@ export default class SettingsMenu {
         this.qualitySettings = qualitySettings;
         this.isVisible = false;
         this.menu = null;
+        this.isMobile = this.checkIfMobile();
 
         // Create the menu but keep it hidden initially
         this.createMenu();
 
         // Listen for events
         this.setupEventListeners();
+    }
+
+    /**
+     * Check if the device is mobile
+     * @returns {boolean} True if mobile device
+     */
+    checkIfMobile() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
     }
 
     /**
@@ -21,277 +30,260 @@ export default class SettingsMenu {
         this.menu = document.createElement('div');
         this.menu.id = 'settings-menu';
 
-        // Style the menu
+        // Style the menu - smaller for mobile
         this.menu.style.position = 'absolute';
         this.menu.style.top = '50%';
         this.menu.style.left = '50%';
         this.menu.style.transform = 'translate(-50%, -50%)';
         this.menu.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
         this.menu.style.color = 'white';
-        this.menu.style.padding = '20px';
+        this.menu.style.padding = this.isMobile ? '15px' : '20px';
         this.menu.style.borderRadius = '10px';
         this.menu.style.boxShadow = '0 0 20px rgba(0, 0, 0, 0.6)';
         this.menu.style.zIndex = '1000';
-        this.menu.style.minWidth = '300px';
+        this.menu.style.minWidth = this.isMobile ? '260px' : '300px';
         this.menu.style.display = 'none';
         this.menu.style.textAlign = 'center';
         this.menu.style.fontFamily = 'Arial, sans-serif';
         this.menu.style.backdropFilter = 'blur(8px)';
         this.menu.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+        this.menu.style.fontSize = this.isMobile ? '12px' : '14px';
 
-        // Add content to the menu
+        // Update menu content with quality settings
         this.updateMenuContent();
 
-        // Add menu to document
+        // Add the menu to the document
         document.body.appendChild(this.menu);
     }
 
     /**
-     * Update the menu content based on current settings
+     * Update the menu content based on current quality settings
      */
     updateMenuContent() {
-        const currentQuality = this.qualitySettings.getQuality();
+        // Get the current settings
+        const quality = this.qualitySettings.quality;
+        const shadows = this.qualitySettings.shadows;
+        const antialiasing = this.qualitySettings.antialiasing;
+        const resolution = this.qualitySettings.resolution;
 
-        this.menu.innerHTML = `
-            <div style="margin-bottom: 10px; font-size: 14px;">
-                Dogfight Arena by <a href="https://x.com/NicolasZu" target="_blank" style="color: #4CAF50; text-decoration: none;">@NicolasZu</a>
-            </div>
-            <h2 style="margin-top: 0; color: #4CAF50; margin-bottom: 20px;">Game Settings</h2>
-            
-            <div style="margin-bottom: 30px;">
-                <h3 style="margin-bottom: 15px;">Graphics Quality</h3>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
-                    <button 
-                        id="quality-low" 
-                        class="quality-button ${currentQuality === 'low' ? 'active' : ''}"
-                        style="
-                            flex: 1; 
-                            padding: 10px; 
-                            margin: 0 5px; 
-                            background-color: ${currentQuality === 'low' ? '#2d6a30' : '#444'};
-                            border: 1px solid ${currentQuality === 'low' ? '#4CAF50' : '#666'};
-                            color: white;
-                            border-radius: 5px;
-                            cursor: pointer;
-                            transition: background-color 0.2s;
-                        "
-                    >
+        // Create the menu content
+        let content = `
+            <h2 style="margin-top: 0; margin-bottom: ${this.isMobile ? '10px' : '15px'}; font-size: ${this.isMobile ? '16px' : '18px'};">Game Settings</h2>
+        `;
+
+        // Quality presets section
+        content += `
+            <div style="margin-bottom: ${this.isMobile ? '10px' : '15px'}; text-align: left;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Quality Preset:</label>
+                <div style="display: flex; gap: 8px;">
+                    <button id="quality-low" class="quality-button ${quality === 'low' ? 'selected' : ''}" 
+                        style="flex: 1; padding: ${this.isMobile ? '5px' : '8px'}; background-color: ${quality === 'low' ? '#3498db' : 'rgba(50, 50, 50, 0.8)'}; border: none; color: white; border-radius: 4px; cursor: pointer;">
                         Low
                     </button>
-                    <button 
-                        id="quality-medium" 
-                        class="quality-button ${currentQuality === 'medium' ? 'active' : ''}"
-                        style="
-                            flex: 1; 
-                            padding: 10px; 
-                            margin: 0 5px; 
-                            background-color: ${currentQuality === 'medium' ? '#2d6a30' : '#444'};
-                            border: 1px solid ${currentQuality === 'medium' ? '#4CAF50' : '#666'};
-                            color: white;
-                            border-radius: 5px;
-                            cursor: pointer;
-                            transition: background-color 0.2s;
-                        "
-                    >
+                    <button id="quality-medium" class="quality-button ${quality === 'medium' ? 'selected' : ''}" 
+                        style="flex: 1; padding: ${this.isMobile ? '5px' : '8px'}; background-color: ${quality === 'medium' ? '#3498db' : 'rgba(50, 50, 50, 0.8)'}; border: none; color: white; border-radius: 4px; cursor: pointer;">
                         Medium
                     </button>
-                    <button 
-                        id="quality-high" 
-                        class="quality-button ${currentQuality === 'high' ? 'active' : ''}"
-                        style="
-                            flex: 1; 
-                            padding: 10px; 
-                            margin: 0 5px; 
-                            background-color: ${currentQuality === 'high' ? '#2d6a30' : '#444'};
-                            border: 1px solid ${currentQuality === 'high' ? '#4CAF50' : '#666'};
-                            color: white;
-                            border-radius: 5px;
-                            cursor: pointer;
-                            transition: background-color 0.2s;
-                        "
-                    >
+                    <button id="quality-high" class="quality-button ${quality === 'high' ? 'selected' : ''}" 
+                        style="flex: 1; padding: ${this.isMobile ? '5px' : '8px'}; background-color: ${quality === 'high' ? '#3498db' : 'rgba(50, 50, 50, 0.8)'}; border: none; color: white; border-radius: 4px; cursor: pointer;">
                         High
                     </button>
                 </div>
-                <div style="font-size: 12px; color: #aaa; margin-bottom: 10px;">
-                    Changes to quality require game reload
-                </div>
-                
-                <div style="margin-top: 10px; padding: 10px; background-color: rgba(66, 66, 66, 0.4); border-radius: 5px; text-align: left; font-size: 12px;">
-                    <strong>Quality Details:</strong>
-                    <ul style="margin: 5px 0; padding-left: 20px; color: #ccc;">
-                        <li>Low: Optimized for mobile devices and low-end computers (~15,000 triangles)</li>
-                        <li>Medium: Enhanced with high-quality clouds, more AI enemies (20), anti-aliasing and basic shadows</li>
-                        <li>High: Best visuals for powerful computers (~140,000 triangles)</li>
-                    </ul>
-                    <p style="margin: 5px 0; color: #ffbb33;">
-                        <strong>Mobile users:</strong> Use "Low" for best performance or "Medium" for better clouds and more enemies.
-                    </p>
+            </div>
+        `;
+
+        // Resolution setting
+        content += `
+            <div style="margin-bottom: ${this.isMobile ? '10px' : '15px'}; text-align: left;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Resolution:</label>
+                <div style="display: flex; gap: 8px;">
+                    <button id="resolution-50" class="resolution-button ${resolution === 0.5 ? 'selected' : ''}" 
+                        style="flex: 1; padding: ${this.isMobile ? '5px' : '8px'}; background-color: ${resolution === 0.5 ? '#3498db' : 'rgba(50, 50, 50, 0.8)'}; border: none; color: white; border-radius: 4px; cursor: pointer;">
+                        50%
+                    </button>
+                    <button id="resolution-75" class="resolution-button ${resolution === 0.75 ? 'selected' : ''}" 
+                        style="flex: 1; padding: ${this.isMobile ? '5px' : '8px'}; background-color: ${resolution === 0.75 ? '#3498db' : 'rgba(50, 50, 50, 0.8)'}; border: none; color: white; border-radius: 4px; cursor: pointer;">
+                        75%
+                    </button>
+                    <button id="resolution-100" class="resolution-button ${resolution === 1.0 ? 'selected' : ''}" 
+                        style="flex: 1; padding: ${this.isMobile ? '5px' : '8px'}; background-color: ${resolution === 1.0 ? '#3498db' : 'rgba(50, 50, 50, 0.8)'}; border: none; color: white; border-radius: 4px; cursor: pointer;">
+                        100%
+                    </button>
                 </div>
             </div>
-            
-            <div style="display: flex; justify-content: center; margin-top: 20px;">
-                <button 
-                    id="save-settings" 
-                    style="
-                        padding: 10px 20px;
-                        background-color: #4CAF50;
-                        border: none;
-                        color: white;
-                        border-radius: 5px;
-                        cursor: pointer;
-                        font-weight: bold;
-                        margin-right: 10px;
-                    "
-                >
-                    Apply & Reload
-                </button>
-                <button 
-                    id="close-settings" 
-                    style="
-                        padding: 10px 20px;
-                        background-color: #666;
-                        border: none;
-                        color: white;
-                        border-radius: 5px;
-                        cursor: pointer;
-                    "
-                >
-                    Cancel
+        `;
+
+        // Sound toggle
+        content += `
+            <div style="margin-bottom: ${this.isMobile ? '15px' : '20px'}; text-align: left;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Sound:</label>
+                <button id="toggle-sound" 
+                    style="width: 100%; padding: ${this.isMobile ? '5px' : '8px'}; background-color: rgba(50, 50, 50, 0.8); border: none; color: white; border-radius: 4px; cursor: pointer; text-align: left;">
+                    Toggle Sound (M)
                 </button>
             </div>
         `;
 
-        // Add event listeners to buttons
-        this.addButtonListeners();
+        // Apply and close buttons
+        content += `
+            <div style="display: flex; gap: 10px; margin-top: ${this.isMobile ? '10px' : '20px'};">
+                <button id="settings-apply" 
+                    style="flex: 1; padding: ${this.isMobile ? '8px' : '10px'}; background-color: #2ecc71; border: none; color: white; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                    Apply
+                </button>
+                <button id="settings-close" 
+                    style="flex: 1; padding: ${this.isMobile ? '8px' : '10px'}; background-color: #e74c3c; border: none; color: white; border-radius: 4px; cursor: pointer;">
+                    Close
+                </button>
+            </div>
+        `;
+
+        // Set the content
+        this.menu.innerHTML = content;
+
+        // Wait briefly for the DOM to update before adding listeners
+        setTimeout(() => {
+            // Add event listeners to the buttons
+            this.addButtonListeners();
+        }, 0);
     }
 
     /**
-     * Add event listeners to menu buttons
+     * Add event listeners to the buttons in the menu
      */
     addButtonListeners() {
-        // Quality setting buttons
-        const qualityButtons = ['low', 'medium', 'high'];
-        let selectedQuality = this.qualitySettings.getQuality();
-
-        qualityButtons.forEach(quality => {
-            const button = document.getElementById(`quality-${quality}`);
-            if (button) {
-                button.addEventListener('click', () => {
-                    // Update selected quality (but don't apply yet)
-                    selectedQuality = quality;
-
-                    // Update button styles
-                    qualityButtons.forEach(q => {
-                        const btn = document.getElementById(`quality-${q}`);
-                        if (btn) {
-                            btn.style.backgroundColor = (q === quality) ? '#2d6a30' : '#444';
-                            btn.style.borderColor = (q === quality) ? '#4CAF50' : '#666';
-                        }
-                    });
-                });
+        // Helper function to safely add listener
+        const addSafeListener = (id, callback) => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.addEventListener('click', callback);
+            } else {
+                console.warn(`Element with ID ${id} not found`);
             }
+        };
+
+        // Quality preset buttons
+        addSafeListener('quality-low', () => {
+            this.qualitySettings.setQualityPreset('low');
+            this.updateMenuContent();
+            this.showLoadingMessage();
         });
 
-        // Save button
-        const saveButton = document.getElementById('save-settings');
-        if (saveButton) {
-            saveButton.addEventListener('click', () => {
-                // Only reload if quality has changed
-                if (selectedQuality !== this.qualitySettings.getQuality()) {
-                    this.qualitySettings.setQuality(selectedQuality);
-                    this.hide();
+        addSafeListener('quality-medium', () => {
+            this.qualitySettings.setQualityPreset('medium');
+            this.updateMenuContent();
+            this.showLoadingMessage();
+        });
 
-                    // Show loading message
-                    this.showLoadingMessage();
+        addSafeListener('quality-high', () => {
+            this.qualitySettings.setQualityPreset('high');
+            this.updateMenuContent();
+            this.showLoadingMessage();
+        });
 
-                    // Reload the page after a brief delay
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 500);
-                } else {
-                    this.hide();
-                }
-            });
-        }
+        // Resolution buttons
+        addSafeListener('resolution-50', () => {
+            this.qualitySettings.setResolution(0.5);
+            this.updateMenuContent();
+            this.showLoadingMessage();
+        });
+
+        addSafeListener('resolution-75', () => {
+            this.qualitySettings.setResolution(0.75);
+            this.updateMenuContent();
+            this.showLoadingMessage();
+        });
+
+        addSafeListener('resolution-100', () => {
+            this.qualitySettings.setResolution(1.0);
+            this.updateMenuContent();
+            this.showLoadingMessage();
+        });
+
+        // Sound toggle button
+        addSafeListener('toggle-sound', () => {
+            // Emit event to toggle sound
+            this.eventBus.emit('sound.toggle');
+        });
+
+        // Apply button
+        addSafeListener('settings-apply', () => {
+            // Apply settings and close the menu
+            this.applySettings();
+            this.hide();
+        });
 
         // Close button
-        const closeButton = document.getElementById('close-settings');
-        if (closeButton) {
-            closeButton.addEventListener('click', () => {
-                this.hide();
-            });
-        }
+        addSafeListener('settings-close', () => {
+            // Close without applying
+            this.hide();
+        });
     }
 
     /**
-     * Show a loading message when reloading
+     * Show a temporary loading message while settings are being applied
      */
     showLoadingMessage() {
+        // Create loading message
         const loadingMsg = document.createElement('div');
-        loadingMsg.style.position = 'fixed';
-        loadingMsg.style.top = '0';
+        loadingMsg.style.position = 'absolute';
+        loadingMsg.style.top = '10px';
         loadingMsg.style.left = '0';
-        loadingMsg.style.width = '100%';
-        loadingMsg.style.height = '100%';
-        loadingMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-        loadingMsg.style.color = 'white';
-        loadingMsg.style.display = 'flex';
-        loadingMsg.style.alignItems = 'center';
-        loadingMsg.style.justifyContent = 'center';
-        loadingMsg.style.fontSize = '24px';
-        loadingMsg.style.zIndex = '1001';
-        loadingMsg.innerHTML = '<div>Reloading game with new settings...</div>';
+        loadingMsg.style.right = '0';
+        loadingMsg.style.textAlign = 'center';
+        loadingMsg.style.color = '#2ecc71';
+        loadingMsg.style.fontStyle = 'italic';
+        loadingMsg.style.fontSize = this.isMobile ? '11px' : '13px';
+        loadingMsg.textContent = 'Settings applied!';
 
-        document.body.appendChild(loadingMsg);
+        // Add to menu
+        this.menu.appendChild(loadingMsg);
+
+        // Remove after a short time
+        setTimeout(() => {
+            loadingMsg.remove();
+        }, 1500);
     }
 
     /**
-     * Set up event listeners
+     * Apply the current settings
+     */
+    applySettings() {
+        // Emit an event to apply settings
+        this.eventBus.emit('settings.apply', this.qualitySettings);
+    }
+
+    /**
+     * Setup event listeners for settings menu
      */
     setupEventListeners() {
-        // Listen for ESC key to show/hide menu
+        // Listen for the Escape key to close the menu
         document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape') {
-                if (this.isVisible) {
-                    this.hide();
-                } else {
-                    this.show();
-                }
+            if (event.key === 'Escape' && this.isVisible) {
+                this.hide();
             }
         });
-
-        // Listen for settings menu events
-        this.eventBus.on('settings.show', () => this.show());
-        this.eventBus.on('settings.hide', () => this.hide());
     }
 
     /**
      * Show the settings menu
      */
     show() {
-        if (this.menu) {
-            this.isVisible = true;
-            this.menu.style.display = 'block';
+        this.menu.style.display = 'block';
+        this.isVisible = true;
 
-            // Update content in case settings changed elsewhere
-            this.updateMenuContent();
-
-            // Emit event that menu is shown
-            this.eventBus.emit('settings.shown');
-        }
+        // Emit an event to indicate the settings menu is shown
+        this.eventBus.emit('settings.shown');
     }
 
     /**
      * Hide the settings menu
      */
     hide() {
-        if (this.menu) {
-            this.isVisible = false;
-            this.menu.style.display = 'none';
+        this.menu.style.display = 'none';
+        this.isVisible = false;
 
-            // Emit event that menu is hidden
-            this.eventBus.emit('settings.hidden');
-        }
+        // Emit an event to indicate the settings menu is hidden
+        this.eventBus.emit('settings.hidden');
     }
 } 

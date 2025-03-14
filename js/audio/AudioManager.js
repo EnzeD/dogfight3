@@ -506,9 +506,54 @@ export default class AudioManager {
     }
 
     /**
+     * Add sound toggle button
+     */
+    addSoundToggle() {
+        // Don't add sound toggle button on mobile
+        if (this.isMobile()) {
+            return;
+        }
+
+        const soundToggle = document.createElement('button');
+        soundToggle.id = 'sound-toggle';
+
+        // Style the button
+        soundToggle.style.position = 'absolute';
+        soundToggle.style.top = '10px';
+        soundToggle.style.right = '200px'; // Increased to prevent overlap
+        soundToggle.style.padding = '10px 15px';
+        soundToggle.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        soundToggle.style.color = 'white';
+        soundToggle.style.border = 'none';
+        soundToggle.style.borderRadius = '5px';
+        soundToggle.style.cursor = 'pointer';
+        soundToggle.style.fontFamily = 'Arial, sans-serif';
+        soundToggle.style.fontSize = '14px';
+        soundToggle.style.zIndex = '1000';
+        soundToggle.style.boxShadow = '0 2px 5px rgba(0, 0, 0, 0.3)';
+        soundToggle.style.whiteSpace = 'nowrap'; // Prevent text wrapping
+
+        // Set button text - include mute key information
+        soundToggle.innerHTML = '🔊 <small>(or press \'M\')</small>';
+
+        // Add click event
+        soundToggle.addEventListener('click', () => {
+            this.toggleSound();
+        });
+
+        // Add to document
+        document.body.appendChild(soundToggle);
+    }
+
+    /**
      * Add audio enabler button
      */
     addAudioEnabler() {
+        // Don't add audio enabler button on mobile
+        if (this.isMobile()) {
+            return;
+        }
+
         const enablerButton = document.createElement('button');
         enablerButton.id = 'audio-enabler';
 
@@ -540,38 +585,11 @@ export default class AudioManager {
     }
 
     /**
-     * Add sound toggle button
+     * Check if the device is mobile
+     * @returns {boolean} True if mobile device
      */
-    addSoundToggle() {
-        const soundToggle = document.createElement('button');
-        soundToggle.id = 'sound-toggle';
-
-        // Style the button
-        soundToggle.style.position = 'absolute';
-        soundToggle.style.top = '10px';
-        soundToggle.style.right = '200px'; // Increased to prevent overlap
-        soundToggle.style.padding = '10px 15px';
-        soundToggle.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-        soundToggle.style.color = 'white';
-        soundToggle.style.border = 'none';
-        soundToggle.style.borderRadius = '5px';
-        soundToggle.style.cursor = 'pointer';
-        soundToggle.style.fontFamily = 'Arial, sans-serif';
-        soundToggle.style.fontSize = '14px';
-        soundToggle.style.zIndex = '1000';
-        soundToggle.style.boxShadow = '0 2px 5px rgba(0, 0, 0, 0.3)';
-        soundToggle.style.whiteSpace = 'nowrap'; // Prevent text wrapping
-
-        // Set button text - include mute key information
-        soundToggle.innerHTML = '🔊 <small>(or press \'M\')</small>';
-
-        // Add click event
-        soundToggle.addEventListener('click', () => {
-            this.toggleSound();
-        });
-
-        // Add to document
-        document.body.appendChild(soundToggle);
+    isMobile() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
     }
 
     /**
@@ -1044,6 +1062,11 @@ export default class AudioManager {
                 console.log('Space key pressed, initializing audio');
                 this.startAudio();
             }
+        });
+
+        // Listen for sound toggle event from settings menu
+        this.eventBus.on('sound.toggle', () => {
+            this.toggleSound();
         });
 
         // Listen for sound events

@@ -7,6 +7,7 @@ import SettingsMenu from './SettingsMenu.js';
 import HealthDisplay from './HealthDisplay.js';
 import PlayerCountDisplay from './PlayerCountDisplay.js';
 import LeaderboardDisplay from './LeaderboardDisplay.js';
+import HeatGauge from './HeatGauge.js';
 
 export default class UIManager {
     constructor(eventBus, qualitySettings) {
@@ -22,12 +23,25 @@ export default class UIManager {
         this.healthDisplay = null;
         this.playerCountDisplay = null;
         this.leaderboardDisplay = null;
+        this.heatGauge = null;
+        this.optionsButton = null;
 
         // Multiplayer UI elements
         this.multiplayerIndicator = null;
 
         // Protection zone state
         this.isInProtectionZone = false;
+
+        // Check if mobile device
+        this.isMobile = this.checkIfMobile();
+    }
+
+    /**
+     * Check if the device is mobile
+     * @returns {boolean} True if mobile device
+     */
+    checkIfMobile() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
     }
 
     /**
@@ -35,21 +49,66 @@ export default class UIManager {
      */
     init() {
         // Create UI components
-        this.instructionsPanel = new InstructionsPanel(this.eventBus);
+        if (!this.isMobile) {
+            // For desktop, show full UI
+            this.instructionsPanel = new InstructionsPanel(this.eventBus);
+        }
+
         this.flightInfo = new FlightInfo(this.eventBus);
         this.notifications = new Notifications(this.eventBus);
         this.debugPanel = new DebugPanel(this.eventBus);
         this.settingsMenu = new SettingsMenu(this.eventBus, this.qualitySettings);
         this.healthDisplay = new HealthDisplay(this.eventBus);
         this.leaderboardDisplay = new LeaderboardDisplay(this.eventBus);
+        this.heatGauge = new HeatGauge(this.eventBus);
 
         // Create multiplayer indicator (hidden by default)
         this.createMultiplayerUI();
+
+        // Create options button for mobile
+        if (this.isMobile) {
+            this.createOptionsButton();
+        }
 
         // Listen for events
         this.setupEventListeners();
 
         console.log('UIManager initialized');
+    }
+
+    /**
+     * Create options button for mobile
+     */
+    createOptionsButton() {
+        this.optionsButton = document.createElement('button');
+        this.optionsButton.id = 'options-button';
+
+        // Style the button
+        this.optionsButton.style.position = 'absolute';
+        this.optionsButton.style.top = '10px';
+        this.optionsButton.style.right = '10px';
+        this.optionsButton.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        this.optionsButton.style.color = 'white';
+        this.optionsButton.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+        this.optionsButton.style.borderRadius = '8px';
+        this.optionsButton.style.padding = '6px 10px';
+        this.optionsButton.style.fontSize = '12px';
+        this.optionsButton.style.fontFamily = 'Arial, sans-serif';
+        this.optionsButton.style.boxShadow = '0 2px 5px rgba(0, 0, 0, 0.2)';
+        this.optionsButton.style.cursor = 'pointer';
+        this.optionsButton.style.zIndex = '1001';
+        this.optionsButton.style.backdropFilter = 'blur(5px)';
+
+        // Set button text
+        this.optionsButton.textContent = 'Options';
+
+        // Add click event listener
+        this.optionsButton.addEventListener('click', () => {
+            this.settingsMenu.show();
+        });
+
+        // Add to document
+        document.body.appendChild(this.optionsButton);
     }
 
     /**
@@ -119,14 +178,25 @@ export default class UIManager {
      * Show instructions panel
      */
     showInstructions() {
-        this.instructionsPanel.show();
+        // Don't show instructions on mobile
+        if (this.isMobile) {
+            // Emit game.start directly instead of showing instructions
+            this.eventBus.emit('game.start');
+            return;
+        }
+
+        if (this.instructionsPanel) {
+            this.instructionsPanel.show();
+        }
     }
 
     /**
      * Hide instructions panel
      */
     hideInstructions() {
-        this.instructionsPanel.hide();
+        if (this.instructionsPanel) {
+            this.instructionsPanel.hide();
+        }
     }
 
     /**
@@ -175,6 +245,14 @@ export default class UIManager {
                     health: plane.currentHealth,
                     maxHealth: plane.maxHealth,
                     isDestroyed: plane.isDestroyed
+                });
+            }
+
+            // Update heat gauge if weapon system is available
+            if (this.heatGauge && plane.weaponSystem) {
+                this.heatGauge.update({
+                    heat: plane.weaponSystem.heat,
+                    maxHeat: plane.weaponSystem.maxHeat
                 });
             }
         }

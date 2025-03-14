@@ -26,7 +26,21 @@ export default class Zeppelin {
         this.detailLevel = quality.detailLevel || 'medium';
 
         // Default ad texture
-        this.defaultTexture = new THREE.TextureLoader().load('assets/textures/zeppelin_ad_default.png');
+        this.defaultTexture = this.createFallbackTexture();
+        new THREE.TextureLoader().load('assets/textures/zeppelin_ad_default.png',
+            // Success callback
+            (texture) => {
+                this.defaultTexture = texture;
+                this.updateAdTextures(texture);
+            },
+            // Progress callback
+            null,
+            // Error callback - create a fallback texture
+            (error) => {
+                console.warn('Failed to load zeppelin_ad_default.png, using generated fallback texture');
+                // Already using the fallback texture generated in constructor
+            }
+        );
 
         // Materials
         this.materials = {
@@ -433,5 +447,40 @@ export default class Zeppelin {
         if (this.config.rotation && typeof this.config.rotation.y !== 'undefined') {
             this.zeppelinGroup.rotation.y = this.config.rotation.y + (Math.sin(this.currentAngle * 0.2) * 0.02);
         }
+    }
+
+    /**
+     * Create a fallback texture when the default ad texture cannot be loaded
+     * @returns {THREE.Texture} A generated fallback texture
+     */
+    createFallbackTexture() {
+        // Create a canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+
+        // Fill with dark blue background
+        ctx.fillStyle = '#113366';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Add a border
+        ctx.strokeStyle = '#FFD700';
+        ctx.lineWidth = 8;
+        ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+        // Add text
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 40px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('YOUR AD HERE', canvas.width / 2, canvas.height / 2 - 30);
+
+        ctx.font = '25px Arial';
+        ctx.fillText('Fly High with Our Airlines', canvas.width / 2, canvas.height / 2 + 30);
+
+        // Create texture from canvas
+        const texture = new THREE.CanvasTexture(canvas);
+        return texture;
     }
 } 
