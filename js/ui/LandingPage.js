@@ -13,6 +13,25 @@ export default class LandingPage {
         this.callsign = '';
         this.element = null;
         this.callsignWarning = null;
+        this.isMobile = this.detectMobile();
+        this.isLandscape = window.innerWidth > window.innerHeight;
+        this.viewportHeight = window.innerHeight;
+    }
+
+    /**
+     * Detect if user is on a mobile device or small screen
+     * @returns {boolean} True if mobile or small screen
+     */
+    detectMobile() {
+        const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+        const isMobileUserAgent = mobileRegex.test(navigator.userAgent);
+        const hasTouchScreen = (
+            ('maxTouchPoints' in navigator && navigator.maxTouchPoints > 0) ||
+            ('msMaxTouchPoints' in navigator && navigator.msMaxTouchPoints > 0)
+        );
+        const isSmallScreen = window.innerWidth < 768;
+
+        return isMobileUserAgent || (hasTouchScreen && isSmallScreen);
     }
 
     /**
@@ -32,33 +51,37 @@ export default class LandingPage {
         const content = document.createElement('div');
         content.className = 'landing-content';
 
-        // Add corner brackets for military style
-        const cornerTL = document.createElement('div');
-        cornerTL.className = 'corner top-left';
-        content.appendChild(cornerTL);
+        // Add corner brackets for military style - hide on very small screens
+        if (!this.isMobile || this.viewportHeight > 500) {
+            const cornerTL = document.createElement('div');
+            cornerTL.className = 'corner top-left';
+            content.appendChild(cornerTL);
 
-        const cornerTR = document.createElement('div');
-        cornerTR.className = 'corner top-right';
-        content.appendChild(cornerTR);
+            const cornerTR = document.createElement('div');
+            cornerTR.className = 'corner top-right';
+            content.appendChild(cornerTR);
 
-        const cornerBL = document.createElement('div');
-        cornerBL.className = 'corner bottom-left';
-        content.appendChild(cornerBL);
+            const cornerBL = document.createElement('div');
+            cornerBL.className = 'corner bottom-left';
+            content.appendChild(cornerBL);
 
-        const cornerBR = document.createElement('div');
-        cornerBR.className = 'corner bottom-right';
-        content.appendChild(cornerBR);
+            const cornerBR = document.createElement('div');
+            cornerBR.className = 'corner bottom-right';
+            content.appendChild(cornerBR);
+        }
 
-        // Add WW2 decorative elements
-        const decorTop = document.createElement('div');
-        decorTop.className = 'ww2-decoration top-left';
-        decorTop.innerHTML = '<svg width="80" height="80" viewBox="0 0 24 24"><path fill="#f8d742" d="M3,3H21V5H3V3M7,7H17V9H7V7M3,11H21V13H3V11M7,15H17V17H7V15M3,19H21V21H3V19Z"/></svg>';
-        content.appendChild(decorTop);
+        // Add WW2 decorative elements - hide on small screens
+        if (!this.isMobile) {
+            const decorTop = document.createElement('div');
+            decorTop.className = 'ww2-decoration top-left';
+            decorTop.innerHTML = '<svg width="80" height="80" viewBox="0 0 24 24"><path fill="#f8d742" d="M3,3H21V5H3V3M7,7H17V9H7V7M3,11H21V13H3V11M7,15H17V17H7V15M3,19H21V21H3V19Z"/></svg>';
+            content.appendChild(decorTop);
 
-        const decorBottom = document.createElement('div');
-        decorBottom.className = 'ww2-decoration bottom-right';
-        decorBottom.innerHTML = '<svg width="80" height="80" viewBox="0 0 24 24"><path fill="#f8d742" d="M4,7A2,2 0 0,0 2,9V15A2,2 0 0,0 4,17H20A2,2 0 0,0 22,15V9A2,2 0 0,0 20,7H4M4,9H20V15H4V9M2,3H20V5H2V3M2,19H20V21H2V19Z"/></svg>';
-        content.appendChild(decorBottom);
+            const decorBottom = document.createElement('div');
+            decorBottom.className = 'ww2-decoration bottom-right';
+            decorBottom.innerHTML = '<svg width="80" height="80" viewBox="0 0 24 24"><path fill="#f8d742" d="M4,7A2,2 0 0,0 2,9V15A2,2 0 0,0 4,17H20A2,2 0 0,0 22,15V9A2,2 0 0,0 20,7H4M4,9H20V15H4V9M2,3H20V5H2V3M2,19H20V21H2V19Z"/></svg>';
+            content.appendChild(decorBottom);
+        }
 
         // Add title and subtitle
         const title = document.createElement('h1');
@@ -124,8 +147,12 @@ export default class LandingPage {
         // Create callsign input section (initially hidden)
         const callsignSection = document.createElement('div');
         callsignSection.className = 'callsign-section';
+
+        // Adjust text for mobile
+        const callsignTitle = this.isMobile && this.viewportHeight < 700 ? 'CALLSIGN:' : 'ENTER YOUR CALLSIGN, PILOT:';
+
         callsignSection.innerHTML = `
-            <h3>ENTER YOUR CALLSIGN, PILOT:</h3>
+            <h3>${callsignTitle}</h3>
             <input type="text" class="callsign-input" placeholder="CALLSIGN (e.g. MAVERICK)" maxlength="15">
         `;
         this.callsignSection = callsignSection;
@@ -200,7 +227,11 @@ export default class LandingPage {
             }
         ];
 
-        sponsorProducts.forEach(product => {
+        // For mobile and small height, only show two sponsor options to save space
+        const productsToShow = (this.isMobile && this.viewportHeight < 700) ?
+            sponsorProducts.slice(0, 2) : sponsorProducts;
+
+        productsToShow.forEach(product => {
             const option = document.createElement('div');
             option.className = 'sponsor-option';
 
@@ -265,6 +296,31 @@ export default class LandingPage {
 
         this.element.appendChild(content);
         document.body.appendChild(this.element);
+
+        // Handle resize events to adjust layout for orientation changes
+        window.addEventListener('resize', () => this.handleResize());
+    }
+
+    /**
+     * Handle window resize events to adjust layout
+     */
+    handleResize() {
+        const newHeight = window.innerHeight;
+        const newWidth = window.innerWidth;
+        const newIsLandscape = newWidth > newHeight;
+
+        // Only update if orientation changed or significant height change
+        if (newIsLandscape !== this.isLandscape || Math.abs(newHeight - this.viewportHeight) > 100) {
+            this.isLandscape = newIsLandscape;
+            this.viewportHeight = newHeight;
+
+            // Apply landscape class for special layout if needed
+            if (this.element && this.viewportHeight < 500 && this.isLandscape) {
+                document.querySelector('.landing-content').classList.add('landscape-layout');
+            } else if (this.element) {
+                document.querySelector('.landing-content').classList.remove('landscape-layout');
+            }
+        }
     }
 
     /**

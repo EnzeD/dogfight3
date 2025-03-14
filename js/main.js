@@ -32,9 +32,10 @@ function showMobileMessage() {
     messageContainer.className = 'mobile-message';
     messageContainer.innerHTML = `
         <div class="mobile-message-content">
-            <h2>Desktop Only Game</h2>
-            <p>WW2 Dogfight Arena is designed for desktop computers with keyboard and mouse controls.</p>
-            <p>Please visit this site on a computer for the best experience.</p>
+            <h2>Mobile Device Detected</h2>
+            <p>You're playing WW2 Dogfight Arena on a mobile device. The game is designed for desktop computers with keyboard and mouse controls.</p>
+            <p>You may continue playing, but the experience might not be optimal on mobile.</p>
+            <button id="continue-button">Continue to Game</button>
         </div>
     `;
 
@@ -57,7 +58,7 @@ function showMobileMessage() {
             text-align: center;
         }
         .mobile-message-content {
-            max-width: 80%;
+            max-width: 85%;
             padding: 20px;
             background-color: rgba(50, 50, 50, 0.8);
             border-radius: 10px;
@@ -66,11 +67,73 @@ function showMobileMessage() {
         .mobile-message h2 {
             color: #ffcc00;
             margin-top: 0;
+            font-size: 1.5rem;
+        }
+        .mobile-message p {
+            font-size: 0.9rem;
+            line-height: 1.4;
+            margin: 10px 0;
+        }
+        #continue-button {
+            background-color: #8b0000;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 15px;
+            transition: background-color 0.3s;
+        }
+        #continue-button:hover {
+            background-color: #b20000;
+        }
+        @media only screen and (max-height: 500px) {
+            .mobile-message h2 {
+                font-size: 1.2rem;
+                margin: 5px 0;
+            }
+            .mobile-message p {
+                font-size: 0.8rem;
+                margin: 5px 0;
+            }
+            #continue-button {
+                padding: 8px 16px;
+                font-size: 0.9rem;
+                margin-top: 10px;
+            }
+            .mobile-message-content {
+                padding: 15px;
+            }
         }
     `;
 
     document.head.appendChild(style);
     document.body.appendChild(messageContainer);
+
+    // Add event listener for continue button
+    document.getElementById('continue-button').addEventListener('click', () => {
+        // Remove the message
+        messageContainer.remove();
+        style.remove();
+
+        // Start the game
+        startPreviewAndLanding();
+    });
+}
+
+/**
+ * Starts the preview and landing page
+ */
+function startPreviewAndLanding() {
+    console.log('Starting preview mode and showing game mode selection screen');
+
+    // Create preview game instance
+    previewGame = new Game(true);
+
+    // Create and show landing page
+    const landingPage = new LandingPage(startGame);
+    landingPage.show();
 }
 
 /**
@@ -150,16 +213,9 @@ function startGame(options) {
 window.addEventListener('load', () => {
     // Check if user is on a mobile device
     if (isMobileDevice()) {
-        console.log('Mobile device detected, showing message instead of loading game');
+        console.log('Mobile device detected, showing warning but allowing game access');
         showMobileMessage();
     } else {
-        console.log('Starting preview mode and showing game mode selection screen');
-
-        // Create preview game instance
-        previewGame = new Game(true);
-
-        // Create and show landing page
-        const landingPage = new LandingPage(startGame);
-        landingPage.show();
+        startPreviewAndLanding();
     }
 }); 

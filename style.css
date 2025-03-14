@@ -59,6 +59,19 @@ canvas {
     box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(5px);
     pointer-events: auto;
+    /* Ensure the content is scrollable if needed, but only as a fallback */
+    max-height: 90vh;
+    overflow-y: auto;
+    /* Hide scrollbar but allow scrolling as emergency fallback */
+    scrollbar-width: none;
+    /* Firefox */
+    -ms-overflow-style: none;
+    /* IE/Edge */
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.landing-content::-webkit-scrollbar {
+    display: none;
 }
 
 /* Military corner brackets */
@@ -361,11 +374,9 @@ canvas {
     right: 10px;
 }
 
-/* Existing mobile message styles can remain */
-
 /* Sponsor section styles */
 .sponsor-section {
-    margin-top: 2rem;
+    margin-top: 1.5rem;
     padding-top: 0.5rem;
     border-top: 1px solid rgba(248, 215, 66, 0.3);
     width: 100%;
@@ -383,7 +394,7 @@ canvas {
     cursor: pointer;
     text-transform: uppercase;
     letter-spacing: 1px;
-    margin: 1rem auto;
+    margin: 0.5rem auto;
     display: block;
     transition: all 0.3s ease;
     position: relative;
@@ -451,7 +462,7 @@ canvas {
     cursor: pointer;
     text-transform: uppercase;
     letter-spacing: 1px;
-    margin: 1rem auto;
+    margin: 0.5rem auto;
     display: block;
     transition: all 0.3s ease;
 }
@@ -607,4 +618,431 @@ canvas {
     text-align: center;
     margin-bottom: 1rem;
     font-style: italic;
+}
+
+/* Mobile specific styles for better responsiveness */
+@media only screen and (max-width: 768px) {
+    .landing-content {
+        width: 90%;
+        padding: 20px 15px;
+        max-height: 95vh;
+    }
+
+    .landing-title {
+        font-size: 2.2rem;
+        margin-top: 0.5rem;
+        margin-bottom: 0.3rem;
+    }
+
+    .landing-subtitle {
+        font-size: 1rem;
+        margin-bottom: 1rem;
+        max-width: 95%;
+    }
+
+    .mode-selection {
+        flex-direction: column;
+        gap: 15px;
+        margin-bottom: 15px;
+        align-items: center;
+    }
+
+    .mode-option {
+        width: 85%;
+        padding: 15px 10px;
+        margin-bottom: 0;
+    }
+
+    .mode-option h3 {
+        font-size: 1.1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .mode-option p {
+        font-size: 0.8rem;
+        margin-bottom: 0;
+    }
+
+    .mode-option img,
+    .mode-option svg.plane-icon {
+        width: 45px;
+        height: 45px;
+        margin-bottom: 10px;
+    }
+
+    .callsign-section h3 {
+        font-size: 1rem;
+        margin-top: 0.5rem;
+    }
+
+    .callsign-input {
+        padding: 8px 12px;
+        font-size: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .sponsor-section {
+        margin-top: 1rem;
+    }
+
+    .sponsor-cta {
+        font-size: 0.8rem;
+        padding: 6px 12px;
+    }
+
+    .sponsor-heading {
+        font-size: 1.1rem;
+    }
+
+    .sponsor-desc {
+        font-size: 0.8rem;
+        margin-bottom: 1rem;
+    }
+
+    .sponsor-options {
+        gap: 10px;
+    }
+
+    .sponsor-option {
+        width: 100px;
+        padding: 10px;
+    }
+
+    .sponsor-option h4 {
+        font-size: 0.8rem;
+        margin-bottom: 8px;
+    }
+
+    .price {
+        font-size: 1rem;
+    }
+
+    .interval {
+        font-size: 0.6rem;
+    }
+
+    .start-button {
+        padding: 10px, 20px;
+        font-size: 1rem;
+        margin-top: 0.7rem;
+    }
+
+    .ww2-decoration {
+        display: none;
+    }
+
+    .corner {
+        width: 15px;
+        height: 15px;
+    }
+}
+
+/* Extra small devices (phones, 600px and down) */
+@media only screen and (max-width: 600px) {
+    .landing-title {
+        font-size: 1.8rem;
+    }
+
+    .landing-subtitle {
+        font-size: 0.9rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .mode-option {
+        width: 90%;
+        padding: 12px 8px;
+    }
+
+    .mode-option h3 {
+        font-size: 1rem;
+    }
+
+    .mode-option p {
+        font-size: 0.75rem;
+    }
+
+    .start-button {
+        padding: 8px 16px;
+        font-size: 0.9rem;
+    }
+}
+
+/* Very small height screens */
+@media only screen and (max-height: 700px) {
+    .landing-content {
+        padding: 15px 10px;
+    }
+
+    .landing-title {
+        font-size: 1.6rem;
+        margin-top: 0.3rem;
+        margin-bottom: 0.2rem;
+    }
+
+    .landing-subtitle {
+        font-size: 0.8rem;
+        margin-bottom: 0.7rem;
+        line-height: 1.2;
+    }
+
+    .mode-selection {
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .mode-option {
+        padding: 10px 5px;
+    }
+
+    .mode-option img,
+    .mode-option svg.plane-icon {
+        width: 35px;
+        height: 35px;
+        margin-bottom: 5px;
+    }
+
+    .mode-option h3 {
+        font-size: 0.9rem;
+        margin-bottom: 0.3rem;
+    }
+
+    .mode-option p {
+        font-size: 0.7rem;
+        margin-bottom: 0;
+    }
+
+    .callsign-input {
+        padding: 6px 10px;
+        font-size: 0.9rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .sponsor-cta {
+        font-size: 0.7rem;
+        padding: 5px 10px;
+        margin: 0.3rem auto;
+    }
+
+    .start-button {
+        padding: 7px 14px;
+        font-size: 0.8rem;
+        margin-top: 0.5rem;
+    }
+
+    .sponsor-section {
+        margin-top: 0.7rem;
+        padding-top: 0.3rem;
+    }
+}
+
+/* Landscape orientation for mobile */
+@media only screen and (max-height: 500px) and (orientation: landscape) {
+    .landing-content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-gap: 10px;
+        padding: 15px;
+        max-height: 98vh;
+    }
+
+    .landing-title,
+    .landing-subtitle {
+        grid-column: 1 / span 2;
+    }
+
+    .landing-title {
+        font-size: 1.5rem;
+        margin-bottom: 0.1rem;
+    }
+
+    .landing-subtitle {
+        font-size: 0.8rem;
+        margin-bottom: 0.4rem;
+        line-height: 1.1;
+    }
+
+    .mode-selection {
+        flex-direction: row;
+        grid-column: 1 / span 2;
+        margin-bottom: 5px;
+    }
+
+    .mode-option {
+        width: 48%;
+        padding: 8px 5px;
+    }
+
+    .mode-option img,
+    .mode-option svg.plane-icon {
+        width: 30px;
+        height: 30px;
+        margin-bottom: 3px;
+    }
+
+    .mode-option h3 {
+        font-size: 0.8rem;
+        margin-bottom: 0.2rem;
+    }
+
+    .mode-option p {
+        font-size: 0.65rem;
+    }
+
+    .callsign-section {
+        grid-column: 1 / span 1;
+        align-self: center;
+    }
+
+    .callsign-section h3 {
+        font-size: 0.8rem;
+        margin-top: 0.2rem;
+    }
+
+    .sponsor-section {
+        grid-column: 2 / span 1;
+        margin-top: 0;
+        border-top: none;
+        border-left: 1px solid rgba(248, 215, 66, 0.3);
+        padding-left: 10px;
+        align-self: center;
+    }
+
+    .sponsor-cta {
+        font-size: 0.7rem;
+    }
+
+    .start-button {
+        grid-column: 1 / span 2;
+        padding: 6px 12px;
+        font-size: 0.8rem;
+        margin-top: 0.3rem;
+    }
+
+    .corner,
+    .ww2-decoration {
+        display: none;
+    }
+}
+
+/* Landscape layout class */
+.landing-content.landscape-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-gap: 10px;
+    padding: 15px;
+    align-items: center;
+}
+
+.landing-content.landscape-layout .landing-title,
+.landing-content.landscape-layout .landing-subtitle {
+    grid-column: 1 / span 2;
+}
+
+.landing-content.landscape-layout .landing-title {
+    font-size: 1.5rem;
+    margin-bottom: 0.1rem;
+}
+
+.landing-content.landscape-layout .landing-subtitle {
+    font-size: 0.8rem;
+    margin-bottom: 0.4rem;
+    line-height: 1.1;
+}
+
+.landing-content.landscape-layout .mode-selection {
+    flex-direction: row;
+    grid-column: 1 / span 2;
+    margin-bottom: 5px;
+}
+
+.landing-content.landscape-layout .mode-option {
+    width: 48%;
+    padding: 8px 5px;
+}
+
+.landing-content.landscape-layout .mode-option img,
+.landing-content.landscape-layout .mode-option svg.plane-icon {
+    width: 30px;
+    height: 30px;
+    margin-bottom: 3px;
+}
+
+.landing-content.landscape-layout .mode-option h3 {
+    font-size: 0.8rem;
+    margin-bottom: 0.2rem;
+}
+
+.landing-content.landscape-layout .mode-option p {
+    font-size: 0.65rem;
+}
+
+.landing-content.landscape-layout .callsign-section {
+    grid-column: 1 / span 1;
+    align-self: center;
+}
+
+.landing-content.landscape-layout .callsign-section h3 {
+    font-size: 0.8rem;
+    margin-top: 0.2rem;
+}
+
+.landing-content.landscape-layout .sponsor-section {
+    grid-column: 2 / span 1;
+    margin-top: 0;
+    border-top: none;
+    border-left: 1px solid rgba(248, 215, 66, 0.3);
+    padding-left: 10px;
+    align-self: center;
+}
+
+.landing-content.landscape-layout .sponsor-cta {
+    font-size: 0.7rem;
+}
+
+.landing-content.landscape-layout .start-button {
+    grid-column: 1 / span 2;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    margin-top: 0.3rem;
+}
+
+/* Safe area for notched devices */
+@supports (padding: max(0px)) {
+    .landing-page {
+        padding-left: env(safe-area-inset-left);
+        padding-right: env(safe-area-inset-right);
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .landing-content {
+        padding-bottom: max(30px, env(safe-area-inset-bottom));
+    }
+
+    /* Adjust height for notched devices */
+    @media only screen and (max-height: 812px) and (orientation: portrait) {
+        .landing-content {
+            max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        }
+    }
+}
+
+/* iPhone fix for landscape orientation */
+@media only screen and (max-width: 900px) and (max-height: 450px) and (orientation: landscape) {
+    .landing-content {
+        max-height: 90vh;
+        padding: 10px;
+    }
+
+    .landing-content.landscape-layout .landing-title {
+        font-size: 1.3rem;
+    }
+
+    .landing-content.landscape-layout .landing-subtitle {
+        font-size: 0.7rem;
+    }
+
+    .landing-content.landscape-layout .mode-option {
+        padding: 5px;
+    }
 }
