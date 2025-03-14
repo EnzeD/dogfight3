@@ -821,6 +821,17 @@ export default class Game {
 
         // Add click event listener
         window.addEventListener('click', (event) => this.onMouseClick(event), false);
+
+        // Add touch event listeners for mobile
+        window.addEventListener('touchstart', (event) => this.onTouchStart(event), { passive: false });
+        window.addEventListener('touchmove', (event) => this.onTouchMove(event), { passive: false });
+        window.addEventListener('touchend', (event) => this.onTouchEnd(event), { passive: false });
+
+        // Track touch state
+        this.touchStartTime = 0;
+        this.touchStartPosition = { x: 0, y: 0 };
+        this.isTouchMoving = false;
+        this.lastTouchTime = 0;
     }
 
     /**
@@ -858,6 +869,140 @@ export default class Game {
         if (this.audioManager && this.audioManager.playUISound) {
             this.audioManager.playUISound('click');
         }
+    }
+
+    /**
+     * Handle touch start events
+     * @param {TouchEvent} event - Touch start event
+     */
+    onTouchStart(event) {
+        // Don't process if this is a joystick or UI control touch
+        if (this.isUIElement(event.target)) {
+            return;
+        }
+
+        // Store touch start time and position for later
+        this.touchStartTime = Date.now();
+        if (event.touches.length > 0) {
+            this.touchStartPosition = {
+                x: event.touches[0].clientX,
+                y: event.touches[0].clientY
+            };
+            this.isTouchMoving = false;
+
+            // Update mouse position for hover effects
+            this.mouse.x = (this.touchStartPosition.x / window.innerWidth) * 2 - 1;
+            this.mouse.y = -(this.touchStartPosition.y / window.innerHeight) * 2 + 1;
+
+            // Update the raycaster
+            this.raycaster.setFromCamera(this.mouse, this.sceneManager.camera.getCamera());
+
+            // Process raycast for hover effects
+            this.sceneManager.processRaycast(this.raycaster, false);
+        }
+    }
+
+    /**
+     * Handle touch move events
+     * @param {TouchEvent} event - Touch move event
+     */
+    onTouchMove(event) {
+        // Don't process if this is a joystick or UI control touch
+        if (this.isUIElement(event.target)) {
+            return;
+        }
+
+        if (event.touches.length > 0) {
+            const touchX = event.touches[0].clientX;
+            const touchY = event.touches[0].clientY;
+
+            // Check if touch has moved significantly
+            const deltaX = touchX - this.touchStartPosition.x;
+            const deltaY = touchY - this.touchStartPosition.y;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+            // If moved more than 10px, consider it a drag rather than a tap
+            if (distance > 10) {
+                this.isTouchMoving = true;
+            }
+
+            // Update mouse position for hover effects
+            this.mouse.x = (touchX / window.innerWidth) * 2 - 1;
+            this.mouse.y = -(touchY / window.innerHeight) * 2 + 1;
+
+            // Update the raycaster
+            this.raycaster.setFromCamera(this.mouse, this.sceneManager.camera.getCamera());
+
+            // Process raycast for hover effects
+            this.sceneManager.processRaycast(this.raycaster, false);
+        }
+    }
+
+    /**
+     * Handle touch end events
+     * @param {TouchEvent} event - Touch end event
+     */
+    onTouchEnd(event) {
+        // Don't process if this is a joystick or UI control touch
+        if (this.isUIElement(event.target)) {
+            return;
+        }
+
+        // Prevent double taps (ignore touches less than 300ms apart)
+        const now = Date.now();
+        if (now - this.lastTouchTime < 300) {
+            return;
+        }
+        this.lastTouchTime = now;
+
+        // Only process if it was a tap, not a drag
+        if (!this.isTouchMoving) {
+            // Calculate touch duration
+            const touchDuration = now - this.touchStartTime;
+
+            // Only process taps shorter than 500ms
+            if (touchDuration < 500) {
+                console.log('Processing touch as click');
+
+                // Use the last known touch position
+                // Update the raycaster
+                this.raycaster.setFromCamera(this.mouse, this.sceneManager.camera.getCamera());
+
+                // Process raycast with isClicking=true
+                this.sceneManager.processRaycast(this.raycaster, true);
+
+                // Play a click sound if available
+                if (this.audioManager && this.audioManager.playUISound) {
+                    this.audioManager.playUISound('click');
+                }
+            }
+        }
+    }
+
+    /**
+     * Check if an element is a UI control that should handle its own touch events
+     * @param {HTMLElement} element - The element to check
+     * @returns {boolean} - True if the element is a UI control
+     */
+    isUIElement(element) {
+        // Check if the element or any of its parents are UI controls
+        let current = element;
+        while (current) {
+            // Check for common UI element classes and IDs
+            if (current.id === 'options-button' ||
+                current.id === 'settings-menu' ||
+                current.classList.contains('virtual-joystick') ||
+                current.classList.contains('throttle-lever') ||
+                current.classList.contains('fire-button') ||
+                current.tagName === 'BUTTON' ||
+                current.tagName === 'INPUT' ||
+                current.tagName === 'SELECT' ||
+                current.tagName === 'A') {
+                return true;
+            }
+            current = current.parentElement;
+        }
+        return false;
     }
 
     /**

@@ -31,7 +31,7 @@ export default class SettingsMenu {
         this.menu.id = 'settings-menu';
 
         // Style the menu - smaller for mobile
-        this.menu.style.position = 'absolute';
+        this.menu.style.position = 'fixed';
         this.menu.style.top = '50%';
         this.menu.style.left = '50%';
         this.menu.style.transform = 'translate(-50%, -50%)';
@@ -40,7 +40,7 @@ export default class SettingsMenu {
         this.menu.style.padding = this.isMobile ? '15px' : '20px';
         this.menu.style.borderRadius = '10px';
         this.menu.style.boxShadow = '0 0 20px rgba(0, 0, 0, 0.6)';
-        this.menu.style.zIndex = '1000';
+        this.menu.style.zIndex = '10001';
         this.menu.style.minWidth = this.isMobile ? '260px' : '300px';
         this.menu.style.display = 'none';
         this.menu.style.textAlign = 'center';
@@ -48,6 +48,10 @@ export default class SettingsMenu {
         this.menu.style.backdropFilter = 'blur(8px)';
         this.menu.style.border = '1px solid rgba(255, 255, 255, 0.1)';
         this.menu.style.fontSize = this.isMobile ? '12px' : '14px';
+        this.menu.style.pointerEvents = 'auto';
+        this.menu.style.touchAction = 'manipulation';
+        this.menu.style.userSelect = 'none';
+        this.menu.style.webkitTapHighlightColor = 'transparent';
 
         // Update menu content with quality settings
         this.updateMenuContent();
@@ -156,7 +160,36 @@ export default class SettingsMenu {
         const addSafeListener = (id, callback) => {
             const element = document.getElementById(id);
             if (element) {
-                element.addEventListener('click', callback);
+                // Add click event
+                element.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    callback();
+                });
+
+                // Add touchend event for mobile
+                element.addEventListener('touchend', (e) => {
+                    console.log(`Touch end on ${id}`);
+                    e.preventDefault();
+                    e.stopPropagation();
+                    callback();
+                }, { passive: false });
+
+                // Add touchstart for visual feedback
+                element.addEventListener('touchstart', (e) => {
+                    console.log(`Touch start on ${id}`);
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, { passive: false });
+
+                // Add mobile-friendly styles
+                if (this.isMobile) {
+                    element.style.touchAction = 'manipulation';
+                    element.style.userSelect = 'none';
+                    element.style.webkitTapHighlightColor = 'transparent';
+                    element.style.cursor = 'pointer';
+                    element.style.minHeight = '44px'; // Minimum touch target size
+                }
             } else {
                 console.warn(`Element with ID ${id} not found`);
             }
@@ -272,8 +305,17 @@ export default class SettingsMenu {
         this.menu.style.display = 'block';
         this.isVisible = true;
 
+        // Ensure the menu is the last child of the body to be on top
+        document.body.removeChild(this.menu);
+        document.body.appendChild(this.menu);
+
         // Emit an event to indicate the settings menu is shown
         this.eventBus.emit('settings.shown');
+
+        // Add a click/touch outside listener to close the menu
+        setTimeout(() => {
+            this.addOutsideClickListener();
+        }, 100);
     }
 
     /**
@@ -283,7 +325,41 @@ export default class SettingsMenu {
         this.menu.style.display = 'none';
         this.isVisible = false;
 
+        // Remove the outside click listener
+        this.removeOutsideClickListener();
+
         // Emit an event to indicate the settings menu is hidden
         this.eventBus.emit('settings.hidden');
+    }
+
+    /**
+     * Add a listener to close the menu when clicking/touching outside
+     */
+    addOutsideClickListener() {
+        this.outsideClickHandler = (e) => {
+            // If the click is outside the menu and not on the options button, close it
+            if (this.isVisible && this.menu && !this.menu.contains(e.target)) {
+                // Check if the click is on the options button (which has its own handler)
+                const optionsButton = document.getElementById('options-button');
+                if (!optionsButton || !optionsButton.contains(e.target)) {
+                    console.log('Outside click/touch detected, closing menu');
+                    this.hide();
+                }
+            }
+        };
+
+        // Use capture phase to ensure we get the events before they're stopped
+        document.addEventListener('click', this.outsideClickHandler, true);
+        document.addEventListener('touchend', this.outsideClickHandler, { capture: true, passive: false });
+    }
+
+    /**
+     * Remove the outside click listener
+     */
+    removeOutsideClickListener() {
+        if (this.outsideClickHandler) {
+            document.removeEventListener('click', this.outsideClickHandler, true);
+            document.removeEventListener('touchend', this.outsideClickHandler, { capture: true });
+        }
     }
 } 

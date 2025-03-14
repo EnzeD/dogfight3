@@ -225,7 +225,7 @@ function startGame(options) {
 window.addEventListener('load', () => {
     // Check if user is on a mobile device
     if (isMobileDevice()) {
-        console.log('Mobile device detected, showing warning but allowing game access with optimized settings');
+        console.log('Mobile device detected, optimizing settings');
 
         // Ensure low quality setting for mobile users to prevent crashes
         try {
@@ -245,7 +245,8 @@ window.addEventListener('load', () => {
             console.error('Error setting quality for mobile:', e);
         }
 
-        showMobileMessage();
+        // Skip the mobile message and directly start the game
+        startPreviewAndLanding();
     } else {
         startPreviewAndLanding();
     }

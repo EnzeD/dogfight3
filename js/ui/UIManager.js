@@ -82,33 +82,75 @@ export default class UIManager {
     createOptionsButton() {
         this.optionsButton = document.createElement('button');
         this.optionsButton.id = 'options-button';
-
-        // Style the button
-        this.optionsButton.style.position = 'absolute';
-        this.optionsButton.style.top = '10px';
-        this.optionsButton.style.right = '10px';
-        this.optionsButton.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-        this.optionsButton.style.color = 'white';
-        this.optionsButton.style.border = '1px solid rgba(255, 255, 255, 0.2)';
-        this.optionsButton.style.borderRadius = '8px';
-        this.optionsButton.style.padding = '6px 10px';
-        this.optionsButton.style.fontSize = '12px';
-        this.optionsButton.style.fontFamily = 'Arial, sans-serif';
-        this.optionsButton.style.boxShadow = '0 2px 5px rgba(0, 0, 0, 0.2)';
-        this.optionsButton.style.cursor = 'pointer';
-        this.optionsButton.style.zIndex = '1001';
-        this.optionsButton.style.backdropFilter = 'blur(5px)';
-
-        // Set button text
         this.optionsButton.textContent = 'Options';
 
-        // Add click event listener
-        this.optionsButton.addEventListener('click', () => {
-            this.settingsMenu.show();
+        // Add click event listener with touchend support
+        this.optionsButton.addEventListener('click', (e) => {
+            console.log('Options button clicked');
+            e.preventDefault(); // Prevent default behavior
+            e.stopPropagation(); // Stop event propagation
+            this.toggleSettingsMenu();
         });
+
+        // Add touchend event specifically for mobile
+        this.optionsButton.addEventListener('touchend', (e) => {
+            console.log('Options button touched');
+            e.preventDefault(); // Prevent default behavior
+            e.stopPropagation(); // Stop event propagation
+            this.toggleSettingsMenu();
+        }, { passive: false });
+
+        // Add touchstart event to provide visual feedback
+        this.optionsButton.addEventListener('touchstart', (e) => {
+            console.log('Options button touch started');
+            e.preventDefault(); // Prevent default behavior
+            e.stopPropagation(); // Stop event propagation
+            // Visual feedback is handled by CSS :active state
+        }, { passive: false });
 
         // Add to document
         document.body.appendChild(this.optionsButton);
+
+        // Ensure the button is always on top by reattaching it periodically
+        this.ensureOptionsButtonIsOnTop();
+    }
+
+    /**
+     * Toggle the settings menu (open if closed, close if open)
+     */
+    toggleSettingsMenu() {
+        if (this.settingsMenu) {
+            if (this.settingsMenu.isVisible) {
+                console.log('Closing settings menu');
+                this.settingsMenu.hide();
+            } else {
+                console.log('Opening settings menu');
+                this.settingsMenu.show();
+            }
+        }
+    }
+
+    /**
+     * Ensure the options button is always on top
+     */
+    ensureOptionsButtonIsOnTop() {
+        // Reattach the button to the body every 2 seconds to ensure it's on top
+        setInterval(() => {
+            if (this.optionsButton && document.body.contains(this.optionsButton)) {
+                // Remove and reattach to ensure it's the last child (on top)
+                document.body.removeChild(this.optionsButton);
+                document.body.appendChild(this.optionsButton);
+            }
+        }, 2000);
+
+        // Also reattach after any orientation change
+        window.addEventListener('resize', () => {
+            if (this.optionsButton && document.body.contains(this.optionsButton)) {
+                // Remove and reattach to ensure it's the last child (on top)
+                document.body.removeChild(this.optionsButton);
+                document.body.appendChild(this.optionsButton);
+            }
+        });
     }
 
     /**

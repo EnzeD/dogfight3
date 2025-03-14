@@ -1271,3 +1271,193 @@ canvas {
         right: max(80px, env(safe-area-inset-right) + 20px);
     }
 }
+
+/* Landscape orientation adjustments for throttle */
+@media (orientation: landscape) {
+    .throttle-lever {
+        /* Move to the left side of the screen in landscape mode */
+        left: 20px;
+        transform: none;
+        bottom: 100px;
+        height: 150px;
+        /* Shorter in landscape mode */
+    }
+
+    .throttle-track {
+        height: 130px;
+        /* Adjust track height for landscape */
+    }
+
+    /* Make the label appear to the right of the lever instead of below */
+    .throttle-label {
+        bottom: 50%;
+        left: 100%;
+        width: auto;
+        transform: translateY(50%);
+        margin-left: 10px;
+    }
+
+    /* Adjust boost indicator position */
+    .throttle-boost-indicator {
+        top: auto;
+        bottom: 50%;
+        left: 100%;
+        width: auto;
+        transform: translateY(-100%);
+        margin-left: 10px;
+    }
+}
+
+/* iPhone fix for landscape orientation */
+@media only screen and (max-width: 900px) and (max-height: 450px) and (orientation: landscape) {
+    .throttle-lever {
+        left: 15px;
+        bottom: 80px;
+        height: 120px;
+    }
+
+    .throttle-track {
+        height: 100px;
+    }
+}
+
+/* Safe area adjustments for notched devices */
+@supports (padding: env(safe-area-inset-bottom)) {
+    .virtual-joystick.left {
+        bottom: calc(100px + env(safe-area-inset-bottom));
+        left: max(50px, env(safe-area-inset-left) + 20px);
+    }
+
+    .virtual-joystick.right {
+        bottom: calc(100px + env(safe-area-inset-bottom));
+        right: max(50px, env(safe-area-inset-right) + 20px);
+    }
+
+    .throttle-lever {
+        bottom: calc(60px + env(safe-area-inset-bottom));
+    }
+
+    /* Adjust throttle position in landscape for notched devices */
+    @media (orientation: landscape) {
+        .throttle-lever {
+            left: max(20px, env(safe-area-inset-left) + 5px);
+            bottom: calc(100px + env(safe-area-inset-bottom));
+        }
+    }
+
+    .fire-button.left {
+        bottom: calc(240px + env(safe-area-inset-bottom));
+        left: max(80px, env(safe-area-inset-left) + 20px);
+    }
+
+    .fire-button.right {
+        bottom: calc(240px + env(safe-area-inset-bottom));
+        right: max(80px, env(safe-area-inset-right) + 20px);
+    }
+}
+
+/* Global fixes for mobile touch interactions */
+button,
+a,
+input,
+select,
+.ad-container,
+[role="button"],
+[tabindex="0"] {
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+    cursor: pointer !important;
+}
+
+/* Ensure minimum touch target size for mobile */
+@media (max-width: 768px) {
+
+    button,
+    a,
+    input[type="button"],
+    input[type="submit"],
+    [role="button"] {
+        min-height: 44px !important;
+        min-width: 44px !important;
+        padding: 10px !important;
+        font-size: 16px !important;
+    }
+}
+
+/* Fix for settings menu on mobile */
+#settings-menu {
+    position: fixed !important;
+    z-index: 10001 !important;
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+    user-select: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+}
+
+/* Fix for ads on mobile */
+.ad-container,
+iframe[src*="ad"],
+div[id*="ad"],
+div[class*="ad"] {
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+    z-index: 9000 !important;
+}
+
+/* Ensure no invisible overlays block interactions */
+body::before {
+    content: "";
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: -1;
+    pointer-events: none;
+}
+
+/* Options button styles */
+#options-button {
+    position: fixed !important;
+    top: 15px !important;
+    right: 15px !important;
+    z-index: 10000 !important;
+    /* Highest z-index to ensure it's on top */
+    pointer-events: auto !important;
+    /* Ensure it receives pointer events */
+    touch-action: manipulation !important;
+    /* Improve touch handling */
+    user-select: none !important;
+    /* Prevent text selection */
+    -webkit-tap-highlight-color: transparent !important;
+    /* Remove tap highlight on iOS */
+    padding: 10px 15px !important;
+    /* Larger padding for easier tapping */
+    font-size: 16px !important;
+    /* Larger font size */
+    background-color: rgba(0, 0, 0, 0.8) !important;
+    color: white !important;
+    border: 2px solid rgba(255, 255, 255, 0.4) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) !important;
+    cursor: pointer !important;
+    font-family: Arial, sans-serif !important;
+    backdrop-filter: blur(5px) !important;
+}
+
+/* Make the options button more visible on hover/active */
+#options-button:hover,
+#options-button:active {
+    background-color: rgba(50, 50, 50, 0.9) !important;
+    border-color: rgba(255, 255, 255, 0.6) !important;
+    transform: scale(1.05) !important;
+}
+
+/* Safe area adjustments for notched devices */
+@supports (padding: env(safe-area-inset-bottom)) {
+    #options-button {
+        top: max(15px, env(safe-area-inset-top) + 5px) !important;
+        right: max(15px, env(safe-area-inset-right) + 5px) !important;
+    }
+}

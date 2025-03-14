@@ -10,9 +10,9 @@ export default class InputManager {
 
         // Mobile touch state
         this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
-        this.leftStick = { x: 0, y: 0, active: false, id: null, startX: 0, startY: 0 };
-        this.rightStick = { x: 0, y: 0, active: false, id: null, startX: 0, startY: 0 };
-        this.throttleLever = { y: 0, active: false, id: null, startY: 0, currentY: 0 };
+        this.leftStick = { x: 0, y: 0, active: false, id: null, startX: 0, startY: 0, lastUpdateTime: 0 };
+        this.rightStick = { x: 0, y: 0, active: false, id: null, startX: 0, startY: 0, lastUpdateTime: 0 };
+        this.throttleLever = { y: 0, active: false, id: null, startY: 0, currentY: 0, lastUpdateTime: 0 };
         this.joystickElements = {
             left: document.getElementById('leftJoystick'),
             right: document.getElementById('rightJoystick')
@@ -26,6 +26,9 @@ export default class InputManager {
             right: document.getElementById('rightFireButton')
         };
 
+        // Track current orientation
+        this.isLandscape = window.innerWidth > window.innerHeight;
+
         // Add analog control values for mobile
         this.analogControls = {
             roll: 0,      // -1 to 1 (left to right)
@@ -35,6 +38,9 @@ export default class InputManager {
             boost: false, // Boolean for boost state
             targetRollAngle: 0 // Target roll angle in degrees (-45 to 45)
         };
+
+        // Track active touch IDs to detect orphaned touches
+        this.activeTouchIds = new Set();
 
         // Disable camera control on mobile
         if (this.isMobile) {
@@ -103,9 +109,148 @@ export default class InputManager {
                 left: document.getElementById('leftFireButton'),
                 right: document.getElementById('rightFireButton')
             };
+
+            // Add global touch end listener to catch any missed touch ends
+            window.addEventListener('touchend', this.onGlobalTouchEnd.bind(this), true);
+            window.addEventListener('touchcancel', this.onGlobalTouchEnd.bind(this), true);
+
+            // Add visibility change listener to reset controls when app loses focus
+            document.addEventListener('visibilitychange', this.onVisibilityChange.bind(this));
+
+            // Add orientation change listener
+            window.addEventListener('resize', this.onOrientationChange.bind(this));
+
+            // Initial orientation check
+            this.checkOrientation();
         }
 
         console.log('InputManager initialized');
+    }
+
+    /**
+     * Handle orientation changes
+     */
+    onOrientationChange() {
+        this.checkOrientation();
+    }
+
+    /**
+     * Check and update the current orientation
+     */
+    checkOrientation() {
+        const wasLandscape = this.isLandscape;
+        this.isLandscape = window.innerWidth > window.innerHeight;
+
+        // If orientation changed, reset controls to prevent issues
+        if (wasLandscape !== this.isLandscape) {
+            console.log(`Orientation changed to ${this.isLandscape ? 'landscape' : 'portrait'}`);
+
+            // Reset joysticks when orientation changes
+            this.resetJoystick('left');
+            this.resetJoystick('right');
+
+            // Don't reset throttle position, just mark as inactive
+            if (this.throttleLever.active) {
+                this.throttleLever.active = false;
+                this.throttleLever.id = null;
+            }
+        }
+    }
+
+    /**
+     * Reset a specific joystick
+     * @param {string} side - 'left' or 'right'
+     */
+    resetJoystick(side) {
+        if (side === 'left') {
+            this.leftStick.active = false;
+            this.leftStick.id = null;
+            this.leftStick.x = 0;
+            this.leftStick.y = 0;
+            this.resetJoystickVisual('left');
+
+            // Reset analog controls
+            this.analogControls.roll = 0;
+            this.analogControls.targetRollAngle = 0;
+
+            // Emit the reset target roll value
+            this.eventBus.emit('input.analog', {
+                type: 'targetRoll',
+                value: 0
+            });
+
+            // Clear associated keys
+            this.keysPressed['a'] = false;
+            this.keysPressed['d'] = false;
+        } else if (side === 'right') {
+            this.rightStick.active = false;
+            this.rightStick.id = null;
+            this.rightStick.x = 0;
+            this.rightStick.y = 0;
+            this.resetJoystickVisual('right');
+
+            // Reset analog controls
+            this.analogControls.yaw = 0;
+            this.analogControls.pitch = 0;
+
+            // Clear associated keys
+            this.keysPressed['arrowup'] = false;
+            this.keysPressed['arrowdown'] = false;
+            this.keysPressed['arrowleft'] = false;
+            this.keysPressed['arrowright'] = false;
+        }
+    }
+
+    /**
+     * Handle visibility change events (app going to background/foreground)
+     */
+    onVisibilityChange() {
+        if (document.hidden) {
+            // App is going to background, reset all controls
+            this.resetAllControls();
+        }
+    }
+
+    /**
+     * Reset all controls to their default state
+     */
+    resetAllControls() {
+        // Reset joysticks
+        this.resetJoystick('left');
+        this.resetJoystick('right');
+
+        // Reset fire buttons
+        this.keysPressed[' '] = false;
+        if (this.fireButtons.left) this.fireButtons.left.classList.remove('active');
+        if (this.fireButtons.right) this.fireButtons.right.classList.remove('active');
+
+        // Don't reset throttle position, just mark it as inactive
+        this.throttleLever.active = false;
+        this.throttleLever.id = null;
+
+        // Clear all active touch IDs
+        this.activeTouchIds.clear();
+    }
+
+    /**
+     * Global touch end handler to catch any missed touch ends
+     */
+    onGlobalTouchEnd(event) {
+        // Process all changed touches
+        for (let touch of event.changedTouches) {
+            // Remove this touch ID from our tracking set
+            this.activeTouchIds.delete(touch.identifier);
+
+            // If this was a joystick touch that wasn't properly handled, reset it
+            if (touch.identifier === this.leftStick.id) {
+                this.resetJoystick('left');
+            } else if (touch.identifier === this.rightStick.id) {
+                this.resetJoystick('right');
+            } else if (touch.identifier === this.throttleLever.id) {
+                this.throttleLever.active = false;
+                this.throttleLever.id = null;
+            }
+        }
     }
 
     setupTouchControls() {
@@ -166,6 +311,9 @@ export default class InputManager {
             const x = touch.clientX;
             const y = touch.clientY;
 
+            // Add this touch ID to our tracking set
+            this.activeTouchIds.add(touch.identifier);
+
             // Check for fire button touches
             if (y < window.innerHeight - 180) { // Above joysticks
                 const isLeftSide = x < window.innerWidth / 2;
@@ -189,6 +337,7 @@ export default class InputManager {
                     this.throttleLever.id = touch.identifier;
                     this.throttleLever.startY = y;
                     this.throttleLever.currentY = y;
+                    this.throttleLever.lastUpdateTime = performance.now();
                     this.updateThrottlePosition(y);
                     return;
                 }
@@ -200,6 +349,7 @@ export default class InputManager {
                 this.leftStick.id = touch.identifier;
                 this.leftStick.startX = x;
                 this.leftStick.startY = y;
+                this.leftStick.lastUpdateTime = performance.now();
                 this.updateJoystickVisual('left', x, y, x, y);
             }
             // Right side controls pitch and yaw
@@ -208,6 +358,7 @@ export default class InputManager {
                 this.rightStick.id = touch.identifier;
                 this.rightStick.startX = x;
                 this.rightStick.startY = y;
+                this.rightStick.lastUpdateTime = performance.now();
                 this.updateJoystickVisual('right', x, y, x, y);
             }
         }
@@ -227,6 +378,9 @@ export default class InputManager {
             const y = touch.clientY;
 
             if (touch.identifier === this.leftStick.id) {
+                // Update the last update time to prevent timeout reset
+                this.leftStick.lastUpdateTime = performance.now();
+
                 // Calculate normalized delta for left stick
                 const dx = (x - this.leftStick.startX) / 60; // Adjust divisor for sensitivity
                 const dy = (y - this.leftStick.startY) / 60;
@@ -285,6 +439,9 @@ export default class InputManager {
                 });
             }
             else if (touch.identifier === this.rightStick.id) {
+                // Update the last update time to prevent timeout reset
+                this.rightStick.lastUpdateTime = performance.now();
+
                 // Calculate normalized delta for right stick (pitch and yaw)
                 const dx = (x - this.rightStick.startX) / 60;
                 const dy = (y - this.rightStick.startY) / 60;
@@ -306,60 +463,49 @@ export default class InputManager {
                 this.keysPressed['arrowright'] = this.rightStick.x > 0.3;  // Push right to yaw right
             }
             else if (touch.identifier === this.throttleLever.id) {
+                // Update the last update time
+                this.throttleLever.lastUpdateTime = performance.now();
                 this.throttleLever.currentY = y;
                 this.updateThrottlePosition(y);
             }
         }
-    }
 
-    /**
-     * Update the throttle position based on touch position
-     * @param {number} touchY - The Y position of the touch
-     */
-    updateThrottlePosition(touchY) {
-        if (!this.throttleElement.lever || !this.throttleElement.handle) return;
+        // Check if we have any active touches for our controls
+        // If not, make sure the controls are reset
+        let leftStickFound = false;
+        let rightStickFound = false;
+        let throttleFound = false;
 
-        const leverRect = this.throttleElement.lever.getBoundingClientRect();
-        const trackHeight = leverRect.height - 30; // Subtract handle height
-
-        // Calculate position within the track (0 at bottom, 1 at top)
-        let relativeY = (leverRect.bottom - touchY) / trackHeight;
-        relativeY = Math.max(0, Math.min(1, relativeY));
-
-        // Update handle position
-        const handlePosition = relativeY * trackHeight;
-        this.throttleElement.handle.style.bottom = `${handlePosition}px`;
-
-        // Update throttle value (0 to 1)
-        this.analogControls.throttle = relativeY;
-
-        // Check if boost is active (when throttle is at max)
-        const isBoost = relativeY > 0.95;
-        if (isBoost !== this.analogControls.boost) {
-            this.analogControls.boost = isBoost;
-            if (isBoost) {
-                this.throttleElement.lever.classList.add('throttle-boost-active');
-                this.keysPressed['shift'] = true;
-            } else {
-                this.throttleElement.lever.classList.remove('throttle-boost-active');
-                this.keysPressed['shift'] = false;
-            }
+        for (let i = 0; i < event.touches.length; i++) {
+            const touch = event.touches[i];
+            if (touch.identifier === this.leftStick.id) leftStickFound = true;
+            if (touch.identifier === this.rightStick.id) rightStickFound = true;
+            if (touch.identifier === this.throttleLever.id) throttleFound = true;
         }
 
-        // Set throttle keys based on position
-        this.keysPressed['w'] = relativeY > 0.1; // Throttle up when not at minimum
-        this.keysPressed['s'] = relativeY < 0.1; // Throttle down only at minimum
+        // If a control's touch is no longer in the touches list, reset it
+        if (this.leftStick.active && !leftStickFound) {
+            console.log('Left joystick touch lost, resetting');
+            this.resetJoystick('left');
+        }
 
-        // Emit throttle value
-        this.eventBus.emit('input.analog', {
-            type: 'throttle',
-            value: this.analogControls.throttle,
-            boost: this.analogControls.boost
-        });
+        if (this.rightStick.active && !rightStickFound) {
+            console.log('Right joystick touch lost, resetting');
+            this.resetJoystick('right');
+        }
+
+        if (this.throttleLever.active && !throttleFound) {
+            console.log('Throttle touch lost, marking as inactive');
+            this.throttleLever.active = false;
+            this.throttleLever.id = null;
+        }
     }
 
     onTouchEnd(event) {
         for (let touch of event.changedTouches) {
+            // Remove this touch ID from our tracking set
+            this.activeTouchIds.delete(touch.identifier);
+
             // Check if this was a fire button touch
             const isLeftSide = touch.clientX < window.innerWidth / 2;
             if (touch.clientY < window.innerHeight - 180) { // Above joysticks
@@ -370,12 +516,13 @@ export default class InputManager {
                     touch.clientY >= buttonRect.top && touch.clientY <= buttonRect.bottom) {
                     this.keysPressed[' '] = false;
                     fireButton.classList.remove('active');
-                    return;
+                    continue; // Use continue instead of return to process other touches
                 }
             }
 
             if (touch.identifier === this.leftStick.id) {
                 this.leftStick.active = false;
+                this.leftStick.id = null;
                 this.leftStick.x = 0;
                 this.leftStick.y = 0;
                 this.resetJoystickVisual('left');
@@ -398,6 +545,7 @@ export default class InputManager {
             }
             else if (touch.identifier === this.rightStick.id) {
                 this.rightStick.active = false;
+                this.rightStick.id = null;
                 this.rightStick.x = 0;
                 this.rightStick.y = 0;
                 this.resetJoystickVisual('right');
@@ -414,6 +562,7 @@ export default class InputManager {
             }
             else if (touch.identifier === this.throttleLever.id) {
                 this.throttleLever.active = false;
+                this.throttleLever.id = null;
                 // Note: We don't reset the throttle position when touch ends
                 // This allows the throttle to stay where it was set
             }
@@ -586,5 +735,51 @@ export default class InputManager {
             }
         }
         return false;
+    }
+
+    /**
+     * Update the throttle position based on touch position
+     * @param {number} touchY - The Y position of the touch
+     */
+    updateThrottlePosition(touchY) {
+        if (!this.throttleElement.lever || !this.throttleElement.handle) return;
+
+        const leverRect = this.throttleElement.lever.getBoundingClientRect();
+        const trackHeight = leverRect.height - 30; // Subtract handle height
+
+        // Calculate position within the track (0 at bottom, 1 at top)
+        let relativeY = (leverRect.bottom - touchY) / trackHeight;
+        relativeY = Math.max(0, Math.min(1, relativeY));
+
+        // Update handle position
+        const handlePosition = relativeY * trackHeight;
+        this.throttleElement.handle.style.bottom = `${handlePosition}px`;
+
+        // Update throttle value (0 to 1)
+        this.analogControls.throttle = relativeY;
+
+        // Check if boost is active (when throttle is at max)
+        const isBoost = relativeY > 0.95;
+        if (isBoost !== this.analogControls.boost) {
+            this.analogControls.boost = isBoost;
+            if (isBoost) {
+                this.throttleElement.lever.classList.add('throttle-boost-active');
+                this.keysPressed['shift'] = true;
+            } else {
+                this.throttleElement.lever.classList.remove('throttle-boost-active');
+                this.keysPressed['shift'] = false;
+            }
+        }
+
+        // Set throttle keys based on position
+        this.keysPressed['w'] = relativeY > 0.1; // Throttle up when not at minimum
+        this.keysPressed['s'] = relativeY < 0.1; // Throttle down only at minimum
+
+        // Emit throttle value
+        this.eventBus.emit('input.analog', {
+            type: 'throttle',
+            value: this.analogControls.throttle,
+            boost: this.analogControls.boost
+        });
     }
 } 

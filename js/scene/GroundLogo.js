@@ -17,7 +17,7 @@ export default class GroundLogo {
 
         // Load default texture with fallback
         this.defaultTexture = this.createFallbackTexture();
-        new THREE.TextureLoader().load('assets/textures/your_ad_here.png',
+        new THREE.TextureLoader().load('assets/textures/village1.png',
             // Success callback
             (texture) => {
                 this.defaultTexture = texture;
