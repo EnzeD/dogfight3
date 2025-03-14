@@ -1,6 +1,7 @@
 // WW2 Dogfight Arena - Main Entry Point
 import Game from './core/Game.js';
 import LandingPage from './ui/LandingPage.js';
+import QualitySettings from './utils/QualitySettings.js';
 
 let previewGame = null;
 let activeGame = null;
@@ -30,11 +31,22 @@ function isMobileDevice() {
 function showMobileMessage() {
     const messageContainer = document.createElement('div');
     messageContainer.className = 'mobile-message';
+
+    // Get current quality setting
+    const qualitySettings = new QualitySettings();
+    const currentQuality = qualitySettings.getQuality();
+
     messageContainer.innerHTML = `
         <div class="mobile-message-content">
             <h2>Mobile Device Detected</h2>
-            <p>You're playing WW2 Dogfight Arena on a mobile device. The game is designed for desktop computers with keyboard and mouse controls.</p>
-            <p>You may continue playing, but the experience might not be optimal on mobile.</p>
+            <p>You're playing WW2 Dogfight Arena on a mobile device. The game has been optimized for mobile.</p>
+            <p>Current quality setting: <strong>${currentQuality.toUpperCase()}</strong></p>
+            <p>We recommend either:</p>
+            <ul style="text-align: left; padding-left: 30px; margin: 5px 0;">
+                <li><strong>Low:</strong> Best performance, basic graphics</li>
+                <li><strong>Medium:</strong> High-quality clouds, more enemies (20), with anti-aliasing and shadows</li>
+            </ul>
+            <p>You can change settings in the game menu (ESC key).</p>
             <button id="continue-button">Continue to Game</button>
         </div>
     `;
@@ -213,7 +225,26 @@ function startGame(options) {
 window.addEventListener('load', () => {
     // Check if user is on a mobile device
     if (isMobileDevice()) {
-        console.log('Mobile device detected, showing warning but allowing game access');
+        console.log('Mobile device detected, showing warning but allowing game access with optimized settings');
+
+        // Ensure low quality setting for mobile users to prevent crashes
+        try {
+            // Force low quality for mobile - only if user hasn't explicitly set a quality preference
+            const qualitySettings = new QualitySettings();
+            if (!localStorage.getItem('dogfight_quality')) {
+                console.log('Setting quality to low for mobile device');
+                qualitySettings.setQuality('low');
+            } else {
+                console.log('Using saved quality setting: ' + qualitySettings.getQuality());
+                // If user has high quality saved, recommend low
+                if (qualitySettings.getQuality() === 'high') {
+                    console.warn('High quality detected on mobile. Consider switching to low quality for better performance.');
+                }
+            }
+        } catch (e) {
+            console.error('Error setting quality for mobile:', e);
+        }
+
         showMobileMessage();
     } else {
         startPreviewAndLanding();

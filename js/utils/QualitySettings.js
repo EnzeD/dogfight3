@@ -4,79 +4,96 @@ export default class QualitySettings {
         // Define quality levels
         this.qualityLevels = ['low', 'medium', 'high'];
 
-        // Set default quality (medium)
-        this.currentQuality = this.loadSavedQuality() || 'medium';
+        // Set default quality (medium) or auto-detect for mobile
+        const isMobile = this.detectMobileDevice();
+        this.currentQuality = this.loadSavedQuality() || (isMobile ? 'low' : 'medium');
+
+        if (isMobile && !this.loadSavedQuality()) {
+            console.log('Mobile device detected, automatically setting quality to low');
+        }
 
         // Quality presets
         this.presets = {
-            // Low quality settings
+            // Low quality settings - Optimized for mobile
             low: {
                 clouds: {
-                    count: 50,
-                    segmentsX: 4,
-                    segmentsY: 3,
+                    count: 20,                 // Drastically reduced from 50
+                    segmentsX: 3,              // Reduced from 4
+                    segmentsY: 2,              // Reduced from 3
                     massive: false,
-                    big: 5,         // % chance for big clouds
-                    medium: 35,     // % chance for medium clouds
-                    small: 60       // % chance for small clouds
+                    big: 3,                    // Reduced from 5
+                    medium: 25,                // Reduced from 35
+                    small: 72                  // Increased from 60
                 },
                 trees: {
                     count: {
-                        pine: 6,
-                        oak: 5,
-                        palm: 3,
-                        birch: 4,
-                        willow: 2
+                        pine: 3,               // Reduced from 6
+                        oak: 2,                // Reduced from 5
+                        palm: 1,               // Reduced from 3
+                        birch: 2,              // Reduced from 4
+                        willow: 0              // Removed
                     },
-                    segments: 4,    // cylinder/cone segments
-                    foliageDetail: 1 // subdivisions for foliage
+                    segments: 3,               // Reduced from 4
+                    foliageDetail: 0           // Minimum detail
                 },
                 villages: {
-                    count: 1,
-                    housesPerVillage: 6
+                    count: 0,                  // Removed for mobile
+                    housesPerVillage: 3        // Reduced from 6
                 },
                 skyscrapers: {
-                    count: 5,
-                    segments: 4
+                    count: 2,                  // Reduced from 5
+                    segments: 3                // Reduced from 4
                 },
-                fogDensity: 0.0008  // Denser fog to hide distant objects
+                fogDensity: 0.001,             // Increased to hide more distant objects
+                shadowsEnabled: false,         // Disable shadows
+                effectsQuality: 'minimal',     // Minimal effects
+                maxVisibleEnemies: 3,          // Limit visible enemies
+                drawDistance: 2000,            // Shorter draw distance
+                textureQuality: 'low',         // Low texture quality
+                antialiasing: false            // No anti-aliasing
             },
 
-            // Medium quality settings (default)
+            // Medium quality settings - Based on low settings but with better visuals
             medium: {
                 clouds: {
-                    count: 125,
-                    segmentsX: 6,
-                    segmentsY: 4,
-                    massive: true,
-                    massiveChance: 2, // % chance for massive clouds
-                    big: 10,       // % chance for big clouds
-                    medium: 38,    // % chance for medium clouds
-                    small: 50      // % chance for small clouds
+                    count: 300,                 // Same as high
+                    segmentsX: 8,               // Same as high
+                    segmentsY: 6,               // Same as high
+                    massive: true,              // Same as high
+                    massiveChance: 5,           // Same as high
+                    big: 15,                    // Same as high
+                    medium: 35,                 // Same as high
+                    small: 45                   // Same as high
                 },
                 trees: {
                     count: {
-                        pine: 15,
-                        oak: 12,
-                        palm: 8,
-                        birch: 10,
-                        willow: 5
+                        pine: 3,               // Same as low
+                        oak: 2,                // Same as low
+                        palm: 1,               // Same as low
+                        birch: 2,              // Same as low
+                        willow: 0              // Same as low
                     },
-                    segments: 6,    // cylinder/cone segments
-                    foliageDetail: 2 // subdivisions for foliage
+                    segments: 3,               // Same as low
+                    foliageDetail: 0           // Same as low
                 },
                 villages: {
-                    count: 2,
-                    housesPerVillage: 10
+                    count: 0,                  // Same as low
+                    housesPerVillage: 3        // Same as low
                 },
                 skyscrapers: {
-                    count: 10,
-                    segments: 6
+                    count: 2,                  // Same as low
+                    segments: 3                // Same as low
                 },
-                fogDensity: 0.0006
+                fogDensity: 0.001,             // Same as low
+                shadowsEnabled: true,          // Enable shadows (difference from low)
+                effectsQuality: 'minimal',     // Same as low
+                maxVisibleEnemies: 20,         // Increased from 3 to 20 as requested
+                drawDistance: 2000,            // Same as low
+                textureQuality: 'low',         // Same as low
+                antialiasing: true             // Enable anti-aliasing (difference from low)
             },
 
-            // High quality settings
+            // High quality settings - Unchanged
             high: {
                 clouds: {
                     count: 300,
@@ -107,9 +124,34 @@ export default class QualitySettings {
                     count: 15,
                     segments: 8
                 },
-                fogDensity: 0.0004
+                fogDensity: 0.0004,
+                shadowsEnabled: true,           // Enable shadows
+                effectsQuality: 'high',         // Full effects
+                maxVisibleEnemies: 8,           // Maximum enemies
+                drawDistance: 5000,             // Long draw distance
+                textureQuality: 'high',         // High texture quality
+                antialiasing: true              // Full anti-aliasing
             }
         };
+    }
+
+    /**
+     * Detect if user is on a mobile device
+     * @returns {boolean} True if mobile device is detected
+     */
+    detectMobileDevice() {
+        // Check for mobile user agent
+        const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+        const isMobileUserAgent = mobileRegex.test(navigator.userAgent);
+
+        // Check for touch screen and small viewport
+        const hasTouchScreen = (
+            ('maxTouchPoints' in navigator && navigator.maxTouchPoints > 0) ||
+            ('msMaxTouchPoints' in navigator && navigator.msMaxTouchPoints > 0)
+        );
+        const isSmallScreen = window.innerWidth < 768;
+
+        return isMobileUserAgent || (hasTouchScreen && isSmallScreen);
     }
 
     /**

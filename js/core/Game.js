@@ -384,14 +384,36 @@ export default class Game {
             return;
         }
 
-        console.log(`Spawning ${count} enemy planes...`);
+        // Get quality settings for max enemy count
+        const qualitySettings = this.sceneManager.qualitySettings.getCurrentSettings();
+        const maxEnemies = qualitySettings.maxVisibleEnemies || 5; // Default to 5 if not specified
+
+        // Calculate how many more enemies we can add based on quality setting
+        const currentEnemyCount = this.enemyPlanes.filter(p => !p.isDestroyed).length;
+        const availableSlots = Math.max(0, maxEnemies - currentEnemyCount);
+
+        // If we already have max enemies, don't spawn more
+        if (availableSlots <= 0) {
+            console.log(`Maximum enemy count reached (${maxEnemies}). Cannot spawn more enemies.`);
+            this.eventBus.emit('notification', {
+                message: 'Maximum enemy limit reached',
+                type: 'warning',
+                duration: 2000
+            });
+            return;
+        }
+
+        // Limit the count to available slots
+        const actualCount = Math.min(count, availableSlots);
+
+        console.log(`Spawning ${actualCount} enemy planes (max: ${maxEnemies}, current: ${currentEnemyCount})...`);
         const planeFactory = new PlaneFactory(this.sceneManager.scene, this.eventBus);
 
         // Get player position as reference
         const playerPos = this.playerPlane.mesh.position.clone();
 
         // Spawn enemies in a distributed pattern around the player
-        for (let i = 0; i < count; i++) {
+        for (let i = 0; i < actualCount; i++) {
             // Calculate random position around player
             // Random radius between 150 and 400 units
             const radius = 150 + Math.random() * 250;
@@ -409,11 +431,13 @@ export default class Game {
         }
 
         // Notify player
-        this.eventBus.emit('notification', {
-            message: `${count} enemy planes have entered the area!`,
-            type: 'info',
-            duration: 3000
-        });
+        if (actualCount > 0) {
+            this.eventBus.emit('notification', {
+                message: `${actualCount} enemy plane${actualCount > 1 ? 's' : ''} have entered the area!`,
+                type: 'info',
+                duration: 3000
+            });
+        }
     }
 
     /**

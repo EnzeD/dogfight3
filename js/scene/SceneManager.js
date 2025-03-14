@@ -115,15 +115,42 @@ export default class SceneManager {
      * Create the WebGL renderer
      */
     createRenderer() {
+        // Get antialiasing setting from quality settings
+        const useAntialiasing = this.settings.antialiasing !== undefined ?
+            this.settings.antialiasing : true;
+
+        console.log(`Creating renderer with antialiasing: ${useAntialiasing}`);
+
         this.renderer = new THREE.WebGLRenderer({
-            antialias: true,
+            antialias: useAntialiasing,
             powerPreference: 'high-performance'
         });
 
         this.renderer.setSize(window.innerWidth, window.innerHeight);
-        this.renderer.setPixelRatio(window.devicePixelRatio);
-        this.renderer.shadowMap.enabled = true;
-        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        // Limit pixel ratio for better performance on high-DPI displays
+        const maxPixelRatio = useAntialiasing ? 2 : 1;
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
+
+        // Enable shadows based on quality setting
+        this.renderer.shadowMap.enabled = this.settings.shadowsEnabled !== undefined ?
+            this.settings.shadowsEnabled : true;
+
+        // Use appropriate shadow map type based on quality level
+        if (this.qualitySettings.getQuality() === 'low') {
+            this.renderer.shadowMap.type = THREE.BasicShadowMap;
+        } else if (this.qualitySettings.getQuality() === 'medium') {
+            // For medium quality, use PCFShadowMap (basic soft shadows, less intensive than PCFSoftShadowMap)
+            this.renderer.shadowMap.type = THREE.PCFShadowMap;
+        } else {
+            // For high quality, use PCFSoftShadowMap (high quality soft shadows)
+            this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        }
+
+        console.log(`Renderer created with shadowMap.enabled: ${this.renderer.shadowMap.enabled}, ` +
+            `shadowMap.type: ${this.renderer.shadowMap.type === THREE.BasicShadowMap ? 'BasicShadowMap' :
+                (this.renderer.shadowMap.type === THREE.PCFShadowMap ? 'PCFShadowMap' : 'PCFSoftShadowMap')}, ` +
+            `pixelRatio: ${this.renderer.getPixelRatio()}`);
 
         // Add the renderer's canvas to the DOM
         document.body.appendChild(this.renderer.domElement);
@@ -142,21 +169,49 @@ export default class SceneManager {
         this.sun.position.set(800, 600, 400);
         this.sun.castShadow = true;
 
-        // Configure shadow properties - optimized for smooth but crisp shadows
-        this.sun.shadow.mapSize.width = 16384 / 2;
-        this.sun.shadow.mapSize.height = 16384 / 2;
+        // Configure shadow properties based on quality settings
+        const quality = this.qualitySettings.getQuality();
+        let shadowMapSize, shadowBias, shadowNormalBias, shadowRadius;
+
+        // Scale shadow quality based on quality preset
+        if (quality === 'low') {
+            // Low quality shadows (disabled in settings, but configured in case enabled)
+            shadowMapSize = 1024;
+            shadowBias = -0.0001;
+            shadowNormalBias = 0.02;
+            shadowRadius = 4;
+        } else if (quality === 'medium') {
+            // Medium quality shadows
+            shadowMapSize = 2048;
+            shadowBias = -0.00006;
+            shadowNormalBias = 0.01;
+            shadowRadius = 2;
+        } else {
+            // High quality shadows
+            shadowMapSize = 8192;
+            shadowBias = -0.00004;
+            shadowNormalBias = 0.003;
+            shadowRadius = 1.5;
+        }
+
+        // Apply shadow settings
+        this.sun.shadow.mapSize.width = shadowMapSize;
+        this.sun.shadow.mapSize.height = shadowMapSize;
         this.sun.shadow.camera.near = 10;
         this.sun.shadow.camera.far = 4000;
         this.sun.shadow.camera.left = -1500;
         this.sun.shadow.camera.right = 1500;
         this.sun.shadow.camera.top = 1500;
         this.sun.shadow.camera.bottom = -1500;
-        this.sun.shadow.bias = -0.00004;
-        this.sun.shadow.normalBias = 0.003;
-        this.sun.shadow.radius = 1.5;
+        this.sun.shadow.bias = shadowBias;
+        this.sun.shadow.normalBias = shadowNormalBias;
+        this.sun.shadow.radius = shadowRadius;
+
+        console.log(`Shadow settings applied for ${quality} quality: mapSize=${shadowMapSize}, radius=${shadowRadius}`);
 
         // Ensure shadows are enabled
-        this.sun.castShadow = true;
+        this.sun.castShadow = this.settings.shadowsEnabled !== undefined ?
+            this.settings.shadowsEnabled : true;
 
         // Optimize shadow map by making it follow the camera
         this.sun.shadow.camera.matrixAutoUpdate = true;

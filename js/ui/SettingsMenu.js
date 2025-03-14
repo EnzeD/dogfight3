@@ -120,10 +120,13 @@ export default class SettingsMenu {
                 <div style="margin-top: 10px; padding: 10px; background-color: rgba(66, 66, 66, 0.4); border-radius: 5px; text-align: left; font-size: 12px;">
                     <strong>Quality Details:</strong>
                     <ul style="margin: 5px 0; padding-left: 20px; color: #ccc;">
-                        <li>Low: ~30,000 triangles, best performance</li>
-                        <li>Medium: ~60,000 triangles, balanced</li>
-                        <li>High: ~140,000 triangles, best visuals</li>
+                        <li>Low: Optimized for mobile devices and low-end computers (~15,000 triangles)</li>
+                        <li>Medium: Enhanced with high-quality clouds, more AI enemies (20), anti-aliasing and basic shadows</li>
+                        <li>High: Best visuals for powerful computers (~140,000 triangles)</li>
                     </ul>
+                    <p style="margin: 5px 0; color: #ffbb33;">
+                        <strong>Mobile users:</strong> Use "Low" for best performance or "Medium" for better clouds and more enemies.
+                    </p>
                 </div>
             </div>
             
