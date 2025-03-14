@@ -1046,3 +1046,228 @@ canvas {
         padding: 5px;
     }
 }
+
+/* Virtual joysticks for mobile */
+.virtual-joystick {
+    position: fixed;
+    width: 120px;
+    height: 120px;
+    background: rgba(255, 255, 255, 0.15);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    pointer-events: none;
+    display: none;
+    /* Hidden by default */
+    z-index: 1000;
+}
+
+/* Roll angle indicator for left joystick */
+.virtual-joystick.left::before {
+    content: '';
+    position: absolute;
+    width: 80%;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.6);
+    top: 50%;
+    left: 10%;
+    transform: rotate(var(--roll-angle, 0deg));
+    transform-origin: center;
+    opacity: 1;
+    transition: transform 0.2s ease-out;
+}
+
+/* Add a small airplane indicator to make the roll direction more intuitive */
+.virtual-joystick.left::after {
+    content: '';
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(calc(-50% + var(--knob-x, 0px)), calc(-50% + var(--knob-y, 0px)));
+    transition: transform 0.1s ease-out;
+}
+
+/* Add color indicators for roll direction */
+.virtual-joystick.roll-left {
+    border-left-color: rgba(100, 255, 100, 0.6);
+    border-right-color: rgba(255, 100, 100, 0.6);
+}
+
+.virtual-joystick.roll-right {
+    border-left-color: rgba(255, 100, 100, 0.6);
+    border-right-color: rgba(100, 255, 100, 0.6);
+}
+
+/* Right joystick keeps the original styling */
+.virtual-joystick.right::after {
+    content: '';
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(calc(-50% + var(--knob-x, 0px)), calc(-50% + var(--knob-y, 0px)));
+    transition: transform 0.1s ease-out;
+}
+
+.virtual-joystick.left {
+    bottom: 100px;
+    left: 50px;
+}
+
+.virtual-joystick.right {
+    bottom: 100px;
+    right: 50px;
+}
+
+/* Fire buttons */
+.fire-button {
+    position: fixed;
+    width: 60px;
+    height: 60px;
+    background: rgba(139, 0, 0, 0.6);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    border-radius: 50%;
+    z-index: 1000;
+    display: none;
+    pointer-events: none;
+    color: rgba(255, 255, 255, 0.8);
+    font-family: 'Black Ops One', cursive;
+    font-size: 14px;
+    text-align: center;
+    line-height: 60px;
+}
+
+/* Throttle lever styles */
+.throttle-lever {
+    position: fixed;
+    width: 60px;
+    height: 200px;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    display: none;
+    pointer-events: none;
+}
+
+.throttle-track {
+    position: absolute;
+    width: 20px;
+    height: 180px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.throttle-handle {
+    position: absolute;
+    width: 50px;
+    height: 30px;
+    background: rgba(50, 50, 50, 0.8);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-radius: 8px;
+    left: 50%;
+    bottom: 0;
+    transform: translateX(-50%);
+    transition: bottom 0.1s ease-out;
+}
+
+.throttle-label {
+    position: absolute;
+    width: 100%;
+    text-align: center;
+    bottom: -25px;
+    color: rgba(255, 255, 255, 0.8);
+    font-family: 'Black Ops One', cursive;
+    font-size: 12px;
+}
+
+.throttle-boost-indicator {
+    position: absolute;
+    width: 100%;
+    text-align: center;
+    top: -25px;
+    color: rgba(255, 255, 0, 0.8);
+    font-family: 'Black Ops One', cursive;
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.throttle-boost-active .throttle-boost-indicator {
+    opacity: 1;
+    animation: pulse 1s infinite alternate;
+}
+
+@keyframes pulse {
+    from {
+        opacity: 0.5;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.fire-button.active {
+    background: rgba(178, 34, 34, 0.8);
+    border-color: rgba(255, 255, 255, 0.7);
+}
+
+.fire-button.left {
+    bottom: 240px;
+    left: 80px;
+}
+
+.fire-button.right {
+    bottom: 240px;
+    right: 80px;
+}
+
+/* Show joysticks and fire buttons only on mobile devices */
+@media (max-width: 768px),
+(max-height: 600px) {
+
+    .virtual-joystick,
+    .fire-button,
+    .throttle-lever {
+        display: block;
+    }
+}
+
+/* Safe area adjustments for notched devices */
+@supports (padding: env(safe-area-inset-bottom)) {
+    .virtual-joystick.left {
+        bottom: calc(100px + env(safe-area-inset-bottom));
+        left: max(50px, env(safe-area-inset-left) + 20px);
+    }
+
+    .virtual-joystick.right {
+        bottom: calc(100px + env(safe-area-inset-bottom));
+        right: max(50px, env(safe-area-inset-right) + 20px);
+    }
+
+    .throttle-lever {
+        bottom: calc(60px + env(safe-area-inset-bottom));
+    }
+
+    .fire-button.left {
+        bottom: calc(240px + env(safe-area-inset-bottom));
+        left: max(80px, env(safe-area-inset-left) + 20px);
+    }
+
+    .fire-button.right {
+        bottom: calc(240px + env(safe-area-inset-bottom));
+        right: max(80px, env(safe-area-inset-right) + 20px);
+    }
+}

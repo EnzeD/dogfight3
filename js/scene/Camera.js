@@ -7,6 +7,9 @@ export default class Camera {
         this.scene = scene;
         this.eventBus = eventBus;
 
+        // Check if we're on mobile
+        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+
         // Camera settings
         this.fieldOfView = 75;
         this.aspectRatio = window.innerWidth / window.innerHeight;
@@ -49,9 +52,14 @@ export default class Camera {
 
         // Listen for camera control events
         this.eventBus.on('camera.control', (data) => {
-            this.isUserControlling = data.isManual;
-            if (data.isManual) {
-                this.lastUserInteractionTime = performance.now();
+            // On mobile, always force auto-follow camera
+            if (this.isMobile) {
+                this.isUserControlling = false;
+            } else {
+                this.isUserControlling = data.isManual;
+                if (data.isManual) {
+                    this.lastUserInteractionTime = performance.now();
+                }
             }
         });
 
@@ -81,6 +89,14 @@ export default class Camera {
         // Enable damping for smoother camera movement
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.05;
+
+        // Disable touch controls on mobile
+        if (this.isMobile) {
+            this.controls.enablePan = false;
+            this.controls.enableRotate = false;
+            this.controls.enableZoom = false;
+            this.controls.enabled = false; // Completely disable controls on mobile
+        }
 
         // Update the controls
         this.controls.update();
@@ -203,8 +219,13 @@ export default class Camera {
             this.camera.position.add(positionDelta);
         }
 
+        // On mobile, always force auto-follow camera
+        if (this.isMobile) {
+            this.isUserControlling = false;
+        }
+
         // Handle automatic camera behavior only when not manually controlling
-        if (!this.isUserControlling &&
+        if (!this.isUserControlling ||
             (currentTime - this.lastUserInteractionTime >= this.cameraFollowDelay)) {
 
             // Different camera behavior for free fall mode

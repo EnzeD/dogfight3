@@ -44,6 +44,7 @@ export default class Plane extends Entity {
 
         // Auto-stabilization
         this.autoStabilizationEnabled = true;
+        this._tempDisableAutoStabilization = false;
 
         // Ground height is the height at which the wheels touch the ground
         // This will be set in the WW2Plane class based on wheel position calculations
@@ -53,6 +54,18 @@ export default class Plane extends Entity {
         this.maxHealth = 100;
         this.currentHealth = 100;
         this.isDestroyed = false;
+
+        // Add analog control values
+        this.analogControls = {
+            roll: 0,
+            targetRollAngle: 0,
+            useTargetRollAngle: false
+        };
+
+        // Target angles for analog control
+        this.targetAngles = {
+            roll: 0
+        };
 
         // Listen for events
         this.setupEventListeners();
@@ -78,6 +91,21 @@ export default class Plane extends Entity {
                     message: `Auto-stabilization ${this.autoStabilizationEnabled ? 'enabled' : 'disabled'}`,
                     type: 'info'
                 });
+            }
+        });
+
+        // Listen for analog roll input from mobile joystick
+        this.eventBus.on('input.analog', (data) => {
+            if (data.type === 'roll') {
+                this.analogControls.roll = data.value;
+            }
+            else if (data.type === 'targetRoll') {
+                // Convert degrees to radians for internal use
+                // The value can now be any angle for full 360-degree rolls
+                this.analogControls.targetRollAngle = data.value * (Math.PI / 180);
+
+                // Set a flag to indicate we're using target roll angle control
+                this.analogControls.useTargetRollAngle = true;
             }
         });
 
@@ -134,6 +162,11 @@ export default class Plane extends Entity {
     updateMovement(deltaTime, inputState) {
         const keysPressed = inputState.keysPressed;
 
+        // Get analog controls if available
+        if (inputState.analogControls) {
+            this.analogControls = inputState.analogControls;
+        }
+
         // Throttle control
         if (keysPressed['w'] || keysPressed['z']) {
             // Check if shift key is pressed for boost
@@ -176,8 +209,85 @@ export default class Plane extends Entity {
 
         // Apply flight controls if airborne
         if (this.isAirborne) {
-            // Roll (A/Q and D keys)
-            if (keysPressed['a'] || keysPressed['q']) {
+            // Check if we have target roll angle input
+            const hasTargetRollAngle = this.analogControls && this.analogControls.useTargetRollAngle;
+
+            // Check if we have analog roll input (direct control)
+            const hasAnalogRoll = this.analogControls && Math.abs(this.analogControls.roll) > 0.05;
+
+            // Roll control - prioritize target roll angle if available
+            if (hasTargetRollAngle) {
+                // Get current rotation in Euler angles
+                const rotation = new THREE.Euler().setFromQuaternion(this.mesh.quaternion, 'ZYX');
+                const currentRoll = rotation.z;
+
+                // The target roll angle can now be any value for full 360-degree rolls
+                const targetRoll = this.analogControls.targetRollAngle;
+
+                // Calculate the difference between current and target roll
+                let rollDifference = targetRoll - currentRoll;
+
+                // Normalize the difference to be between -π and π for the shortest path
+                while (rollDifference > Math.PI) rollDifference -= Math.PI * 2;
+                while (rollDifference < -Math.PI) rollDifference += Math.PI * 2;
+
+                // Determine roll direction based on the shortest path
+                const rollDirection = Math.sign(rollDifference);
+
+                // Apply roll at the standard speed in the appropriate direction
+                // Only roll if we're not very close to the target angle
+                if (Math.abs(rollDifference) > 0.01) {
+                    // Roll at a speed proportional to how far we are from the target
+                    // but capped at the maximum roll speed
+                    // For larger differences, use a higher minimum speed to ensure smooth barrel rolls
+                    const minRollSpeed = this.rollSpeed * 0.5;
+                    const maxRollSpeed = this.rollSpeed * 1.5;
+
+                    // Scale roll speed based on difference, with a minimum to prevent getting stuck
+                    const rollSpeedFactor = Math.min(Math.abs(rollDifference) / Math.PI, 1);
+                    const adjustedRollSpeed = minRollSpeed + (maxRollSpeed - minRollSpeed) * rollSpeedFactor;
+
+                    const rollAmount = adjustedRollSpeed * rollDirection;
+                    this.mesh.rotateZ(rollAmount * deltaTime * 60);
+
+                    // If we're doing a barrel roll (difference > 90 degrees), temporarily disable auto-stabilization
+                    if (Math.abs(rollDifference) > Math.PI / 2) {
+                        this._tempDisableAutoStabilization = true;
+                    }
+                } else {
+                    // We've reached the target angle, re-enable auto-stabilization if it was temporarily disabled
+                    this._tempDisableAutoStabilization = false;
+                }
+            }
+            // Fall back to direct analog roll control
+            else if (hasAnalogRoll) {
+                // Map joystick position to target roll angle
+                // Full left = -180 degrees (-π), Full right = 180 degrees (π)
+                this.targetAngles.roll = this.analogControls.roll * Math.PI;
+
+                // Get current rotation in Euler angles
+                const rotation = new THREE.Euler().setFromQuaternion(this.mesh.quaternion, 'ZYX');
+                const currentRoll = rotation.z;
+
+                // Calculate the shortest path to the target angle
+                // This handles the case where we're at 170 degrees and want to go to -170 degrees
+                let rollDifference = this.targetAngles.roll - currentRoll;
+
+                // Normalize the difference to be between -π and π
+                while (rollDifference > Math.PI) rollDifference -= Math.PI * 2;
+                while (rollDifference < -Math.PI) rollDifference += Math.PI * 2;
+
+                // Determine roll direction based on the shortest path
+                const rollDirection = Math.sign(rollDifference);
+
+                // Apply roll at the standard speed in the appropriate direction
+                // Only roll if we're not very close to the target angle
+                if (Math.abs(rollDifference) > 0.01) {
+                    this.mesh.rotateZ(rollDirection * this.rollSpeed * deltaTime * 60);
+                }
+            }
+            // Fall back to digital controls if no analog input
+            else if (keysPressed['a'] || keysPressed['q']) {
                 this.mesh.rotateZ(this.rollSpeed * deltaTime * 60);
             } else if (keysPressed['d']) {
                 this.mesh.rotateZ(-this.rollSpeed * deltaTime * 60);
@@ -200,7 +310,9 @@ export default class Plane extends Entity {
             // Auto-stabilization when no roll/pitch input is given
             if (this.autoStabilizationEnabled) {
                 // Only apply roll stabilization when roll or pitch keys aren't pressed
-                const isRolling = keysPressed['a'] || keysPressed['q'] || keysPressed['d'] || keysPressed['arrowup'] || keysPressed['arrowdown'];
+                // and no analog roll input is active
+                const isRolling = keysPressed['a'] || keysPressed['q'] || keysPressed['d'] ||
+                    keysPressed['arrowup'] || keysPressed['arrowdown'] || hasAnalogRoll;
                 this.applyAutoStabilization(deltaTime, isRolling);
             }
 
@@ -224,6 +336,9 @@ export default class Plane extends Entity {
      * @param {boolean} isRolling - Whether the plane is rolling
      */
     applyAutoStabilization(deltaTime, isRolling) {
+        // Skip auto-stabilization if temporarily disabled during barrel rolls
+        if (this._tempDisableAutoStabilization) return;
+
         // Get current rotation in Euler angles
         const rotation = new THREE.Euler().setFromQuaternion(this.mesh.quaternion, 'ZYX');
 
@@ -286,9 +401,60 @@ export default class Plane extends Entity {
     updateControlSurfaces(inputState) {
         const keysPressed = inputState.keysPressed;
 
+        // Get analog controls if available
+        if (inputState.analogControls) {
+            this.analogControls = inputState.analogControls;
+        }
+
+        // Check if we have target roll angle input
+        const hasTargetRollAngle = this.analogControls && this.analogControls.useTargetRollAngle;
+
+        // Check if we have direct analog roll input
+        const hasAnalogRoll = this.analogControls && Math.abs(this.analogControls.roll) > 0.05;
+
         // Aileron animation (roll)
         if (this.leftAileron && this.rightAileron) {
-            if (keysPressed['a'] || keysPressed['q']) {
+            if (hasTargetRollAngle) {
+                // Use target roll angle for proportional control of ailerons
+                // Scale the target angle to the max aileron deflection
+                const MAX_AILERON_DEFLECTION = 0.5;
+
+                // Get current rotation in Euler angles
+                const rotation = new THREE.Euler().setFromQuaternion(this.mesh.quaternion, 'ZYX');
+                const currentRoll = rotation.z;
+
+                // Calculate the difference between current and target roll
+                let rollDifference = this.analogControls.targetRollAngle - currentRoll;
+
+                // Normalize the difference to be between -π and π
+                while (rollDifference > Math.PI) rollDifference -= Math.PI * 2;
+                while (rollDifference < -Math.PI) rollDifference += Math.PI * 2;
+
+                // Determine roll direction and normalize to -1 to 1 range for aileron deflection
+                // Cap at π/2 (90 degrees) to get full deflection at 90 degrees difference
+                const normalizedDifference = Math.max(-1, Math.min(1, rollDifference / (Math.PI / 2)));
+
+                // Apply deflection proportional to the normalized difference
+                // Negative for left roll (left aileron up, right aileron down)
+                const aileronDeflection = -normalizedDifference * MAX_AILERON_DEFLECTION;
+
+                // Apply deflection to ailerons
+                this.leftAileron.rotation.x = aileronDeflection;
+                this.rightAileron.rotation.x = -aileronDeflection;
+            }
+            else if (hasAnalogRoll) {
+                // Use analog roll value for proportional control of ailerons
+                // Scale the analog value to the max aileron deflection
+                const MAX_AILERON_DEFLECTION = 0.5;
+
+                // Apply deflection proportional to joystick position
+                const aileronDeflection = this.analogControls.roll * MAX_AILERON_DEFLECTION;
+
+                // Apply deflection to ailerons (left aileron down, right aileron up when rolling left)
+                this.leftAileron.rotation.x = -aileronDeflection;
+                this.rightAileron.rotation.x = aileronDeflection;
+            }
+            else if (keysPressed['a'] || keysPressed['q']) {
                 // Rolling left: left aileron down, right aileron up (inverted behavior)
                 this.leftAileron.rotation.x = Math.max(this.leftAileron.rotation.x - 0.1, -0.5);
                 this.rightAileron.rotation.x = Math.min(this.rightAileron.rotation.x + 0.1, 0.5);

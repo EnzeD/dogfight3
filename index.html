@@ -35,6 +35,20 @@
 <body>
     <!-- Three.js will append the canvas here dynamically -->
 
+    <!-- Virtual joysticks for mobile -->
+    <div id="leftJoystick" class="virtual-joystick left"></div>
+    <div id="throttleLever" class="throttle-lever">
+        <div class="throttle-track"></div>
+        <div class="throttle-handle"></div>
+        <div class="throttle-label">THROTTLE</div>
+        <div class="throttle-boost-indicator">BOOST</div>
+    </div>
+    <div id="rightJoystick" class="virtual-joystick right"></div>
+
+    <!-- Fire buttons -->
+    <div id="leftFireButton" class="fire-button left">FIRE</div>
+    <div id="rightFireButton" class="fire-button right">FIRE</div>
+
     <!-- Main game script using ES modules -->
     <script type="module" src="js/main.js"></script>
 </body>
