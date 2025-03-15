@@ -1061,8 +1061,8 @@ canvas {
 /* Virtual joysticks for mobile */
 .virtual-joystick {
     position: fixed;
-    width: 120px;
-    height: 120px;
+    width: 150px;
+    height: 150px;
     background: rgba(255, 255, 255, 0.15);
     border: 2px solid rgba(255, 255, 255, 0.3);
     border-radius: 50%;
@@ -1072,8 +1072,23 @@ canvas {
     z-index: 1000;
 }
 
-/* Roll angle indicator for left joystick */
-.virtual-joystick.left::before {
+/* Mono joystick with directional indicator */
+.virtual-joystick.mono::after {
+    content: '';
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(calc(-50% + var(--knob-x, 0px)), calc(-50% + var(--knob-y, 0px)));
+    transition: transform 0.1s ease-out;
+}
+
+/* Arrow indicator for mono joystick */
+.virtual-joystick.mono::before {
     content: '';
     position: absolute;
     width: 80%;
@@ -1081,68 +1096,41 @@ canvas {
     background: rgba(255, 255, 255, 0.6);
     top: 50%;
     left: 10%;
-    transform: rotate(var(--roll-angle, 0deg));
+    transform: rotate(var(--direction-angle, 0deg));
     transform-origin: center;
     opacity: 1;
     transition: transform 0.2s ease-out;
 }
 
-/* Add a small airplane indicator to make the roll direction more intuitive */
-.virtual-joystick.left::after {
-    content: '';
-    position: absolute;
-    width: 50px;
-    height: 50px;
-    background: rgba(255, 255, 255, 0.3);
-    border: 2px solid rgba(255, 255, 255, 0.5);
-    border-radius: 50%;
-    top: 50%;
-    left: 50%;
-    transform: translate(calc(-50% + var(--knob-x, 0px)), calc(-50% + var(--knob-y, 0px)));
-    transition: transform 0.1s ease-out;
+/* Color indicators for flight direction */
+.virtual-joystick.direction-up {
+    border-top-color: rgba(100, 255, 100, 0.6);
 }
 
-/* Add color indicators for roll direction */
-.virtual-joystick.roll-left {
+.virtual-joystick.direction-down {
+    border-bottom-color: rgba(255, 100, 100, 0.6);
+}
+
+.virtual-joystick.direction-left {
     border-left-color: rgba(100, 255, 100, 0.6);
-    border-right-color: rgba(255, 100, 100, 0.6);
 }
 
-.virtual-joystick.roll-right {
-    border-left-color: rgba(255, 100, 100, 0.6);
+.virtual-joystick.direction-right {
     border-right-color: rgba(100, 255, 100, 0.6);
 }
 
-/* Right joystick keeps the original styling */
-.virtual-joystick.right::after {
-    content: '';
-    position: absolute;
-    width: 50px;
-    height: 50px;
-    background: rgba(255, 255, 255, 0.3);
-    border: 2px solid rgba(255, 255, 255, 0.5);
-    border-radius: 50%;
-    top: 50%;
+/* Position the mono joystick at the center bottom in portrait */
+.virtual-joystick.mono {
+    bottom: 100px;
     left: 50%;
-    transform: translate(calc(-50% + var(--knob-x, 0px)), calc(-50% + var(--knob-y, 0px)));
-    transition: transform 0.1s ease-out;
+    transform: translateX(-50%);
 }
 
-.virtual-joystick.left {
-    bottom: 100px;
-    left: 50px;
-}
-
-.virtual-joystick.right {
-    bottom: 100px;
-    right: 50px;
-}
-
-/* Fire buttons */
+/* Fire button */
 .fire-button {
     position: fixed;
-    width: 60px;
-    height: 60px;
+    width: 80px;
+    height: 80px;
     background: rgba(139, 0, 0, 0.6);
     border: 2px solid rgba(255, 255, 255, 0.4);
     border-radius: 50%;
@@ -1151,9 +1139,11 @@ canvas {
     pointer-events: none;
     color: rgba(255, 255, 255, 0.8);
     font-family: 'Black Ops One', cursive;
-    font-size: 14px;
+    font-size: 18px;
     text-align: center;
-    line-height: 60px;
+    line-height: 80px;
+    bottom: 120px;
+    left: 50px;
 }
 
 /* Throttle lever styles */
@@ -1162,8 +1152,8 @@ canvas {
     width: 60px;
     height: 200px;
     bottom: 60px;
-    left: 50%;
-    transform: translateX(-50%);
+    right: 50px;
+    /* Position on right side in portrait */
     z-index: 1000;
     display: none;
     pointer-events: none;
@@ -1178,6 +1168,17 @@ canvas {
     border-radius: 10px;
     left: 50%;
     transform: translateX(-50%);
+}
+
+/* Add neutral marker style */
+.throttle-neutral-marker {
+    position: absolute;
+    width: 30px;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.5);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1001;
 }
 
 .throttle-handle {
@@ -1215,9 +1216,22 @@ canvas {
     transition: opacity 0.3s ease;
 }
 
+/* UI states for throttle */
+.throttle-accelerating .throttle-handle {
+    background: rgba(50, 150, 50, 0.6);
+}
+
+.throttle-decelerating .throttle-handle {
+    background: rgba(150, 50, 50, 0.6);
+}
+
+.throttle-neutral .throttle-handle {
+    background: rgba(150, 150, 50, 0.6);
+}
+
 .throttle-boost-active .throttle-boost-indicator {
     opacity: 1;
-    animation: pulse 1s infinite alternate;
+    animation: boost-pulse 1s infinite;
 }
 
 @keyframes pulse {
@@ -1235,16 +1249,6 @@ canvas {
     border-color: rgba(255, 255, 255, 0.7);
 }
 
-.fire-button.left {
-    bottom: 240px;
-    left: 80px;
-}
-
-.fire-button.right {
-    bottom: 240px;
-    right: 80px;
-}
-
 /* Show joysticks and fire buttons only on mobile devices */
 @media (max-width: 768px),
 (max-height: 600px) {
@@ -1256,114 +1260,235 @@ canvas {
     }
 }
 
-/* Safe area adjustments for notched devices */
+/* Safe area adjustments for notched devices in portrait mode */
 @supports (padding: env(safe-area-inset-bottom)) {
-    .virtual-joystick.left {
+    .virtual-joystick.mono {
         bottom: calc(100px + env(safe-area-inset-bottom));
-        left: max(50px, env(safe-area-inset-left) + 20px);
-    }
-
-    .virtual-joystick.right {
-        bottom: calc(100px + env(safe-area-inset-bottom));
-        right: max(50px, env(safe-area-inset-right) + 20px);
     }
 
     .throttle-lever {
         bottom: calc(60px + env(safe-area-inset-bottom));
+        right: calc(50px + env(safe-area-inset-right));
     }
 
-    .fire-button.left {
-        bottom: calc(240px + env(safe-area-inset-bottom));
-        left: max(80px, env(safe-area-inset-left) + 20px);
-    }
-
-    .fire-button.right {
-        bottom: calc(240px + env(safe-area-inset-bottom));
-        right: max(80px, env(safe-area-inset-right) + 20px);
+    .fire-button {
+        bottom: calc(120px + env(safe-area-inset-bottom));
+        left: calc(50px + env(safe-area-inset-left));
     }
 }
 
-/* Landscape orientation adjustments for throttle */
-@media (orientation: landscape) {
-    .throttle-lever {
-        /* Move to the left side of the screen in landscape mode */
-        left: 20px;
-        transform: none;
-        bottom: 100px;
-        height: 150px;
-        /* Shorter in landscape mode */
+/* Animation for boost indicator */
+@keyframes boost-pulse {
+    0% {
+        opacity: 0.7;
+        transform: scale(1);
     }
 
+    50% {
+        opacity: 1;
+        transform: scale(1.05);
+    }
+
+    100% {
+        opacity: 0.7;
+        transform: scale(1);
+    }
+}
+
+/* Animation for fire button */
+@keyframes subtle-pulse {
+    from {
+        transform: scale(1);
+        box-shadow: 0 0 5px rgba(139, 0, 0, 0.5);
+    }
+
+    to {
+        transform: scale(1.05);
+        box-shadow: 0 0 10px rgba(139, 0, 0, 0.7);
+    }
+}
+
+/* Landscape orientation adjustments */
+@media (orientation: landscape) {
+
+    /* Move joystick to the right side in landscape */
+    .virtual-joystick.mono {
+        left: auto;
+        right: 60px;
+        bottom: 80px;
+        transform: none;
+    }
+
+    /* Move throttle to left side in landscape */
+    .throttle-lever {
+        right: auto;
+        left: 20px;
+        bottom: 80px;
+        height: 150px;
+    }
+
+    /* Make throttle track appearance better */
     .throttle-track {
         height: 130px;
-        /* Adjust track height for landscape */
+        background: rgba(0, 0, 0, 0.4);
+        border: 2px solid rgba(255, 255, 255, 0.5);
+        width: 20px;
+        border-radius: 12px;
     }
 
-    /* Make the label appear to the right of the lever instead of below */
-    .throttle-label {
-        bottom: 50%;
-        left: 100%;
-        width: auto;
-        transform: translateY(50%);
-        margin-left: 10px;
+    /* Add highlight to the neutral marker in landscape */
+    .throttle-neutral-marker {
+        background: rgba(255, 255, 255, 0.9);
+        width: 40px;
+        height: 4px;
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.7), 0 0 4px rgba(255, 255, 0, 0.7);
+        z-index: 1002;
+        border-radius: 2px;
     }
 
-    /* Adjust boost indicator position */
-    .throttle-boost-indicator {
+    /* Position fire button to the LEFT SIDE, to the RIGHT OF the throttle in landscape */
+    .fire-button {
+        left: 100px;
+        right: auto;
         top: auto;
-        bottom: 50%;
-        left: 100%;
-        width: auto;
-        transform: translateY(-100%);
-        margin-left: 10px;
+        bottom: 80px;
+        width: 85px;
+        height: 85px;
+        line-height: 85px;
+        animation: subtle-pulse 2s infinite alternate;
+    }
+
+    /* Make throttle handle more visible */
+    .throttle-handle {
+        width: 48px;
+        height: 32px;
+        background: rgba(70, 70, 70, 0.8);
+        border: 2px solid rgba(255, 255, 255, 0.7);
+        box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+        border-radius: 8px;
+    }
+
+    /* Enhance throttle state colors */
+    .throttle-accelerating .throttle-handle {
+        background: rgba(50, 180, 50, 0.8);
+        box-shadow: 0 0 10px rgba(50, 180, 50, 0.5);
+    }
+
+    .throttle-decelerating .throttle-handle {
+        background: rgba(180, 50, 50, 0.8);
+        box-shadow: 0 0 10px rgba(180, 50, 50, 0.5);
+    }
+
+    .throttle-neutral .throttle-handle {
+        background: rgba(180, 180, 50, 0.8);
+        box-shadow: 0 0 10px rgba(180, 180, 50, 0.5);
+    }
+
+    /* Hide the throttle label in landscape mode */
+    .throttle-label {
+        display: none;
+    }
+
+    /* BOOST indicator when active */
+    .throttle-boost-indicator {
+        position: absolute;
+        top: 10px;
+        left: 0;
+        width: 100%;
+        text-align: center;
+        font-size: 14px;
+        color: #ffdd00;
+        text-shadow: 0 0 5px rgba(0, 0, 0, 0.8), 0 0 10px rgba(255, 221, 0, 0.7);
+        font-weight: bold;
+        opacity: 0;
+        transition: opacity 0.3s;
+        padding: 3px 0;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1002;
+    }
+
+    /* When boost is active */
+    .throttle-boost-active .throttle-boost-indicator {
+        opacity: 1;
+        animation: boost-pulse 1s infinite;
+    }
+
+    /* Show a green glow at top of throttle when boost is active */
+    .throttle-boost-active .throttle-track::before {
+        content: '';
+        position: absolute;
+        top: -5px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 30px;
+        height: 10px;
+        background: rgba(100, 255, 100, 0.3);
+        border-radius: 50%;
+        box-shadow: 0 0 10px rgba(100, 255, 100, 0.7);
+        z-index: 1001;
     }
 }
 
 /* iPhone fix for landscape orientation */
 @media only screen and (max-width: 900px) and (max-height: 450px) and (orientation: landscape) {
     .throttle-lever {
-        left: 15px;
-        bottom: 80px;
+        left: 20px;
+        bottom: 60px;
         height: 120px;
     }
 
     .throttle-track {
         height: 100px;
     }
+
+    .virtual-joystick.mono {
+        right: 20px;
+        bottom: 60px;
+        width: 120px;
+        height: 120px;
+    }
+
+    .fire-button {
+        left: 90px;
+        bottom: 60px;
+        width: 70px;
+        height: 70px;
+        line-height: 70px;
+        font-size: 16px;
+    }
+
+    .throttle-label {
+        top: 50%;
+        transform: translateY(-50%);
+        margin-left: 12px;
+        font-size: 12px;
+        padding: 2px 5px;
+    }
+
+    .throttle-boost-indicator {
+        font-size: 12px;
+        padding: 2px 0;
+    }
 }
 
-/* Safe area adjustments for notched devices */
-@supports (padding: env(safe-area-inset-bottom)) {
-    .virtual-joystick.left {
-        bottom: calc(100px + env(safe-area-inset-bottom));
-        left: max(50px, env(safe-area-inset-left) + 20px);
-    }
-
-    .virtual-joystick.right {
-        bottom: calc(100px + env(safe-area-inset-bottom));
-        right: max(50px, env(safe-area-inset-right) + 20px);
-    }
-
-    .throttle-lever {
-        bottom: calc(60px + env(safe-area-inset-bottom));
-    }
-
-    /* Adjust throttle position in landscape for notched devices */
-    @media (orientation: landscape) {
-        .throttle-lever {
-            left: max(20px, env(safe-area-inset-left) + 5px);
-            bottom: calc(100px + env(safe-area-inset-bottom));
+/* Safe area adjustments for notched devices in landscape mode */
+@media (orientation: landscape) {
+    @supports (padding: env(safe-area-inset-bottom)) {
+        .virtual-joystick.mono {
+            bottom: calc(80px + env(safe-area-inset-bottom));
+            right: calc(60px + env(safe-area-inset-right));
         }
-    }
 
-    .fire-button.left {
-        bottom: calc(240px + env(safe-area-inset-bottom));
-        left: max(80px, env(safe-area-inset-left) + 20px);
-    }
+        .throttle-lever {
+            bottom: calc(80px + env(safe-area-inset-bottom));
+            left: calc(20px + env(safe-area-inset-left));
+        }
 
-    .fire-button.right {
-        bottom: calc(240px + env(safe-area-inset-bottom));
-        right: max(80px, env(safe-area-inset-right) + 20px);
+        .fire-button {
+            bottom: calc(80px + env(safe-area-inset-bottom));
+            left: calc(100px + env(safe-area-inset-left));
+        }
     }
 }
 
@@ -1470,5 +1595,54 @@ body::before {
     #options-button {
         top: max(15px, env(safe-area-inset-top) + 5px) !important;
         right: max(15px, env(safe-area-inset-right) + 5px) !important;
+    }
+}
+
+/* Extra small landscape devices */
+@media only screen and (max-width: 568px) and (max-height: 320px) and (orientation: landscape) {
+    .throttle-lever {
+        left: 10px;
+        bottom: 40px;
+        height: 100px;
+    }
+
+    .throttle-track {
+        height: 80px;
+    }
+
+    .throttle-label {
+        top: 50%;
+        transform: translateY(-50%);
+        margin-left: 8px;
+        font-size: 10px;
+        padding: 1px 3px;
+    }
+
+    .throttle-boost-indicator {
+        font-size: 9px;
+        padding: 1px 0;
+    }
+
+    /* Adjust neutral marker for very small screens */
+    .throttle-neutral-marker {
+        width: 32px;
+        height: 3px;
+    }
+
+    .fire-button {
+        left: 70px;
+        bottom: 40px;
+        width: 60px;
+        height: 60px;
+        padding-top: 20px;
+        line-height: normal;
+        font-size: 14px;
+    }
+
+    .virtual-joystick.mono {
+        right: 10px;
+        bottom: 40px;
+        width: 100px;
+        height: 100px;
     }
 }

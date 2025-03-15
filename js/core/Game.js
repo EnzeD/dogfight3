@@ -9,6 +9,7 @@ import EventBus from './EventBus.js';
 import NetworkManager from './NetworkManager.js';
 import PerformanceMonitor from '../utils/PerformanceMonitor.js';
 import QualitySettings from '../utils/QualitySettings.js';
+import ControlSettings from '../utils/ControlSettings.js';
 import GameMap from '../scene/Map.js';
 import ProtectionZone from '../utils/ProtectionZone.js';
 
@@ -34,14 +35,18 @@ export default class Game {
         this.qualitySettings = new QualitySettings();
         console.log(`Game quality set to: ${this.qualitySettings.getQuality()}`);
 
+        // Initialize control settings
+        this.controlSettings = new ControlSettings();
+        console.log(`Y-axis inversion set to: ${this.controlSettings.isYAxisInverted()}`);
+
         // Create the game map (single instance for deterministic world)
         this.map = new GameMap();
 
         // Create core systems
         this.sceneManager = new SceneManager(this.eventBus, this.qualitySettings);
-        this.inputManager = new InputManager(this.eventBus);
+        this.inputManager = new InputManager(this.eventBus, this.controlSettings);
         this.audioManager = new AudioManager(this.eventBus);
-        this.uiManager = new UIManager(this.eventBus, this.qualitySettings);
+        this.uiManager = new UIManager(this.eventBus, this.qualitySettings, this.controlSettings);
         this.performanceMonitor = new PerformanceMonitor(this.eventBus);
 
         // Performance tracking

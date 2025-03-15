@@ -18,8 +18,8 @@ export default class AmmoSystem {
         // Heat system properties
         this.heat = 0;
         this.maxHeat = 100;
-        this.heatPerShot = 8;
-        this.coolingRate = 45; // Units per second
+        this.heatPerShot = 4;
+        this.coolingRate = 60; // Units per second
         this.isOverheated = false;
         this.overheatCooldownTime = 4000; // ms to cool down from overheat
         this.overheatStartTime = 0;

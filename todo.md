@@ -5,6 +5,7 @@
 C to change camera in cockpit
 Aim with right click
 Mobile
+Gravity
 
 
 ## Improvements

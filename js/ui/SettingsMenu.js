@@ -1,8 +1,9 @@
 // SettingsMenu.js - Handles the settings menu UI
 export default class SettingsMenu {
-    constructor(eventBus, qualitySettings) {
+    constructor(eventBus, qualitySettings, controlSettings) {
         this.eventBus = eventBus;
         this.qualitySettings = qualitySettings;
+        this.controlSettings = controlSettings;
         this.isVisible = false;
         this.menu = null;
         this.isMobile = this.checkIfMobile();
@@ -68,6 +69,7 @@ export default class SettingsMenu {
         const quality = this.qualitySettings.quality;
         const shadows = this.qualitySettings.shadows;
         const antialiasing = this.qualitySettings.antialiasing;
+        const invertYAxis = this.controlSettings ? this.controlSettings.isYAxisInverted() : false;
 
         // Create the menu content
         let content = `
@@ -91,6 +93,21 @@ export default class SettingsMenu {
                         style="flex: 1; padding: ${this.isMobile ? '5px' : '8px'}; background-color: ${quality === 'high' ? '#3498db' : 'rgba(50, 50, 50, 0.8)'}; border: none; color: white; border-radius: 4px; cursor: pointer;">
                         High
                     </button>
+                </div>
+            </div>
+        `;
+
+        // Flight controls section
+        content += `
+            <div style="margin-bottom: ${this.isMobile ? '15px' : '20px'}; text-align: left;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Flight Controls:</label>
+                <button id="toggle-invert-y" 
+                    style="width: 100%; padding: ${this.isMobile ? '5px' : '8px'}; background-color: ${invertYAxis ? '#3498db' : 'rgba(50, 50, 50, 0.8)'}; border: none; color: white; border-radius: 4px; cursor: pointer; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+                    <span>Invert Y-Axis</span>
+                    <span style="font-weight: bold;">${invertYAxis ? 'ON' : 'OFF'}</span>
+                </button>
+                <div style="font-size: 11px; color: #aaa; margin-top: 3px; padding-left: 5px;">
+                    ${invertYAxis ? 'Push up to dive, pull down to climb' : 'Push up to climb, pull down to dive'}
                 </div>
             </div>
         `;
@@ -191,6 +208,19 @@ export default class SettingsMenu {
             this.updateMenuContent();
             this.showLoadingMessage();
         });
+
+        // Invert Y-axis toggle
+        if (this.controlSettings) {
+            addSafeListener('toggle-invert-y', () => {
+                this.controlSettings.toggleInvertYAxis();
+                this.updateMenuContent();
+
+                // Emit event to update controls
+                this.eventBus.emit('controls.invertYAxis', this.controlSettings.isYAxisInverted());
+
+                this.showSettingChangedMessage('Flight controls updated!');
+            });
+        }
 
         // Sound toggle button
         addSafeListener('toggle-sound', () => {
@@ -344,5 +374,30 @@ export default class SettingsMenu {
             document.removeEventListener('click', this.outsideClickHandler, true);
             document.removeEventListener('touchend', this.outsideClickHandler, { capture: true });
         }
+    }
+
+    /**
+     * Show a temporary message when settings are changed
+     */
+    showSettingChangedMessage(message) {
+        // Create message element
+        const msgElement = document.createElement('div');
+        msgElement.style.position = 'absolute';
+        msgElement.style.top = '10px';
+        msgElement.style.left = '0';
+        msgElement.style.right = '0';
+        msgElement.style.textAlign = 'center';
+        msgElement.style.color = '#2ecc71';
+        msgElement.style.fontStyle = 'italic';
+        msgElement.style.fontSize = this.isMobile ? '11px' : '13px';
+        msgElement.textContent = message || 'Setting changed!';
+
+        // Add to menu
+        this.menu.appendChild(msgElement);
+
+        // Remove after a short time
+        setTimeout(() => {
+            msgElement.remove();
+        }, 1500);
     }
 } 

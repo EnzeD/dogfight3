@@ -1,7 +1,8 @@
 // Input Manager for handling keyboard and mouse input
 export default class InputManager {
-    constructor(eventBus) {
+    constructor(eventBus, controlSettings) {
         this.eventBus = eventBus;
+        this.controlSettings = controlSettings;
 
         // Input state
         this.keysPressed = {};
@@ -10,20 +11,17 @@ export default class InputManager {
 
         // Mobile touch state
         this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
-        this.leftStick = { x: 0, y: 0, active: false, id: null, startX: 0, startY: 0, lastUpdateTime: 0 };
-        this.rightStick = { x: 0, y: 0, active: false, id: null, startX: 0, startY: 0, lastUpdateTime: 0 };
-        this.throttleLever = { y: 0, active: false, id: null, startY: 0, currentY: 0, lastUpdateTime: 0 };
+        this.monoStick = { x: 0, y: 0, active: false, id: null, startX: 0, startY: 0, lastUpdateTime: 0 };
+        this.throttleLever = { y: 0, active: false, id: null, startY: 0, currentY: 0, lastUpdateTime: 0, neutralPosition: true };
         this.joystickElements = {
-            left: document.getElementById('leftJoystick'),
-            right: document.getElementById('rightJoystick')
+            mono: document.getElementById('monoStick')
         };
         this.throttleElement = {
             lever: document.getElementById('throttleLever'),
             handle: document.getElementById('throttleLever')?.querySelector('.throttle-handle')
         };
         this.fireButtons = {
-            left: document.getElementById('leftFireButton'),
-            right: document.getElementById('rightFireButton')
+            main: document.getElementById('fireButton')
         };
 
         // Track current orientation
@@ -34,7 +32,7 @@ export default class InputManager {
             roll: 0,      // -1 to 1 (left to right)
             pitch: 0,     // -1 to 1 (up to down)
             yaw: 0,       // -1 to 1 (left to right)
-            throttle: 0,  // 0 to 1 (down to up)
+            throttle: 0,  // -1 to 1 (down to up, 0 is neutral position)
             boost: false, // Boolean for boost state
             targetRollAngle: 0 // Target roll angle in degrees (-45 to 45)
         };
@@ -98,16 +96,14 @@ export default class InputManager {
 
             // Re-initialize UI elements that might not have been available during construction
             this.joystickElements = {
-                left: document.getElementById('leftJoystick'),
-                right: document.getElementById('rightJoystick')
+                mono: document.getElementById('monoStick')
             };
             this.throttleElement = {
                 lever: document.getElementById('throttleLever'),
                 handle: document.getElementById('throttleLever')?.querySelector('.throttle-handle')
             };
             this.fireButtons = {
-                left: document.getElementById('leftFireButton'),
-                right: document.getElementById('rightFireButton')
+                main: document.getElementById('fireButton')
             };
 
             // Add global touch end listener to catch any missed touch ends
@@ -122,7 +118,19 @@ export default class InputManager {
 
             // Initial orientation check
             this.checkOrientation();
+
+            // Initialize throttle to neutral position only on first launch
+            if (this.throttleLever.neutralPosition) {
+                this.resetThrottleToNeutral();
+                this.throttleLever.neutralPosition = false;
+            }
         }
+
+        // Listen for control settings changes
+        this.eventBus.on('controls.invertYAxis', (inverted) => {
+            console.log(`Y-axis inversion set to: ${inverted}`);
+            // No need to store the value here as we'll read it from controlSettings
+        });
 
         console.log('InputManager initialized');
     }
@@ -146,8 +154,7 @@ export default class InputManager {
             console.log(`Orientation changed to ${this.isLandscape ? 'landscape' : 'portrait'}`);
 
             // Reset joysticks when orientation changes
-            this.resetJoystick('left');
-            this.resetJoystick('right');
+            this.resetJoystick('mono');
 
             // Don't reset throttle position, just mark as inactive
             if (this.throttleLever.active) {
@@ -159,18 +166,20 @@ export default class InputManager {
 
     /**
      * Reset a specific joystick
-     * @param {string} side - 'left' or 'right'
+     * @param {string} side - 'mono'
      */
     resetJoystick(side) {
-        if (side === 'left') {
-            this.leftStick.active = false;
-            this.leftStick.id = null;
-            this.leftStick.x = 0;
-            this.leftStick.y = 0;
-            this.resetJoystickVisual('left');
+        if (side === 'mono') {
+            this.monoStick.active = false;
+            this.monoStick.id = null;
+            this.monoStick.x = 0;
+            this.monoStick.y = 0;
+            this.resetJoystickVisual('mono');
 
             // Reset analog controls
             this.analogControls.roll = 0;
+            this.analogControls.pitch = 0;
+            this.analogControls.yaw = 0;
             this.analogControls.targetRollAngle = 0;
 
             // Emit the reset target roll value
@@ -182,23 +191,49 @@ export default class InputManager {
             // Clear associated keys
             this.keysPressed['a'] = false;
             this.keysPressed['d'] = false;
-        } else if (side === 'right') {
-            this.rightStick.active = false;
-            this.rightStick.id = null;
-            this.rightStick.x = 0;
-            this.rightStick.y = 0;
-            this.resetJoystickVisual('right');
-
-            // Reset analog controls
-            this.analogControls.yaw = 0;
-            this.analogControls.pitch = 0;
-
-            // Clear associated keys
             this.keysPressed['arrowup'] = false;
             this.keysPressed['arrowdown'] = false;
             this.keysPressed['arrowleft'] = false;
             this.keysPressed['arrowright'] = false;
         }
+    }
+
+    /**
+     * Reset the throttle to the neutral position
+     */
+    resetThrottleToNeutral() {
+        if (!this.throttleElement.lever || !this.throttleElement.handle) return;
+
+        // Reset to neutral position (center of track)
+        const leverRect = this.throttleElement.lever.getBoundingClientRect();
+        const trackHeight = leverRect.height - 30;
+        const neutralPos = trackHeight / 2;
+
+        // Update handle position
+        this.throttleElement.handle.style.bottom = `${neutralPos}px`;
+
+        // Update throttle value to 0 (neutral)
+        this.analogControls.throttle = 0;
+
+        // Update UI
+        this.throttleElement.lever.classList.remove('throttle-accelerating', 'throttle-decelerating');
+        this.throttleElement.lever.classList.add('throttle-neutral');
+
+        // Reset boost
+        this.analogControls.boost = false;
+        this.throttleElement.lever.classList.remove('throttle-boost-active');
+        this.keysPressed['shift'] = false;
+
+        // Reset throttle keys
+        this.keysPressed['w'] = false;
+        this.keysPressed['s'] = false;
+
+        // Emit throttle value
+        this.eventBus.emit('input.analog', {
+            type: 'throttle',
+            value: this.analogControls.throttle,
+            boost: this.analogControls.boost
+        });
     }
 
     /**
@@ -216,17 +251,14 @@ export default class InputManager {
      */
     resetAllControls() {
         // Reset joysticks
-        this.resetJoystick('left');
-        this.resetJoystick('right');
+        this.resetJoystick('mono');
 
         // Reset fire buttons
         this.keysPressed[' '] = false;
-        if (this.fireButtons.left) this.fireButtons.left.classList.remove('active');
-        if (this.fireButtons.right) this.fireButtons.right.classList.remove('active');
+        if (this.fireButtons.main) this.fireButtons.main.classList.remove('active');
 
-        // Don't reset throttle position, just mark it as inactive
-        this.throttleLever.active = false;
-        this.throttleLever.id = null;
+        // Reset throttle to neutral position
+        this.resetThrottleToNeutral();
 
         // Clear all active touch IDs
         this.activeTouchIds.clear();
@@ -242,13 +274,12 @@ export default class InputManager {
             this.activeTouchIds.delete(touch.identifier);
 
             // If this was a joystick touch that wasn't properly handled, reset it
-            if (touch.identifier === this.leftStick.id) {
-                this.resetJoystick('left');
-            } else if (touch.identifier === this.rightStick.id) {
-                this.resetJoystick('right');
+            if (touch.identifier === this.monoStick.id) {
+                this.resetJoystick('mono');
             } else if (touch.identifier === this.throttleLever.id) {
                 this.throttleLever.active = false;
                 this.throttleLever.id = null;
+                // Keep the throttle position where it is
             }
         }
     }
@@ -315,11 +346,9 @@ export default class InputManager {
             this.activeTouchIds.add(touch.identifier);
 
             // Check for fire button touches
-            if (y < window.innerHeight - 180) { // Above joysticks
-                const isLeftSide = x < window.innerWidth / 2;
-                const fireButton = isLeftSide ? this.fireButtons.left : this.fireButtons.right;
+            const fireButton = this.fireButtons.main;
+            if (fireButton) {
                 const buttonRect = fireButton.getBoundingClientRect();
-
                 if (x >= buttonRect.left && x <= buttonRect.right &&
                     y >= buttonRect.top && y <= buttonRect.bottom) {
                     this.keysPressed[' '] = true;
@@ -343,23 +372,14 @@ export default class InputManager {
                 }
             }
 
-            // Left side of screen controls roll only
-            if (x < window.innerWidth / 3 && !this.leftStick.active) {
-                this.leftStick.active = true;
-                this.leftStick.id = touch.identifier;
-                this.leftStick.startX = x;
-                this.leftStick.startY = y;
-                this.leftStick.lastUpdateTime = performance.now();
-                this.updateJoystickVisual('left', x, y, x, y);
-            }
-            // Right side controls pitch and yaw
-            else if (x >= window.innerWidth * 2 / 3 && !this.rightStick.active) {
-                this.rightStick.active = true;
-                this.rightStick.id = touch.identifier;
-                this.rightStick.startX = x;
-                this.rightStick.startY = y;
-                this.rightStick.lastUpdateTime = performance.now();
-                this.updateJoystickVisual('right', x, y, x, y);
+            // If not a UI element, and mono stick not active, make it a mono stick touch
+            if (!this.monoStick.active) {
+                this.monoStick.active = true;
+                this.monoStick.id = touch.identifier;
+                this.monoStick.startX = x;
+                this.monoStick.startY = y;
+                this.monoStick.lastUpdateTime = performance.now();
+                this.updateJoystickVisual('mono', x, y, x, y);
             }
         }
     }
@@ -377,93 +397,112 @@ export default class InputManager {
             const x = touch.clientX;
             const y = touch.clientY;
 
-            if (touch.identifier === this.leftStick.id) {
+            if (touch.identifier === this.monoStick.id) {
                 // Update the last update time to prevent timeout reset
-                this.leftStick.lastUpdateTime = performance.now();
+                this.monoStick.lastUpdateTime = performance.now();
 
-                // Calculate normalized delta for left stick
-                const dx = (x - this.leftStick.startX) / 60; // Adjust divisor for sensitivity
-                const dy = (y - this.leftStick.startY) / 60;
+                // Calculate normalized delta for mono stick - Reduce sensitivity by half (divisor from 60 to 120)
+                const dx = (x - this.monoStick.startX) / 120; // Reduced sensitivity by half
+                const dy = (y - this.monoStick.startY) / 120; // Reduced sensitivity by half
 
                 // Store the raw position for visual feedback
-                this.leftStick.x = Math.max(-1, Math.min(1, dx));
-                this.leftStick.y = Math.max(-1, Math.min(1, dy));
+                const rawX = Math.max(-1, Math.min(1, dx));
+                const rawY = Math.max(-1, Math.min(1, dy));
+
+                // Apply exponential curve for more precision near center
+                // Formula: sign(value) * (value^2)
+                // This creates a non-linear response curve - more precise near center, more responsive at extremes
+                this.monoStick.x = Math.sign(rawX) * (rawX * rawX);
+                this.monoStick.y = Math.sign(rawY) * (rawY * rawY);
 
                 // Calculate the distance from center (0 to 1)
                 const distance = Math.min(1, Math.sqrt(dx * dx + dy * dy));
 
+                // Calculate the angle from joystick position (0 is right, 90 is down)
+                const angle = Math.atan2(dy, dx);
+                const angleDegrees = angle * (180 / Math.PI);
+
+                // Update visual joystick position
+                this.updateJoystickVisual('mono', this.monoStick.startX, this.monoStick.startY, x, y, angleDegrees);
+
                 // Only update if the stick is moved enough from center
                 if (distance > 0.1) {
-                    // For roll control, we allow full 360-degree rotation
-                    // Calculate the angle from the joystick position
-                    const angle = Math.atan2(dy, dx);
+                    // Determine direction and control mapping based on the angle
 
-                    // Convert angle to degrees (-180 to 180)
-                    let angleDegrees = angle * (180 / Math.PI);
+                    // Convert to -180 to 180 range
+                    let normalizedAngle = angleDegrees;
+                    if (normalizedAngle > 180) normalizedAngle -= 360;
 
-                    // Adjust the angle to match the expected roll orientation:
-                    // - Top of joystick (0° in atan2) should be 0° roll (normal flight)
-                    // - Right of joystick (90° in atan2) should be 90° roll (right wing up)
-                    // - Bottom of joystick (180° in atan2) should be 180° roll (inverted flight)
-                    // - Left of joystick (-90° in atan2) should be 270° roll (left wing up)
-                    let rollAngleDegrees = angleDegrees + 90;
-                    // Normalize to -180 to 180 range
-                    if (rollAngleDegrees > 180) rollAngleDegrees -= 360;
-                    if (rollAngleDegrees < -180) rollAngleDegrees += 360;
+                    // Calculate roll based on x position (left/right)
+                    // This creates intuitive roll control: left = roll left, right = roll right
+                    this.analogControls.roll = this.monoStick.x;
 
-                    // Map the joystick position to a target roll angle
-                    // Scale by distance from center to allow proportional control
-                    // Full 360-degree rotation is now possible
-                    // Use a signed value to maintain consistent directionality
-                    const targetRollAngle = -rollAngleDegrees * distance;
+                    // Calculate pitch and yaw based on direction
+                    // Map to 4 main directions:
+                    // If inverted: Up = pitch up (dive), Down = pitch down (climb)
+                    // If not inverted: Up = pitch down (climb), Down = pitch up (dive)
+                    // Left = yaw left
+                    // Right = yaw right
 
-                    this.analogControls.targetRollAngle = targetRollAngle;
+                    // Get the magnitude of movement for each axis
+                    const absX = Math.abs(this.monoStick.x);
+                    const absY = Math.abs(this.monoStick.y);
 
-                    // For compatibility with existing code, set the key states based on
-                    // the actual joystick position, not the plane's orientation
-                    // This fixes the inversion bug when plane is oriented beyond 90/-90 degrees
-                    // Note: these are only used as fallbacks and for the propeller control
-                    this.keysPressed['a'] = (angleDegrees > 90 || angleDegrees < -90);
-                    this.keysPressed['d'] = (angleDegrees >= -90 && angleDegrees <= 90);
+                    // Check if Y-axis should be inverted
+                    const invertY = this.controlSettings ? this.controlSettings.isYAxisInverted() : false;
+
+                    // Determine dominant axis
+                    if (absY > absX) {
+                        // Vertical movement dominates
+                        // Apply inversion if needed
+                        this.analogControls.pitch = invertY ? -this.monoStick.y : this.monoStick.y;
+                        this.analogControls.yaw = 0;  // No yaw when primarily moving up/down
+                    } else {
+                        // Horizontal movement dominates
+                        this.analogControls.yaw = this.monoStick.x;  // Full yaw effect
+                        this.analogControls.pitch = 0;  // No pitch when primarily moving left/right
+                    }
+
+                    // Set the throttle knob display angle based on the direction
+                    this.analogControls.targetRollAngle = -this.analogControls.roll * 45; // Scale roll for display
+
+                    // Set keyboard controls for backward compatibility - use the raw non-exponential values
+                    // for digital detection to maintain responsiveness for key presses
+                    this.keysPressed['a'] = rawX < -0.3;
+                    this.keysPressed['d'] = rawX > 0.3;
+
+                    if (invertY) {
+                        // Inverted controls: Push up to dive, pull down to climb
+                        this.keysPressed['arrowup'] = rawY > 0.3;    // Push up to pitch up (dive)
+                        this.keysPressed['arrowdown'] = rawY < -0.3;   // Push down to pitch down (climb)
+                    } else {
+                        // Normal controls: Push up to climb, pull down to dive
+                        this.keysPressed['arrowup'] = rawY < -0.3;    // Push up to pitch down (climb)
+                        this.keysPressed['arrowdown'] = rawY > 0.3;   // Push down to pitch up (dive)
+                    }
+
+                    this.keysPressed['arrowleft'] = rawX < -0.3;  // Push left to yaw left
+                    this.keysPressed['arrowright'] = rawX > 0.3;  // Push right to yaw right
                 } else {
-                    // If stick is close to center, target level flight
+                    // If stick is close to center, reset controls
+                    this.analogControls.roll = 0;
+                    this.analogControls.pitch = 0;
+                    this.analogControls.yaw = 0;
                     this.analogControls.targetRollAngle = 0;
+
                     this.keysPressed['a'] = false;
                     this.keysPressed['d'] = false;
+                    this.keysPressed['arrowup'] = false;
+                    this.keysPressed['arrowdown'] = false;
+                    this.keysPressed['arrowleft'] = false;
+                    this.keysPressed['arrowright'] = false;
                 }
 
-                // Update visual joystick position - show both axes for better visual feedback
-                this.updateJoystickVisual('left', this.leftStick.startX, this.leftStick.startY, x, y);
-
-                // Emit the target roll angle for the plane to gradually roll toward
+                // Emit the roll angle for the plane
                 this.eventBus.emit('input.analog', {
                     type: 'targetRoll',
                     value: this.analogControls.targetRollAngle
                 });
-            }
-            else if (touch.identifier === this.rightStick.id) {
-                // Update the last update time to prevent timeout reset
-                this.rightStick.lastUpdateTime = performance.now();
-
-                // Calculate normalized delta for right stick (pitch and yaw)
-                const dx = (x - this.rightStick.startX) / 60;
-                const dy = (y - this.rightStick.startY) / 60;
-
-                this.rightStick.x = Math.max(-1, Math.min(1, dx));
-                this.rightStick.y = Math.max(-1, Math.min(1, dy));
-
-                // Update visual joystick position
-                this.updateJoystickVisual('right', this.rightStick.startX, this.rightStick.startY, x, y);
-
-                // Store analog values
-                this.analogControls.yaw = this.rightStick.x;      // Left/right for yaw
-                this.analogControls.pitch = this.rightStick.y;    // Up/down for pitch
-
-                // Map to controls - right stick controls pitch and yaw
-                this.keysPressed['arrowup'] = this.rightStick.y < -0.3;    // Push up to pitch down
-                this.keysPressed['arrowdown'] = this.rightStick.y > 0.3;   // Push down to pitch up
-                this.keysPressed['arrowleft'] = this.rightStick.x < -0.3;  // Push left to yaw left
-                this.keysPressed['arrowright'] = this.rightStick.x > 0.3;  // Push right to yaw right
             }
             else if (touch.identifier === this.throttleLever.id) {
                 // Update the last update time
@@ -475,32 +514,26 @@ export default class InputManager {
 
         // Check if we have any active touches for our controls
         // If not, make sure the controls are reset
-        let leftStickFound = false;
-        let rightStickFound = false;
+        let monoStickFound = false;
         let throttleFound = false;
 
         for (let i = 0; i < event.touches.length; i++) {
             const touch = event.touches[i];
-            if (touch.identifier === this.leftStick.id) leftStickFound = true;
-            if (touch.identifier === this.rightStick.id) rightStickFound = true;
+            if (touch.identifier === this.monoStick.id) monoStickFound = true;
             if (touch.identifier === this.throttleLever.id) throttleFound = true;
         }
 
         // If a control's touch is no longer in the touches list, reset it
-        if (this.leftStick.active && !leftStickFound) {
-            console.log('Left joystick touch lost, resetting');
-            this.resetJoystick('left');
-        }
-
-        if (this.rightStick.active && !rightStickFound) {
-            console.log('Right joystick touch lost, resetting');
-            this.resetJoystick('right');
+        if (this.monoStick.active && !monoStickFound) {
+            console.log('Mono joystick touch lost, resetting');
+            this.resetJoystick('mono');
         }
 
         if (this.throttleLever.active && !throttleFound) {
-            console.log('Throttle touch lost, marking as inactive');
+            console.log('Throttle lever touch lost, resetting');
             this.throttleLever.active = false;
             this.throttleLever.id = null;
+            // Keep the throttle position where it is
         }
     }
 
@@ -509,70 +542,34 @@ export default class InputManager {
             // Remove this touch ID from our tracking set
             this.activeTouchIds.delete(touch.identifier);
 
-            // Check if this was a fire button touch
-            const isLeftSide = touch.clientX < window.innerWidth / 2;
-            if (touch.clientY < window.innerHeight - 180) { // Above joysticks
-                const fireButton = isLeftSide ? this.fireButtons.left : this.fireButtons.right;
-                const buttonRect = fireButton.getBoundingClientRect();
-
-                if (touch.clientX >= buttonRect.left && touch.clientX <= buttonRect.right &&
-                    touch.clientY >= buttonRect.top && touch.clientY <= buttonRect.bottom) {
-                    this.keysPressed[' '] = false;
-                    fireButton.classList.remove('active');
-                    continue; // Use continue instead of return to process other touches
-                }
+            // Check if this was the mono stick
+            if (touch.identifier === this.monoStick.id) {
+                this.resetJoystick('mono');
             }
-
-            if (touch.identifier === this.leftStick.id) {
-                this.leftStick.active = false;
-                this.leftStick.id = null;
-                this.leftStick.x = 0;
-                this.leftStick.y = 0;
-                this.resetJoystickVisual('left');
-
-                // Reset analog controls
-                this.analogControls.roll = 0;
-
-                // When stick is released, set target roll to level (0 degrees)
-                this.analogControls.targetRollAngle = 0;
-
-                // Emit the reset target roll value
-                this.eventBus.emit('input.analog', {
-                    type: 'targetRoll',
-                    value: 0
-                });
-
-                // Clear associated keys
-                this.keysPressed['a'] = false;
-                this.keysPressed['d'] = false;
-            }
-            else if (touch.identifier === this.rightStick.id) {
-                this.rightStick.active = false;
-                this.rightStick.id = null;
-                this.rightStick.x = 0;
-                this.rightStick.y = 0;
-                this.resetJoystickVisual('right');
-
-                // Reset analog controls
-                this.analogControls.yaw = 0;
-                this.analogControls.pitch = 0;
-
-                // Clear associated keys
-                this.keysPressed['arrowup'] = false;
-                this.keysPressed['arrowdown'] = false;
-                this.keysPressed['arrowleft'] = false;
-                this.keysPressed['arrowright'] = false;
-            }
+            // Check if this was the throttle
             else if (touch.identifier === this.throttleLever.id) {
                 this.throttleLever.active = false;
                 this.throttleLever.id = null;
-                // Note: We don't reset the throttle position when touch ends
-                // This allows the throttle to stay where it was set
+                // Keep the throttle position where it is
+            }
+            // Check if this was a fire button touch
+            else {
+                const x = touch.clientX;
+                const y = touch.clientY;
+                const fireButton = this.fireButtons.main;
+                if (fireButton) {
+                    const buttonRect = fireButton.getBoundingClientRect();
+                    if (x >= buttonRect.left && x <= buttonRect.right &&
+                        y >= buttonRect.top && y <= buttonRect.bottom) {
+                        this.keysPressed[' '] = false;
+                        fireButton.classList.remove('active');
+                    }
+                }
             }
         }
     }
 
-    updateJoystickVisual(side, baseX, baseY, currentX, currentY) {
+    updateJoystickVisual(side, baseX, baseY, currentX, currentY, angleDegrees = 0) {
         const joystick = this.joystickElements[side];
         if (!joystick) return;
 
@@ -580,58 +577,40 @@ export default class InputManager {
         const dx = currentX - baseX;
         const dy = currentY - baseY;
 
-        // For left joystick (roll control), we want to show a visual indicator of the target roll angle
-        let distance, knobX, knobY;
+        // Limit movement to a reasonable distance
+        const distance = Math.min(30, Math.sqrt(dx * dx + dy * dy));
 
-        if (side === 'left') {
-            // For left stick, limit movement to a reasonable distance
-            distance = Math.min(30, Math.sqrt(dx * dx + dy * dy));
-
-            // Calculate the new position for the joystick knob
-            knobX = Math.min(30, Math.max(-30, dx));
-            knobY = Math.min(30, Math.max(-30, dy));
-
-            // Add a visual indicator of the target roll angle
-            if (distance > 5) {
-                // Calculate the angle from joystick position
-                const angle = Math.atan2(dy, dx);
-                const angleDegrees = angle * (180 / Math.PI);
-
-                // Adjust the angle to match the expected roll orientation
-                let rollAngleDegrees = angleDegrees + 90;
-                // Normalize to -180 to 180 range
-                if (rollAngleDegrees > 180) rollAngleDegrees -= 360;
-                if (rollAngleDegrees < -180) rollAngleDegrees += 360;
-
-                // Add a class to show the roll direction
-                // Right half of joystick = roll right, left half = roll left
-                if (angleDegrees >= -90 && angleDegrees <= 90) {
-                    joystick.classList.add('roll-right');
-                    joystick.classList.remove('roll-left');
-                } else {
-                    joystick.classList.add('roll-left');
-                    joystick.classList.remove('roll-right');
-                }
-
-                // Set a CSS variable for the roll angle that can be used for visual effects
-                // The line indicator should rotate to show the target roll angle
-                joystick.style.setProperty('--roll-angle', `${rollAngleDegrees}deg`);
-            } else {
-                // If close to center, remove roll direction classes
-                joystick.classList.remove('roll-left', 'roll-right');
-                joystick.style.setProperty('--roll-angle', '0deg');
-            }
-        } else {
-            // For right stick, keep the existing behavior
-            distance = Math.min(30, Math.sqrt(dx * dx + dy * dy));
-            const angle = Math.atan2(dy, dx);
-            knobX = distance * Math.cos(angle);
-            knobY = distance * Math.sin(angle);
-        }
+        // Calculate the new position for the joystick knob
+        const knobX = Math.min(30, Math.max(-30, dx));
+        const knobY = Math.min(30, Math.max(-30, dy));
 
         // Update the joystick knob position using transform
         joystick.style.setProperty('--knob-x', `${knobX}px`);
         joystick.style.setProperty('--knob-y', `${knobY}px`);
+
+        // For mono joystick, show a directional indicator
+        if (side === 'mono' && distance > 5) {
+            // Set a CSS variable for the direction angle
+            joystick.style.setProperty('--direction-angle', `${angleDegrees}deg`);
+
+            // Add appropriate direction classes based on angle
+            joystick.classList.remove('direction-up', 'direction-down', 'direction-left', 'direction-right');
+
+            // Determine main direction based on angle
+            if (angleDegrees > -45 && angleDegrees < 45) {
+                joystick.classList.add('direction-right');
+            } else if (angleDegrees >= 45 && angleDegrees < 135) {
+                joystick.classList.add('direction-down');
+            } else if (angleDegrees >= 135 || angleDegrees < -135) {
+                joystick.classList.add('direction-left');
+            } else if (angleDegrees >= -135 && angleDegrees < -45) {
+                joystick.classList.add('direction-up');
+            }
+        } else if (distance <= 5) {
+            // If close to center, remove direction classes
+            joystick.classList.remove('direction-up', 'direction-down', 'direction-left', 'direction-right');
+            joystick.style.setProperty('--direction-angle', '0deg');
+        }
     }
 
     resetJoystickVisual(side) {
@@ -642,11 +621,9 @@ export default class InputManager {
         joystick.style.setProperty('--knob-x', '0px');
         joystick.style.setProperty('--knob-y', '0px');
 
-        // For left joystick, also clear roll angle indicators
-        if (side === 'left') {
-            joystick.classList.remove('roll-left', 'roll-right');
-            joystick.style.removeProperty('--roll-angle');
-        }
+        // Clear direction indicators
+        joystick.classList.remove('direction-up', 'direction-down', 'direction-left', 'direction-right');
+        joystick.style.removeProperty('--direction-angle');
     }
 
     onKeyDown(event) {
@@ -750,15 +727,33 @@ export default class InputManager {
         const leverRect = this.throttleElement.lever.getBoundingClientRect();
         const trackHeight = leverRect.height - 30; // Subtract handle height
 
-        // Calculate position within the track (0 at bottom, 1 at top)
-        let relativeY = (leverRect.bottom - touchY) / trackHeight;
-        relativeY = Math.max(0, Math.min(1, relativeY));
+        // Calculate center point of the track
+        const centerY = leverRect.top + (leverRect.height / 2);
 
-        // Update handle position
-        const handlePosition = relativeY * trackHeight;
+        // Calculate position relative to center (-1 to 1, with 0 at center)
+        // Negative when below center (deceleration), positive when above center (acceleration)
+        let relativeY = (touchY - centerY) / (trackHeight / 2);
+        relativeY = -Math.max(-1, Math.min(1, relativeY)); // Invert so up is positive
+
+        // Update handle position (center is 50% of track height)
+        const handlePositionPercent = 50 + (relativeY * 50); // Map -1,1 to 0,100
+        const handlePosition = (handlePositionPercent / 100) * trackHeight;
         this.throttleElement.handle.style.bottom = `${handlePosition}px`;
 
-        // Update throttle value (0 to 1)
+        // Add visual indicator for neutral position if not already present
+        if (!this.throttleElement.lever.querySelector('.throttle-neutral-marker')) {
+            const neutralMarker = document.createElement('div');
+            neutralMarker.className = 'throttle-neutral-marker';
+            neutralMarker.style.position = 'absolute';
+            neutralMarker.style.width = '100%';
+            neutralMarker.style.height = '2px';
+            neutralMarker.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
+            neutralMarker.style.left = '0';
+            neutralMarker.style.bottom = `${trackHeight / 2}px`;
+            this.throttleElement.lever.appendChild(neutralMarker);
+        }
+
+        // Update throttle value (-1 to 1)
         this.analogControls.throttle = relativeY;
 
         // Check if boost is active (when throttle is at max)
@@ -774,9 +769,21 @@ export default class InputManager {
             }
         }
 
+        // Update throttle UI classes based on position
+        this.throttleElement.lever.classList.remove('throttle-accelerating', 'throttle-decelerating', 'throttle-neutral');
+
+        // Add appropriate class based on position
+        if (Math.abs(relativeY) < 0.1) {
+            this.throttleElement.lever.classList.add('throttle-neutral');
+        } else if (relativeY > 0) {
+            this.throttleElement.lever.classList.add('throttle-accelerating');
+        } else {
+            this.throttleElement.lever.classList.add('throttle-decelerating');
+        }
+
         // Set throttle keys based on position
-        this.keysPressed['w'] = relativeY > 0.1; // Throttle up when not at minimum
-        this.keysPressed['s'] = relativeY < 0.1; // Throttle down only at minimum
+        this.keysPressed['w'] = relativeY > 0.1; // Throttle up when above neutral
+        this.keysPressed['s'] = relativeY < -0.1; // Throttle down when below neutral
 
         // Emit throttle value
         this.eventBus.emit('input.analog', {

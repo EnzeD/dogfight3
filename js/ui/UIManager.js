@@ -10,9 +10,10 @@ import LeaderboardDisplay from './LeaderboardDisplay.js';
 import HeatGauge from './HeatGauge.js';
 
 export default class UIManager {
-    constructor(eventBus, qualitySettings) {
+    constructor(eventBus, qualitySettings, controlSettings) {
         this.eventBus = eventBus;
         this.qualitySettings = qualitySettings;
+        this.controlSettings = controlSettings;
 
         // UI components
         this.instructionsPanel = null;
@@ -57,7 +58,7 @@ export default class UIManager {
         this.flightInfo = new FlightInfo(this.eventBus);
         this.notifications = new Notifications(this.eventBus);
         this.debugPanel = new DebugPanel(this.eventBus);
-        this.settingsMenu = new SettingsMenu(this.eventBus, this.qualitySettings);
+        this.settingsMenu = new SettingsMenu(this.eventBus, this.qualitySettings, this.controlSettings);
         this.healthDisplay = new HealthDisplay(this.eventBus);
         this.leaderboardDisplay = new LeaderboardDisplay(this.eventBus);
         this.heatGauge = new HeatGauge(this.eventBus);
