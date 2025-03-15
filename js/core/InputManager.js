@@ -414,12 +414,15 @@ export default class InputManager {
                     // Map the joystick position to a target roll angle
                     // Scale by distance from center to allow proportional control
                     // Full 360-degree rotation is now possible
+                    // Use a signed value to maintain consistent directionality
                     const targetRollAngle = -rollAngleDegrees * distance;
 
                     this.analogControls.targetRollAngle = targetRollAngle;
 
-                    // For compatibility with existing code, still set the key states
-                    // Left half of joystick = roll left, right half = roll right
+                    // For compatibility with existing code, set the key states based on
+                    // the actual joystick position, not the plane's orientation
+                    // This fixes the inversion bug when plane is oriented beyond 90/-90 degrees
+                    // Note: these are only used as fallbacks and for the propeller control
                     this.keysPressed['a'] = (angleDegrees > 90 || angleDegrees < -90);
                     this.keysPressed['d'] = (angleDegrees >= -90 && angleDegrees <= 90);
                 } else {

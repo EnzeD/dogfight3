@@ -218,7 +218,8 @@ export default class Plane extends Entity {
             // Roll control - prioritize target roll angle if available
             if (hasTargetRollAngle) {
                 // Get current rotation in Euler angles
-                const rotation = new THREE.Euler().setFromQuaternion(this.mesh.quaternion, 'ZYX');
+                // Use a consistent order for Euler extraction to prevent gimbal lock issues
+                const rotation = new THREE.Euler().setFromQuaternion(this.mesh.quaternion, 'YZX');
                 const currentRoll = rotation.z;
 
                 // The target roll angle can now be any value for full 360-degree rolls
@@ -247,7 +248,11 @@ export default class Plane extends Entity {
                     const rollSpeedFactor = Math.min(Math.abs(rollDifference) / Math.PI, 1);
                     const adjustedRollSpeed = minRollSpeed + (maxRollSpeed - minRollSpeed) * rollSpeedFactor;
 
+                    // Calculate roll amount using consistent direction logic
                     const rollAmount = adjustedRollSpeed * rollDirection;
+
+                    // Apply rotation around the plane's local Z axis consistently
+                    // This will ensure consistent behavior regardless of current orientation
                     this.mesh.rotateZ(rollAmount * deltaTime * 60);
 
                     // If we're doing a barrel roll (difference > 90 degrees), temporarily disable auto-stabilization
@@ -265,12 +270,11 @@ export default class Plane extends Entity {
                 // Full left = -180 degrees (-π), Full right = 180 degrees (π)
                 this.targetAngles.roll = this.analogControls.roll * Math.PI;
 
-                // Get current rotation in Euler angles
-                const rotation = new THREE.Euler().setFromQuaternion(this.mesh.quaternion, 'ZYX');
+                // Get current rotation in Euler angles - use YZX order for consistency
+                const rotation = new THREE.Euler().setFromQuaternion(this.mesh.quaternion, 'YZX');
                 const currentRoll = rotation.z;
 
-                // Calculate the shortest path to the target angle
-                // This handles the case where we're at 170 degrees and want to go to -170 degrees
+                // Calculate the difference between current and target roll
                 let rollDifference = this.targetAngles.roll - currentRoll;
 
                 // Normalize the difference to be between -π and π
@@ -339,8 +343,8 @@ export default class Plane extends Entity {
         // Skip auto-stabilization if temporarily disabled during barrel rolls
         if (this._tempDisableAutoStabilization) return;
 
-        // Get current rotation in Euler angles
-        const rotation = new THREE.Euler().setFromQuaternion(this.mesh.quaternion, 'ZYX');
+        // Get current rotation in Euler angles - use YZX order for consistency
+        const rotation = new THREE.Euler().setFromQuaternion(this.mesh.quaternion, 'YZX');
 
         // Stabilize roll (z-axis) - only when roll is beyond a small threshold
         // Increased threshold from 0.01 to 0.025 to prevent triggering on tiny angles
@@ -366,8 +370,8 @@ export default class Plane extends Entity {
      * @param {number} deltaTime - Time since last frame in seconds
      */
     applyGravity(deltaTime) {
-        // Get current rotation in Euler angles
-        const rotation = new THREE.Euler().setFromQuaternion(this.mesh.quaternion, 'ZYX');
+        // Get current rotation in Euler angles - use YZX order for consistency
+        const rotation = new THREE.Euler().setFromQuaternion(this.mesh.quaternion, 'YZX');
 
         // Calculate lift based on speed and pitch
         // More speed = more lift, nose up = more lift
@@ -419,8 +423,8 @@ export default class Plane extends Entity {
                 // Scale the target angle to the max aileron deflection
                 const MAX_AILERON_DEFLECTION = 0.5;
 
-                // Get current rotation in Euler angles
-                const rotation = new THREE.Euler().setFromQuaternion(this.mesh.quaternion, 'ZYX');
+                // Get current rotation in Euler angles - use YZX order for consistency with movement code
+                const rotation = new THREE.Euler().setFromQuaternion(this.mesh.quaternion, 'YZX');
                 const currentRoll = rotation.z;
 
                 // Calculate the difference between current and target roll
@@ -436,9 +440,10 @@ export default class Plane extends Entity {
 
                 // Apply deflection proportional to the normalized difference
                 // Negative for left roll (left aileron up, right aileron down)
+                // We always keep this consistent regardless of the plane's current orientation
                 const aileronDeflection = -normalizedDifference * MAX_AILERON_DEFLECTION;
 
-                // Apply deflection to ailerons
+                // Apply deflection to ailerons consistently
                 this.leftAileron.rotation.x = aileronDeflection;
                 this.rightAileron.rotation.x = -aileronDeflection;
             }
