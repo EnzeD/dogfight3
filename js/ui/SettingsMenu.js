@@ -68,7 +68,6 @@ export default class SettingsMenu {
         const quality = this.qualitySettings.quality;
         const shadows = this.qualitySettings.shadows;
         const antialiasing = this.qualitySettings.antialiasing;
-        const resolution = this.qualitySettings.resolution;
 
         // Create the menu content
         let content = `
@@ -91,27 +90,6 @@ export default class SettingsMenu {
                     <button id="quality-high" class="quality-button ${quality === 'high' ? 'selected' : ''}" 
                         style="flex: 1; padding: ${this.isMobile ? '5px' : '8px'}; background-color: ${quality === 'high' ? '#3498db' : 'rgba(50, 50, 50, 0.8)'}; border: none; color: white; border-radius: 4px; cursor: pointer;">
                         High
-                    </button>
-                </div>
-            </div>
-        `;
-
-        // Resolution setting
-        content += `
-            <div style="margin-bottom: ${this.isMobile ? '10px' : '15px'}; text-align: left;">
-                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Resolution:</label>
-                <div style="display: flex; gap: 8px;">
-                    <button id="resolution-50" class="resolution-button ${resolution === 0.5 ? 'selected' : ''}" 
-                        style="flex: 1; padding: ${this.isMobile ? '5px' : '8px'}; background-color: ${resolution === 0.5 ? '#3498db' : 'rgba(50, 50, 50, 0.8)'}; border: none; color: white; border-radius: 4px; cursor: pointer;">
-                        50%
-                    </button>
-                    <button id="resolution-75" class="resolution-button ${resolution === 0.75 ? 'selected' : ''}" 
-                        style="flex: 1; padding: ${this.isMobile ? '5px' : '8px'}; background-color: ${resolution === 0.75 ? '#3498db' : 'rgba(50, 50, 50, 0.8)'}; border: none; color: white; border-radius: 4px; cursor: pointer;">
-                        75%
-                    </button>
-                    <button id="resolution-100" class="resolution-button ${resolution === 1.0 ? 'selected' : ''}" 
-                        style="flex: 1; padding: ${this.isMobile ? '5px' : '8px'}; background-color: ${resolution === 1.0 ? '#3498db' : 'rgba(50, 50, 50, 0.8)'}; border: none; color: white; border-radius: 4px; cursor: pointer;">
-                        100%
                     </button>
                 </div>
             </div>
@@ -214,25 +192,6 @@ export default class SettingsMenu {
             this.showLoadingMessage();
         });
 
-        // Resolution buttons
-        addSafeListener('resolution-50', () => {
-            this.qualitySettings.setResolution(0.5);
-            this.updateMenuContent();
-            this.showLoadingMessage();
-        });
-
-        addSafeListener('resolution-75', () => {
-            this.qualitySettings.setResolution(0.75);
-            this.updateMenuContent();
-            this.showLoadingMessage();
-        });
-
-        addSafeListener('resolution-100', () => {
-            this.qualitySettings.setResolution(1.0);
-            this.updateMenuContent();
-            this.showLoadingMessage();
-        });
-
         // Sound toggle button
         addSafeListener('toggle-sound', () => {
             // Emit event to toggle sound
@@ -284,6 +243,26 @@ export default class SettingsMenu {
     applySettings() {
         // Emit an event to apply settings
         this.eventBus.emit('settings.apply', this.qualitySettings);
+
+        // Show a message about reloading
+        const reloadMsg = document.createElement('div');
+        reloadMsg.style.position = 'fixed';
+        reloadMsg.style.top = '50%';
+        reloadMsg.style.left = '50%';
+        reloadMsg.style.transform = 'translate(-50%, -50%)';
+        reloadMsg.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
+        reloadMsg.style.color = 'white';
+        reloadMsg.style.padding = '20px';
+        reloadMsg.style.borderRadius = '10px';
+        reloadMsg.style.zIndex = '10002';
+        reloadMsg.style.textAlign = 'center';
+        reloadMsg.textContent = 'Applying settings and reloading...';
+        document.body.appendChild(reloadMsg);
+
+        // Reload the page after a short delay to show the message
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
     }
 
     /**

@@ -95,6 +95,11 @@ export default class SceneManager {
             this.adsClickable = false; // Disable ad clicks when on menu
         });
 
+        // Listen for settings apply event
+        this.eventBus.on('settings.apply', (qualitySettings) => {
+            this.applySettings(qualitySettings);
+        });
+
         // Set initial state
         this.adsClickable = !this.isMainMenuActive;
     }
@@ -502,6 +507,46 @@ export default class SceneManager {
         // Reset cursor if no hover is active
         if (!runwayHandled && !billboardHandled && !zeppelinAdHandled && !groundLogoHandled) {
             document.body.style.cursor = 'auto';
+        }
+    }
+
+    /**
+     * Apply quality settings including resolution
+     * @param {QualitySettings} qualitySettings - The quality settings object
+     */
+    applySettings(qualitySettings) {
+        console.log('Applying scene settings...');
+
+        // Update local reference to settings
+        this.qualitySettings = qualitySettings;
+        this.settings = qualitySettings.getCurrentSettings();
+
+        // Apply resolution setting
+        if (this.renderer) {
+            // Get the resolution scale (0.5, 0.75, or 1.0)
+            const resolutionScale = qualitySettings.resolution || 1.0;
+
+            // Apply the resolution scale to the renderer
+            this.renderer.setPixelRatio(window.devicePixelRatio * resolutionScale);
+
+            console.log(`Applied resolution scale: ${resolutionScale} (${Math.round(resolutionScale * 100)}%)`);
+
+            // Force a resize to update everything
+            this.onResize();
+        }
+
+        // Apply other settings as needed
+        // Update fog density
+        if (this.fog && this.settings.fogDensity) {
+            this.fog.density = this.settings.fogDensity;
+            console.log(`Updated fog density: ${this.settings.fogDensity}`);
+        }
+
+        // Update shadow settings
+        if (this.renderer) {
+            this.renderer.shadowMap.enabled = this.settings.shadowsEnabled !== undefined ?
+                this.settings.shadowsEnabled : true;
+            console.log(`Updated shadows enabled: ${this.renderer.shadowMap.enabled}`);
         }
     }
 } 
