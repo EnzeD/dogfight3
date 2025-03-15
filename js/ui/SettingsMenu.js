@@ -290,10 +290,14 @@ export default class SettingsMenu {
      * Setup event listeners for settings menu
      */
     setupEventListeners() {
-        // Listen for the Escape key to close the menu
+        // Listen for the Escape key to toggle the menu
         document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape' && this.isVisible) {
-                this.hide();
+            if (event.key === 'Escape') {
+                if (this.isVisible) {
+                    this.hide();
+                } else {
+                    this.show();
+                }
             }
         });
     }

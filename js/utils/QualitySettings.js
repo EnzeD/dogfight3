@@ -56,7 +56,7 @@ export default class QualitySettings {
                 fogDensity: 0.001,             // Increased to hide more distant objects
                 shadowsEnabled: false,         // Disable shadows
                 effectsQuality: 'minimal',     // Minimal effects
-                maxVisibleEnemies: 3,          // Limit visible enemies
+                maxVisibleEnemies: 5,          // Updated to minimum of 5 enemies
                 drawDistance: 2000,            // Shorter draw distance
                 textureQuality: 'low',         // Low texture quality
                 antialiasing: false            // No anti-aliasing
@@ -96,7 +96,7 @@ export default class QualitySettings {
                 fogDensity: 0.001,             // Same as low
                 shadowsEnabled: true,          // Enable shadows (difference from low)
                 effectsQuality: 'minimal',     // Same as low
-                maxVisibleEnemies: 20,         // Increased from 3 to 20 as requested
+                maxVisibleEnemies: 20,         // More enemies for medium quality
                 drawDistance: 2000,            // Same as low
                 textureQuality: 'low',         // Same as low
                 antialiasing: true             // Enable anti-aliasing (difference from low)

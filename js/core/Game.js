@@ -102,12 +102,17 @@ export default class Game {
             // Check multiplayer mode after player plane creation
             this.checkMultiplayerMode();
 
-            // Only create an AI enemy in single player mode
+            // Only create AI enemies in single player mode
             if (!this.isMultiplayer) {
-                console.log('Creating enemy plane in single player mode...');
-                // Position the enemy plane directly in front of the player for testing
+                console.log('Creating enemy planes in single player mode...');
                 const planeFactory = new PlaneFactory(this.sceneManager.scene, this.eventBus);
+
+                // Create 5 enemy planes at different positions
                 this.createEnemyPlane(planeFactory, new THREE.Vector3(0, 30, -50));
+                this.createEnemyPlane(planeFactory, new THREE.Vector3(-100, 50, -100));
+                this.createEnemyPlane(planeFactory, new THREE.Vector3(100, 70, -150));
+                this.createEnemyPlane(planeFactory, new THREE.Vector3(-50, 90, -200));
+                this.createEnemyPlane(planeFactory, new THREE.Vector3(50, 110, -250));
             }
 
             // Initialize audio (after plane is created)
