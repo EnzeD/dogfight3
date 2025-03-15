@@ -8,6 +8,23 @@
         content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, height=device-height">
     <title>WW2 Dogfight Arena</title>
 
+    <!-- Preconnect to Google Fonts to improve loading performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Preload critical fonts to prevent FOUT (Flash of Unstyled Text) -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Black+Ops+One&display=swap&font-display=swap"
+        as="style">
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Special+Elite&display=swap&font-display=swap"
+        as="style">
+    <link rel="preload"
+        href="https://fonts.googleapis.com/css2?family=Teko:wght@400;500;600&display=swap&font-display=swap" as="style">
+
+    <!-- Load the fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Special+Elite&family=Teko:wght@400;500;600&display=swap&font-display=swap"
+        rel="stylesheet">
+
     <!-- Import maps for ES modules -->
     <script type="importmap">
         {
@@ -29,6 +46,26 @@
         gtag('js', new Date());
 
         gtag('config', 'G-BPFNTM4VXN');
+    </script>
+
+    <!-- Font loading script for Safari -->
+    <script>
+        // Check if running on Safari
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+        if (isSafari) {
+            // Force font loading for Safari
+            document.fonts.ready.then(() => {
+                // Add a class to body when fonts are loaded
+                document.body.classList.add('fonts-loaded');
+
+                // Force repaint to apply fonts
+                document.body.style.display = 'none';
+                setTimeout(() => {
+                    document.body.style.display = '';
+                }, 50);
+            });
+        }
     </script>
 </head>
 

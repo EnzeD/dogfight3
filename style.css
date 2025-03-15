@@ -1,6 +1,3 @@
-/* Import WW2-era inspired fonts */
-@import url('https://fonts.googleapis.com/css2?family=Special+Elite&family=Black+Ops+One&family=Teko:wght@400;500;600&display=swap');
-
 /* Reset default margin and hide overflow */
 body {
     margin: 0;
@@ -10,13 +7,47 @@ body {
     height: 100vh;
     height: 100dvh;
     /* Add dynamic viewport height for mobile */
-    font-family: 'Special Elite', monospace;
+    font-family: 'Special Elite', Courier, monospace;
     background-color: #000;
     color: #fff;
     position: fixed;
     /* Prevent bounce on iOS */
     top: 0;
     left: 0;
+}
+
+/* Ensure fonts are properly applied in Safari */
+body.fonts-loaded .landing-title {
+    font-family: 'Black Ops One', 'Impact', 'Arial Black', sans-serif !important;
+}
+
+body.fonts-loaded .landing-subtitle {
+    font-family: 'Teko', 'Arial Narrow', Arial, sans-serif !important;
+}
+
+body.fonts-loaded .mode-option h3,
+body.fonts-loaded .sponsor-heading,
+body.fonts-loaded .sponsor-cta,
+body.fonts-loaded .sponsor-button,
+body.fonts-loaded .sponsor-sold,
+body.fonts-loaded .start-button,
+body.fonts-loaded .sponsor-close,
+body.fonts-loaded .fire-button,
+body.fonts-loaded .throttle-label,
+body.fonts-loaded .throttle-boost-indicator {
+    font-family: 'Black Ops One', 'Impact', 'Arial Black', sans-serif !important;
+}
+
+body.fonts-loaded .mode-option p,
+body.fonts-loaded .sponsor-desc,
+body.fonts-loaded .sponsor-disclaimer,
+body.fonts-loaded .callsign-input,
+body.fonts-loaded .interval {
+    font-family: 'Special Elite', Courier, monospace !important;
+}
+
+body.fonts-loaded .price {
+    font-family: 'Teko', 'Arial Narrow', Arial, sans-serif !important;
 }
 
 /* Ensure the canvas fills the screen */
@@ -122,7 +153,7 @@ canvas {
 }
 
 .landing-title {
-    font-family: 'Black Ops One', cursive;
+    font-family: 'Black Ops One', 'Impact', 'Arial Black', sans-serif;
     font-size: 3rem;
     margin-bottom: 0.5rem;
     text-align: center;
@@ -136,7 +167,7 @@ canvas {
 }
 
 .landing-subtitle {
-    font-family: 'Teko', sans-serif;
+    font-family: 'Teko', 'Arial Narrow', Arial, sans-serif;
     font-size: 1.2rem;
     text-align: center;
     margin-bottom: 2rem;
@@ -233,7 +264,7 @@ canvas {
 }
 
 .mode-option h3 {
-    font-family: 'Black Ops One', cursive;
+    font-family: 'Black Ops One', 'Impact', 'Arial Black', sans-serif;
     font-size: 1.3rem;
     margin-bottom: 0.7rem;
     color: #f8d742;
@@ -241,7 +272,7 @@ canvas {
 }
 
 .mode-option p {
-    font-family: 'Special Elite', monospace;
+    font-family: 'Special Elite', Courier, monospace;
     font-size: 0.9rem;
     color: #ddd;
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
@@ -286,12 +317,12 @@ canvas {
 }
 
 .callsign-input {
+    font-family: 'Special Elite', Courier, monospace;
     width: 100%;
     padding: 10px 15px;
     border: 2px solid #666;
     background-color: rgba(0, 0, 0, 0.6);
     color: #fff;
-    font-family: 'Special Elite', monospace;
     font-size: 1.2rem;
     border-radius: 0;
     outline: none;
@@ -309,11 +340,11 @@ canvas {
 }
 
 .start-button {
+    font-family: 'Black Ops One', 'Impact', 'Arial Black', sans-serif;
     background-color: #8b0000;
     color: #fff;
     border: none;
     padding: 12px 30px;
-    font-family: 'Black Ops One', cursive;
     font-size: 1.2rem;
     cursor: pointer;
     border-radius: 0;
@@ -396,7 +427,7 @@ canvas {
 
 /* Call to action button */
 .sponsor-cta {
-    font-family: 'Black Ops One', cursive;
+    font-family: 'Black Ops One', 'Impact', 'Arial Black', sans-serif;
     font-size: 0.9rem;
     background-color: transparent;
     color: #f8d742;
@@ -464,7 +495,7 @@ canvas {
 }
 
 .sponsor-close {
-    font-family: 'Black Ops One', cursive;
+    font-family: 'Black Ops One', 'Impact', 'Arial Black', sans-serif;
     font-size: 0.8rem;
     background-color: rgba(0, 0, 0, 0.4);
     color: #aaa;
@@ -484,7 +515,7 @@ canvas {
 }
 
 .sponsor-heading {
-    font-family: 'Black Ops One', cursive;
+    font-family: 'Black Ops One', 'Impact', 'Arial Black', sans-serif;
     font-size: 1.3rem;
     margin-bottom: 0.5rem;
     color: #f8d742;
@@ -493,7 +524,7 @@ canvas {
 }
 
 .sponsor-desc {
-    font-family: 'Special Elite', monospace;
+    font-family: 'Special Elite', Courier, monospace;
     font-size: 0.9rem;
     color: #ddd;
     margin-bottom: 1.5rem;
@@ -552,7 +583,7 @@ canvas {
 }
 
 .sponsor-option h4 {
-    font-family: 'Black Ops One', cursive;
+    font-family: 'Black Ops One', 'Impact', 'Arial Black', sans-serif;
     font-size: 0.9rem;
     margin: 0 0 10px 0;
     color: #f8d742;
@@ -568,20 +599,20 @@ canvas {
 }
 
 .price {
-    font-family: 'Teko', sans-serif;
+    font-family: 'Teko', 'Arial Narrow', Arial, sans-serif;
     font-size: 1.2rem;
     font-weight: 600;
     color: #fff;
 }
 
 .interval {
-    font-family: 'Special Elite', monospace;
+    font-family: 'Special Elite', Courier, monospace;
     font-size: 0.7rem;
     color: #aaa;
 }
 
 .sponsor-button {
-    font-family: 'Black Ops One', cursive;
+    font-family: 'Black Ops One', 'Impact', 'Arial Black', sans-serif;
     font-size: 0.7rem;
     background-color: #8b0000;
     color: #fff;
@@ -603,7 +634,7 @@ canvas {
 }
 
 .sponsor-sold {
-    font-family: 'Black Ops One', cursive;
+    font-family: 'Black Ops One', 'Impact', 'Arial Black', sans-serif;
     font-size: 0.7rem;
     background-color: #555;
     color: #888;
@@ -623,7 +654,7 @@ canvas {
 }
 
 .sponsor-disclaimer {
-    font-family: 'Special Elite', monospace;
+    font-family: 'Special Elite', Courier, monospace;
     font-size: 0.75rem;
     color: #999;
     text-align: center;
@@ -1128,6 +1159,7 @@ canvas {
 
 /* Fire button */
 .fire-button {
+    font-family: 'Black Ops One', 'Impact', 'Arial Black', sans-serif;
     position: fixed;
     width: 80px;
     height: 80px;
@@ -1138,7 +1170,6 @@ canvas {
     display: none;
     pointer-events: none;
     color: rgba(255, 255, 255, 0.8);
-    font-family: 'Black Ops One', cursive;
     font-size: 18px;
     text-align: center;
     line-height: 80px;
@@ -1195,22 +1226,22 @@ canvas {
 }
 
 .throttle-label {
+    font-family: 'Black Ops One', 'Impact', 'Arial Black', sans-serif;
     position: absolute;
     width: 100%;
     text-align: center;
     bottom: -25px;
     color: rgba(255, 255, 255, 0.8);
-    font-family: 'Black Ops One', cursive;
     font-size: 12px;
 }
 
 .throttle-boost-indicator {
+    font-family: 'Black Ops One', 'Impact', 'Arial Black', sans-serif;
     position: absolute;
     width: 100%;
     text-align: center;
     top: -25px;
     color: rgba(255, 255, 0, 0.8);
-    font-family: 'Black Ops One', cursive;
     font-size: 12px;
     opacity: 0;
     transition: opacity 0.3s ease;
