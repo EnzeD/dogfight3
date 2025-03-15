@@ -111,8 +111,6 @@ export default class Game {
                 this.createEnemyPlane(planeFactory, new THREE.Vector3(0, 30, -50));
                 this.createEnemyPlane(planeFactory, new THREE.Vector3(-100, 50, -100));
                 this.createEnemyPlane(planeFactory, new THREE.Vector3(100, 70, -150));
-                this.createEnemyPlane(planeFactory, new THREE.Vector3(-50, 90, -200));
-                this.createEnemyPlane(planeFactory, new THREE.Vector3(50, 110, -250));
             }
 
             // Initialize audio (after plane is created)
