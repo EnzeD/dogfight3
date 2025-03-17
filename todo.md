@@ -13,9 +13,11 @@ Gravity
 Converge the fires in one point
 Improve the motor sound
 Low poly Mountains and hallmarks
-
+Nickname on top of plane
 
 ## Bugs
 
-Flickering of the runway
-Cleaning dead AI to free memory
+Not everything is muted (hit effects)
+Rubberbanding
+Heat bar in multi
+TAB Score on mobile

@@ -6,12 +6,26 @@ export default class LeaderboardDisplay {
         this.leaderboardData = [];
         this.isPlayerDead = false;
         this.manuallyToggled = false;
+        this.isMobile = this.checkIfMobile();
 
         // Create DOM elements
         this.createElements();
 
+        // Create mobile toggle button (mobile only)
+        if (this.isMobile) {
+            this.createMobileToggleButton();
+        }
+
         // Set up event listeners
         this.setupEventListeners();
+    }
+
+    /**
+     * Check if the device is mobile
+     * @returns {boolean} True if mobile device
+     */
+    checkIfMobile() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
     }
 
     /**
@@ -30,7 +44,7 @@ export default class LeaderboardDisplay {
         // Create header
         const header = document.createElement('div');
         header.className = 'leaderboard-header';
-        header.innerHTML = '<h2>LEADERBOARD</h2>';
+        header.innerHTML = '<h2>Leaderboard</h2>';
 
         // Create table
         this.table = document.createElement('table');
@@ -65,6 +79,107 @@ export default class LeaderboardDisplay {
 
         // Add styles
         this.addStyles();
+    }
+
+    /**
+     * Create mobile toggle button for leaderboard
+     */
+    createMobileToggleButton() {
+        // Create the button
+        this.mobileToggleButton = document.createElement('button');
+        this.mobileToggleButton.id = 'mobile-leaderboard-toggle';
+        this.mobileToggleButton.innerHTML = 'Leaderboard';
+
+        // Style the button to match options button
+        this.mobileToggleButton.style.position = 'fixed';
+        this.mobileToggleButton.style.top = '15px';
+        this.mobileToggleButton.style.left = '15px';
+        this.mobileToggleButton.style.zIndex = '10000';
+        this.mobileToggleButton.style.pointerEvents = 'auto';
+        this.mobileToggleButton.style.touchAction = 'manipulation';
+        this.mobileToggleButton.style.userSelect = 'none';
+        this.mobileToggleButton.style.webkitTapHighlightColor = 'transparent';
+        this.mobileToggleButton.style.padding = '10px 15px';
+        this.mobileToggleButton.style.fontSize = '16px';
+        this.mobileToggleButton.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+        this.mobileToggleButton.style.color = 'white';
+        this.mobileToggleButton.style.border = '2px solid rgba(255, 255, 255, 0.4)';
+        this.mobileToggleButton.style.borderRadius = '8px';
+        this.mobileToggleButton.style.boxShadow = '0 2px 5px rgba(0, 0, 0, 0.2)';
+        this.mobileToggleButton.style.cursor = 'pointer';
+        this.mobileToggleButton.style.fontFamily = 'Arial, sans-serif';
+        this.mobileToggleButton.style.backdropFilter = 'blur(5px)';
+        this.mobileToggleButton.style.minWidth = '120px';
+        this.mobileToggleButton.style.fontWeight = 'bold';
+
+        // Add hover and active states through JS since we can't use CSS
+        this.mobileToggleButton.addEventListener('mouseenter', () => {
+            this.mobileToggleButton.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+            this.mobileToggleButton.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+        });
+
+        this.mobileToggleButton.addEventListener('mouseleave', () => {
+            this.mobileToggleButton.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+            this.mobileToggleButton.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+        });
+
+        // Check for notched devices
+        if (this.hasNotch()) {
+            this.mobileToggleButton.style.top = 'max(15px, env(safe-area-inset-top) + 5px)';
+            this.mobileToggleButton.style.left = 'max(15px, env(safe-area-inset-left) + 5px)';
+        }
+
+        // Add event listener with touchstart for better mobile response
+        this.mobileToggleButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            // Add active state styling
+            this.mobileToggleButton.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+            this.mobileToggleButton.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+            this.toggleVisibility();
+        }, { passive: false });
+
+        // Keep click handler for compatibility
+        this.mobileToggleButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.toggleVisibility();
+        });
+
+        // Add to document
+        document.body.appendChild(this.mobileToggleButton);
+
+        // Ensure the button is always on top by reattaching it periodically
+        this.ensureLeaderboardButtonIsOnTop();
+    }
+
+    /**
+     * Ensure the leaderboard button is always on top
+     */
+    ensureLeaderboardButtonIsOnTop() {
+        // Reattach the button to the body every 2 seconds to ensure it's on top
+        setInterval(() => {
+            if (this.mobileToggleButton && document.body.contains(this.mobileToggleButton)) {
+                // Remove and reattach to ensure it's the last child (on top)
+                document.body.removeChild(this.mobileToggleButton);
+                document.body.appendChild(this.mobileToggleButton);
+            }
+        }, 2000);
+
+        // Also reattach after any orientation change
+        window.addEventListener('resize', () => {
+            if (this.mobileToggleButton && document.body.contains(this.mobileToggleButton)) {
+                // Remove and reattach to ensure it's the last child (on top)
+                document.body.removeChild(this.mobileToggleButton);
+                document.body.appendChild(this.mobileToggleButton);
+            }
+        });
+    }
+
+    /**
+     * Check if device has a notch
+     * @returns {boolean} True if the device likely has a notch
+     */
+    hasNotch() {
+        return typeof CSS !== 'undefined' && CSS.supports('padding-top: env(safe-area-inset-top)');
     }
 
     /**
@@ -139,6 +254,35 @@ export default class LeaderboardDisplay {
             .leaderboard-table .highlight {
                 color: #ffaa33;
                 font-weight: bold;
+            }
+            
+            /* Mobile responsive styles */
+            @media (max-width: 768px) {
+                .leaderboard-container {
+                    min-width: 90%;
+                    max-width: 95%;
+                    padding: 10px;
+                    max-height: 80vh;
+                    overflow-y: auto;
+                }
+                
+                .leaderboard-header h2 {
+                    font-size: 20px;
+                }
+                
+                .leaderboard-table th,
+                .leaderboard-table td {
+                    padding: 8px 4px;
+                    font-size: 12px;
+                }
+                
+                /* Hide Time column on very small screens */
+                @media (max-width: 480px) {
+                    .leaderboard-table th:nth-child(6),
+                    .leaderboard-table td:nth-child(6) {
+                        display: none;
+                    }
+                }
             }
         `;
         document.head.appendChild(style);
