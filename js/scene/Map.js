@@ -440,13 +440,13 @@ export default class GameMap {
             // Position settings - near village 1 center (-800, -350)
             position: {
                 x: -700,  // Left/right (negative = left)
-                y: 0.1,  // Very slightly above ground to prevent z-fighting
+                y: 0.3,  // Raised slightly higher off ground to prevent z-fighting
                 z: -230  // Forward/backward (negative = into the screen) - adjusted to be at village 1
             },
 
-            // Size settings - same as village 1 logo
+            // Size settings - maintain aspect ratio
             width: 502,   // Width of the ad panel
-            height: 282,  // Height of the ad panel
+            height: 109,  // Height of the ad panel - matched to groundLogo for consistency
 
             // Advertisement settings 
             texture: 'assets/textures/village2.png',  // Texture for village 2

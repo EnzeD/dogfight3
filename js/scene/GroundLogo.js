@@ -106,7 +106,9 @@ export default class GroundLogo {
             side: THREE.DoubleSide,
             color: 0xFFFFFF, // White to ensure full brightness
             emissive: 0x333333, // Slight emissive property to increase visibility
-            emissiveMap: adTexture // Use same texture for emissive to enhance contrast
+            emissiveMap: adTexture, // Use same texture for emissive to enhance contrast
+            depthWrite: true, // Enable depth writing
+            alphaTest: 0.01 // Slight alpha test to help with transparency issues
         });
 
         // Create billboard group
@@ -130,6 +132,9 @@ export default class GroundLogo {
         const panelBacking = new THREE.Mesh(panelGeometry, this.materials.billboardBg);
         panelBacking.position.set(0, 0, 0);
 
+        // Optimize rendering - set receiveShadow for better ground interaction
+        panelBacking.receiveShadow = true;
+
         // Create the frame around the billboard - lying flat
         this.createFlatBillboardFrame(this.logoGroup, adWidth, adHeight, panelDepth, frameWidth);
 
@@ -140,8 +145,13 @@ export default class GroundLogo {
         // Position the ad on top of the backing panel
         this.logoMesh.position.set(0, panelDepth / 2 + 0.1, 0);
 
-        // Rotate to lay flat
-        this.logoMesh.rotation.x = -Math.PI / 2;
+        // Apply a small random rotation to reduce z-fighting with the ground
+        const randomOffset = 0.001 * (Math.random() - 0.5);
+        this.logoMesh.rotation.x = -Math.PI / 2 + randomOffset;
+
+        // Prevent z-fighting with ground by setting renderOrder
+        this.logoMesh.renderOrder = 1;
+        panelBacking.renderOrder = 0;
 
         // Add user data for click handling
         this.logoMesh.userData = {
