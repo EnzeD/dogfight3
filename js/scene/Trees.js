@@ -32,6 +32,7 @@ export default class Trees {
         // Instance-based rendering for similar trees (much more efficient)
         this.useInstancing = true;
         this.instancedMeshes = {};
+        this.instanceMatrices = {};
 
         // LOD matrices for optimized rendering
         this.lodMatrix = {};
@@ -117,6 +118,9 @@ export default class Trees {
         }));
         this.treeTypes.willow = this.createWillowTree(yellowGreenMaterial, brownMaterial);
 
+        // Set up instanced rendering for performance
+        this.setupInstancedRendering();
+
         // Generate tree instances if we have tree map data
         if (this.treeMapData) {
             this.placeTreesFromMap();
@@ -127,10 +131,14 @@ export default class Trees {
      * Set up instanced rendering for more efficient tree rendering
      */
     setupInstancedRendering() {
+        console.log('Setting up instanced rendering for trees');
+
         // Create instanced meshes for each tree type and component
         const typeKeys = Object.keys(this.treeTypes);
+        this.instanceMatrices = {};
 
         for (const type of typeKeys) {
+            this.instanceMatrices[type] = [];
             const treeTemplate = this.treeTypes[type];
             const components = [];
 
@@ -148,10 +156,11 @@ export default class Trees {
 
             // Count trees of this type in the map data
             let count = 0;
-            for (const treeType in this.treeMapData) {
-                if (treeType === type && Array.isArray(this.treeMapData[treeType])) {
-                    count = this.treeMapData[treeType].length;
-                }
+            if (this.treeMapData[type] && Array.isArray(this.treeMapData[type])) {
+                count = this.treeMapData[type].length;
+
+                // Add capacity for additional trees
+                count = Math.max(count, 100); // Allow at least 100 trees per type
             }
 
             if (count > 0) {
@@ -463,47 +472,89 @@ export default class Trees {
     }
 
     /**
-     * Place trees from map data - SIMPLIFIED VERSION
+     * Place trees from map data using instanced rendering
      */
     placeTreesFromMap() {
-        console.log("Placing trees from map data");
+        console.log("Placing trees from map data using instanced rendering");
 
         // Clear existing trees
         this.clear();
 
-        // Simpler implementation - create individual trees directly
+        const matrix = new THREE.Matrix4();
+        const position = new THREE.Vector3();
+        const rotation = new THREE.Euler();
+        const scale = new THREE.Vector3();
+
+        // Place trees using instanced rendering
         for (const treeType in this.treeMapData) {
             if (this.treeTypes[treeType] && Array.isArray(this.treeMapData[treeType])) {
-                const treeTemplate = this.treeTypes[treeType];
                 const treePositions = this.treeMapData[treeType];
 
-                console.log(`Creating ${treePositions.length} trees of type ${treeType}`);
+                if (this.useInstancing && this.instancedMeshes[treeType]) {
+                    console.log(`Creating ${treePositions.length} instanced trees of type ${treeType}`);
 
-                treePositions.forEach(tree => {
-                    const treeMesh = treeTemplate.clone();
+                    // For each tree position, create a transformation matrix
+                    treePositions.forEach((tree, index) => {
+                        position.set(tree.x, 0, tree.z);
+                        rotation.set(0, tree.rotation || 0, 0);
+                        const treeScale = tree.scale || 1;
+                        scale.set(treeScale, treeScale, treeScale);
 
-                    // Apply position, rotation, and scale
-                    treeMesh.position.set(tree.x, 0, tree.z);
-                    treeMesh.rotation.y = tree.rotation || 0;
+                        matrix.compose(position, new THREE.Quaternion().setFromEuler(rotation), scale);
 
-                    const scale = tree.scale || 1;
-                    treeMesh.scale.set(scale, scale, scale);
-
-                    // Enable shadows
-                    treeMesh.traverse(object => {
-                        if (object.isMesh) {
-                            object.castShadow = true;
-                            object.receiveShadow = true;
+                        // Apply the matrix to all components of this tree type
+                        if (this.instancedMeshes[treeType]) {
+                            this.instancedMeshes[treeType].forEach(mesh => {
+                                mesh.setMatrixAt(index, matrix);
+                            });
                         }
+
+                        // Store the matrix for LOD updates
+                        if (!this.instanceMatrices[treeType]) {
+                            this.instanceMatrices[treeType] = [];
+                        }
+                        this.instanceMatrices[treeType][index] = {
+                            position: position.clone(),
+                            matrix: matrix.clone()
+                        };
                     });
 
-                    this.trees.push(treeMesh);
-                    this.scene.add(treeMesh);
-                });
+                    // Update the instance matrices
+                    this.instancedMeshes[treeType].forEach(mesh => {
+                        mesh.instanceMatrix.needsUpdate = true;
+                    });
+                }
+                else {
+                    // Fallback to individual meshes
+                    console.log(`Creating ${treePositions.length} individual trees of type ${treeType}`);
+                    const treeTemplate = this.treeTypes[treeType];
+
+                    treePositions.forEach(tree => {
+                        const treeMesh = treeTemplate.clone();
+
+                        // Apply position, rotation, and scale
+                        treeMesh.position.set(tree.x, 0, tree.z);
+                        treeMesh.rotation.y = tree.rotation || 0;
+
+                        const treeScale = tree.scale || 1;
+                        treeMesh.scale.set(treeScale, treeScale, treeScale);
+
+                        // Enable shadows
+                        treeMesh.traverse(object => {
+                            if (object.isMesh) {
+                                object.castShadow = true;
+                                object.receiveShadow = true;
+                            }
+                        });
+
+                        this.trees.push(treeMesh);
+                        this.scene.add(treeMesh);
+                    });
+                }
             }
         }
 
-        console.log(`Placed ${this.trees.length} trees in the scene`);
+        console.log(`Tree placement complete. Using instanced rendering: ${this.useInstancing}`);
     }
 
     /**
@@ -512,9 +563,6 @@ export default class Trees {
     update(cameraPosition) {
         // Skip if no camera position
         if (!cameraPosition) return;
-
-        // Simple distance-based LOD
-        const distanceThreshold = 500;
 
         // Create a Vector3 if needed - either use the provided position 
         // or extract position from the camera object
@@ -528,49 +576,68 @@ export default class Trees {
             return;
         }
 
-        this.trees.forEach(tree => {
-            // Safely calculate distance
-            const treePos = tree.position;
-            const dx = treePos.x - cameraPos.x;
-            const dy = treePos.y - cameraPos.y;
-            const dz = treePos.z - cameraPos.z;
-            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        // If using instanced rendering, we don't need to do individual updates
+        // But we could implement culling or LOD at the shader level if needed
 
-            if (distance > distanceThreshold) {
-                // For distant trees, only show main parts
-                tree.traverse(object => {
-                    if (object.isMesh && object.geometry.parameters) {
-                        // Hide small details
-                        const size = Math.max(
-                            object.geometry.parameters.width || 0,
-                            object.geometry.parameters.height || 0,
-                            object.geometry.parameters.radius || 0
-                        );
+        // For individual trees, apply simple LOD
+        if (!this.useInstancing) {
+            this.trees.forEach(tree => {
+                // Safely calculate distance
+                const treePos = tree.position;
+                const dx = treePos.x - cameraPos.x;
+                const dy = treePos.y - cameraPos.y;
+                const dz = treePos.z - cameraPos.z;
+                const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-                        // Hide small details on distant trees
-                        if (size < 1.0) {
-                            object.visible = false;
+                if (distance > this.distanceThreshold) {
+                    // For distant trees, only show main parts
+                    tree.traverse(object => {
+                        if (object.isMesh && object.geometry.parameters) {
+                            // Hide small details
+                            const size = Math.max(
+                                object.geometry.parameters.width || 0,
+                                object.geometry.parameters.height || 0,
+                                object.geometry.parameters.radius || 0
+                            );
+
+                            // Hide small details on distant trees
+                            if (size < 1.0) {
+                                object.visible = false;
+                            }
                         }
-                    }
-                });
-            } else {
-                // Show all parts when close
-                tree.traverse(object => {
-                    if (object.isMesh) {
-                        object.visible = true;
-                    }
-                });
-            }
-        });
+                    });
+                } else {
+                    // Show all parts when close
+                    tree.traverse(object => {
+                        if (object.isMesh) {
+                            object.visible = true;
+                        }
+                    });
+                }
+            });
+        }
     }
 
     /**
      * Remove all trees from the scene
      */
     clear() {
+        // Clear individual trees
         this.trees.forEach(tree => {
             this.scene.remove(tree);
         });
         this.trees = [];
+
+        // Clear instanced meshes
+        for (const type in this.instancedMeshes) {
+            if (this.instancedMeshes[type]) {
+                this.instancedMeshes[type].forEach(mesh => {
+                    this.scene.remove(mesh);
+                });
+            }
+        }
+
+        this.instancedMeshes = {};
+        this.instanceMatrices = {};
     }
 } 

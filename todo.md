@@ -1,23 +1,25 @@
 # To-do
 
-## Features
-
-C to change camera in cockpit
-Aim with right click
-Mobile
-Gravity
-
-
 ## Improvements
 
-Converge the fires in one point
-Improve the motor sound
+
+## Features
+
 Low poly Mountains and hallmarks
 Nickname on top of plane
+Gravity / Stall
+C to change camera in cockpit
+Aim with right click
+Enemy AI in multuplayer (bot)
 
 ## Bugs
 
 Not everything is muted (hit effects)
 Rubberbanding
-Heat bar in multi
-TAB Score on mobile
+Camera snaps back too fast
+
+## Release Notes
+
+Added leaderboard on mobile
+Improved the controls UI
+Fix Rudder

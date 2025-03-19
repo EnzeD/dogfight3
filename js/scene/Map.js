@@ -63,7 +63,28 @@ export default class GameMap {
                 { x: 400, y: 0, z: -900, scale: 3.2, rotation: 2.3 },
                 { x: 600, y: 0, z: -600, scale: 2.4, rotation: 1.5 },
                 { x: 800, y: 0, z: -800, scale: 2.8, rotation: 3.7 },
-                { x: 900, y: 0, z: -700, scale: 2.6, rotation: 5.6 }
+                { x: 900, y: 0, z: -700, scale: 2.6, rotation: 5.6 },
+                // New pine trees - mountain forest area
+                { x: -950, y: 0, z: -850, scale: 2.4, rotation: 1.1 },
+                { x: -900, y: 0, z: -850, scale: 2.2, rotation: 0.8 },
+                { x: -925, y: 0, z: -825, scale: 2.6, rotation: 2.3 },
+                { x: -875, y: 0, z: -775, scale: 2.3, rotation: 3.1 },
+                { x: -825, y: 0, z: -750, scale: 2.7, rotation: 0.5 },
+                { x: -800, y: 0, z: -800, scale: 2.5, rotation: 4.2 },
+                { x: -775, y: 0, z: -725, scale: 2.8, rotation: 1.9 },
+                { x: -750, y: 0, z: -775, scale: 2.4, rotation: 5.1 },
+                { x: -700, y: 0, z: -700, scale: 2.9, rotation: 2.7 },
+                { x: -675, y: 0, z: -725, scale: 2.2, rotation: 0.4 },
+                { x: -650, y: 0, z: -675, scale: 2.6, rotation: 3.5 },
+                { x: -625, y: 0, z: -700, scale: 2.3, rotation: 1.2 },
+                { x: -575, y: 0, z: -725, scale: 2.7, rotation: 4.9 },
+                { x: -550, y: 0, z: -775, scale: 2.5, rotation: 2.1 },
+                { x: -525, y: 0, z: -825, scale: 2.8, rotation: 0.7 },
+                { x: -450, y: 0, z: -750, scale: 2.4, rotation: 3.8 },
+                { x: -475, y: 0, z: -800, scale: 2.6, rotation: 1.5 },
+                { x: -425, y: 0, z: -725, scale: 2.3, rotation: 5.3 },
+                { x: -375, y: 0, z: -675, scale: 2.7, rotation: 2.2 },
+                { x: -350, y: 0, z: -650, scale: 2.5, rotation: 0.9 }
             ],
             oak: [
                 { x: 500, y: 0, z: -200, scale: 3.2, rotation: 1.1 },
@@ -77,7 +98,28 @@ export default class GameMap {
                 { x: 500, y: 0, z: 200, scale: 2.5, rotation: 3.1 },
                 { x: 900, y: 0, z: 250, scale: 2.8, rotation: 5.3 },
                 { x: 800, y: 0, z: 300, scale: 3.2, rotation: 1.4 },
-                { x: 700, y: 0, z: 280, scale: 2.7, rotation: 2.9 }
+                { x: 700, y: 0, z: 280, scale: 2.7, rotation: 2.9 },
+                // New oak trees - valley area
+                { x: 450, y: 0, z: -175, scale: 2.9, rotation: 0.3 },
+                { x: 525, y: 0, z: -150, scale: 2.7, rotation: 1.6 },
+                { x: 575, y: 0, z: -175, scale: 3.1, rotation: 2.5 },
+                { x: 550, y: 0, z: -125, scale: 2.8, rotation: 3.9 },
+                { x: 625, y: 0, z: -125, scale: 3.0, rotation: 0.8 },
+                { x: 675, y: 0, z: -75, scale: 2.6, rotation: 4.5 },
+                { x: 725, y: 0, z: -125, scale: 3.2, rotation: 1.3 },
+                { x: 750, y: 0, z: -75, scale: 2.9, rotation: 2.7 },
+                { x: 775, y: 0, z: -25, scale: 3.1, rotation: 5.2 },
+                { x: 825, y: 0, z: -75, scale: 2.7, rotation: 0.6 },
+                { x: 875, y: 0, z: -25, scale: 3.0, rotation: 3.2 },
+                { x: 850, y: 0, z: 25, scale: 2.8, rotation: 1.8 },
+                { x: 875, y: 0, z: 75, scale: 3.3, rotation: 4.1 },
+                { x: 825, y: 0, z: 125, scale: 2.5, rotation: 2.3 },
+                { x: 750, y: 0, z: 75, scale: 2.9, rotation: 0.4 },
+                { x: 775, y: 0, z: 125, scale: 3.2, rotation: 5.7 },
+                { x: 675, y: 0, z: 125, scale: 2.7, rotation: 1.9 },
+                { x: 625, y: 0, z: 175, scale: 3.0, rotation: 3.4 },
+                { x: 550, y: 0, z: 175, scale: 2.8, rotation: 0.2 },
+                { x: 525, y: 0, z: 225, scale: 3.1, rotation: 2.6 }
             ],
             palm: [
                 { x: -150, y: 0, z: 650, scale: 3.0, rotation: 0.9 },
@@ -87,7 +129,24 @@ export default class GameMap {
                 { x: 50, y: 0, z: 850, scale: 3.1, rotation: 3.6 },
                 { x: 100, y: 0, z: 900, scale: 2.9, rotation: 5.4 },
                 { x: 150, y: 0, z: 950, scale: 2.6, rotation: 0.4 },
-                { x: 180, y: 0, z: 800, scale: 3.0, rotation: 2.0 }
+                { x: 180, y: 0, z: 800, scale: 3.0, rotation: 2.0 },
+                // New palm trees - beach area
+                { x: -175, y: 0, z: 675, scale: 2.8, rotation: 1.5 },
+                { x: -125, y: 0, z: 725, scale: 3.1, rotation: 3.3 },
+                { x: -75, y: 0, z: 775, scale: 2.7, rotation: 0.7 },
+                { x: -25, y: 0, z: 825, scale: 3.0, rotation: 4.2 },
+                { x: 25, y: 0, z: 875, scale: 2.8, rotation: 2.1 },
+                { x: 75, y: 0, z: 925, scale: 3.2, rotation: 5.6 },
+                { x: 125, y: 0, z: 975, scale: 2.9, rotation: 1.0 },
+                { x: 200, y: 0, z: 825, scale: 3.1, rotation: 3.8 },
+                { x: 225, y: 0, z: 900, scale: 2.7, rotation: 0.3 },
+                { x: 175, y: 0, z: 875, scale: 3.0, rotation: 2.9 },
+                { x: -175, y: 0, z: 725, scale: 2.8, rotation: 5.0 },
+                { x: -200, y: 0, z: 675, scale: 3.2, rotation: 1.7 },
+                { x: -225, y: 0, z: 625, scale: 2.9, rotation: 4.1 },
+                { x: -175, y: 0, z: 625, scale: 3.0, rotation: 2.4 },
+                { x: -125, y: 0, z: 675, scale: 2.8, rotation: 0.6 },
+                { x: -75, y: 0, z: 725, scale: 3.1, rotation: 3.5 }
             ],
             birch: [
                 { x: -900, y: 0, z: 150, scale: 2.5, rotation: 1.7 },
@@ -99,14 +158,45 @@ export default class GameMap {
                 { x: -600, y: 0, z: 450, scale: 2.7, rotation: 3.3 },
                 { x: -550, y: 0, z: 500, scale: 3.0, rotation: 5.5 },
                 { x: -500, y: 0, z: 550, scale: 2.5, rotation: 0.2 },
-                { x: -650, y: 0, z: 580, scale: 2.8, rotation: 1.6 }
+                { x: -650, y: 0, z: 580, scale: 2.8, rotation: 1.6 },
+                // New birch trees - lakeside area
+                { x: -925, y: 0, z: 175, scale: 2.7, rotation: 2.2 },
+                { x: -875, y: 0, z: 225, scale: 3.0, rotation: 4.3 },
+                { x: -825, y: 0, z: 275, scale: 2.8, rotation: 0.5 },
+                { x: -775, y: 0, z: 325, scale: 3.1, rotation: 2.7 },
+                { x: -725, y: 0, z: 375, scale: 2.6, rotation: 5.1 },
+                { x: -675, y: 0, z: 425, scale: 2.9, rotation: 1.3 },
+                { x: -625, y: 0, z: 475, scale: 3.2, rotation: 3.7 },
+                { x: -575, y: 0, z: 525, scale: 2.7, rotation: 0.9 },
+                { x: -525, y: 0, z: 575, scale: 3.0, rotation: 4.6 },
+                { x: -675, y: 0, z: 600, scale: 2.5, rotation: 2.0 },
+                { x: -625, y: 0, z: 550, scale: 2.8, rotation: 5.4 },
+                { x: -575, y: 0, z: 475, scale: 3.1, rotation: 1.4 },
+                { x: -525, y: 0, z: 525, scale: 2.6, rotation: 3.8 },
+                { x: -475, y: 0, z: 575, scale: 2.9, rotation: 0.3 }
             ],
             willow: [
                 { x: 350, y: 0, z: 450, scale: 3.3, rotation: 1.0 },
                 { x: 400, y: 0, z: 500, scale: 2.9, rotation: 3.2 },
                 { x: 450, y: 0, z: 550, scale: 3.1, rotation: 5.7 },
                 { x: 500, y: 0, z: 600, scale: 2.7, rotation: 0.8 },
-                { x: 550, y: 0, z: 650, scale: 3.0, rotation: 2.6 }
+                { x: 550, y: 0, z: 650, scale: 3.0, rotation: 2.6 },
+                // New willow trees - riverside area
+                { x: 375, y: 0, z: 475, scale: 2.8, rotation: 1.5 },
+                { x: 425, y: 0, z: 525, scale: 3.2, rotation: 3.9 },
+                { x: 475, y: 0, z: 575, scale: 2.9, rotation: 0.2 },
+                { x: 525, y: 0, z: 625, scale: 3.1, rotation: 4.4 },
+                { x: 575, y: 0, z: 675, scale: 2.7, rotation: 2.1 },
+                { x: 325, y: 0, z: 425, scale: 3.0, rotation: 5.3 },
+                { x: 300, y: 0, z: 400, scale: 2.8, rotation: 1.2 },
+                { x: 375, y: 0, z: 425, scale: 3.2, rotation: 3.6 },
+                { x: 425, y: 0, z: 475, scale: 2.9, rotation: 0.7 },
+                { x: 475, y: 0, z: 525, scale: 3.1, rotation: 2.8 },
+                { x: 525, y: 0, z: 575, scale: 2.6, rotation: 5.2 },
+                { x: 575, y: 0, z: 625, scale: 3.0, rotation: 1.9 },
+                { x: 600, y: 0, z: 650, scale: 2.8, rotation: 4.5 },
+                { x: 575, y: 0, z: 675, scale: 3.3, rotation: 0.4 },
+                { x: 525, y: 0, z: 700, scale: 2.7, rotation: 3.0 }
             ]
         };
 
