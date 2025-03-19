@@ -731,10 +731,10 @@ export default class Plane extends Entity {
 
         // Only generate trails if:
         // 1. The plane is airborne
-        // 2. Speed is at least 50% of max speed (speedFactor >= 0.5)
+        // 2. Speed is at least 30% of max speed (speedFactor >= 0.3)
         // 3. Trails are initialized and enabled
-        if (!this.isAirborne || speedFactor < 0.5 || !this.trailsEnabled) {
-            // If trails exist and we're below 50% speed, hide them
+        if (!this.isAirborne || speedFactor < 0.3 || !this.trailsEnabled) {
+            // If trails exist and we're below 30% speed, hide them
             if (this.wingTrails.left && this.wingTrails.right) {
                 this.wingTrails.left.mesh.visible = false;
                 this.wingTrails.right.mesh.visible = false;
@@ -747,11 +747,20 @@ export default class Plane extends Entity {
         this.wingTrails.right.mesh.visible = this.trailsEnabled;
 
         // Calculate opacity based on speed:
-        // - At 50% speed: 0% opacity
-        // - At 100% speed: 50% opacity
+        // - At 30% speed: 0% opacity
+        // - At 100% speed: 100% opacity
         // Normalize the speed factor to this range
-        const normalizedSpeedFactor = (speedFactor - 0.5) * 2; // 0 at 50% speed, 1 at 100% speed
-        const opacity = normalizedSpeedFactor * 0.5; // 0.5 max opacity
+        const normalizedSpeedFactor = (speedFactor - 0.3) / 0.7; // 0 at 30% speed, 1 at 100% speed
+        const opacity = normalizedSpeedFactor; // Full range from 0-100%
+
+        // **** DIRECTLY UPDATE MATERIAL OPACITY ****
+        // This ensures the visual effect matches our calculation
+        if (this.wingTrails.left.mesh.material) {
+            this.wingTrails.left.mesh.material.opacity = Math.max(0.01, opacity);
+        }
+        if (this.wingTrails.right.mesh.material) {
+            this.wingTrails.right.mesh.material.opacity = Math.max(0.01, opacity);
+        }
 
         // Calculate width based on speed
         const width = this.trailBaseWidth + (speedFactor * 0.2); // Width increases slightly with speed

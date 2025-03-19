@@ -657,11 +657,11 @@ export default class EnemyPlane extends WW2Plane {
 
         // Only generate trails if:
         // 1. The plane is airborne
-        // 2. Speed is at least 35% of max speed
+        // 2. Speed is at least 30% of max speed
         // 3. Trails are initialized and enabled
-        if (!this.isAirborne || speedFactor < 0.35 || !this.wingTrails.left || !this.wingTrails.right || !this.trailsEnabled) {
+        if (!this.isAirborne || speedFactor < 0.3 || !this.wingTrails.left || !this.wingTrails.right || !this.trailsEnabled) {
             // If trails exist and we're below threshold speed, hide them
-            if (this.wingTrails.left && this.wingTrails.right && speedFactor < 0.35) {
+            if (this.wingTrails.left && this.wingTrails.right && speedFactor < 0.3) {
                 this.wingTrails.left.mesh.visible = false;
                 this.wingTrails.right.mesh.visible = false;
             }
@@ -679,8 +679,17 @@ export default class EnemyPlane extends WW2Plane {
         }
 
         // Calculate opacity based on speed
-        const normalizedSpeedFactor = (speedFactor - 0.35) / 0.65; // 0 at 35% speed, 1 at 100% speed
-        const opacity = normalizedSpeedFactor * 0.5; // 0.5 max opacity
+        const normalizedSpeedFactor = (speedFactor - 0.3) / 0.7; // 0 at 30% speed, 1 at 100% speed
+        const opacity = normalizedSpeedFactor; // Full range from 0-100%
+
+        // **** DIRECTLY UPDATE MATERIAL OPACITY ****
+        // This ensures the visual effect matches our calculation
+        if (this.wingTrails.left.mesh.material) {
+            this.wingTrails.left.mesh.material.opacity = Math.max(0.01, opacity);
+        }
+        if (this.wingTrails.right.mesh.material) {
+            this.wingTrails.right.mesh.material.opacity = Math.max(0.01, opacity);
+        }
 
         // Calculate width based on speed
         const width = this.trailBaseWidth + (speedFactor * 0.2); // Width increases slightly with speed
