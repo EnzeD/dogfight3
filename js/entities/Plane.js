@@ -27,6 +27,13 @@ export default class Plane extends Entity {
         this.deceleration = 0.01;
         this.isAirborne = false;
 
+        // Stall properties
+        this.isStalling = false;
+        this.stallGravityMultiplier = 3.0; // Increased gravity during stall
+        this.stallControlEffectiveness = 0.3; // Reduced control during stall
+        this.stallRecoverySpeed = this.minTakeoffSpeed * 1.1; // Speed needed to recover from stall
+        this.stallWarningThreshold = this.minTakeoffSpeed * 1.2; // Threshold for stall warning
+
         // New property for pitch-to-speed effect strength
         this.pitchSpeedEffect = -0.003; // Strength of pitch influence on speed
 
@@ -188,19 +195,41 @@ export default class Plane extends Entity {
         // Check if plane is airborne
         if (!this.isAirborne && this.speed >= this.minTakeoffSpeed) {
             this.isAirborne = true;
+            this.isStalling = false;
             this.eventBus.emit('notification', {
                 message: 'Takeoff!',
                 type: 'success'
             });
         } else if (this.isAirborne && this.speed < this.minTakeoffSpeed) {
-            // Landing logic would go here
-            if (this.mesh.position.y <= this.groundHeight + 0.1) {
+            // Check for stall conditions
+            if (this.mesh.position.y > this.groundHeight + 2.0) {
+                // Only stall if not already stalling and we're high enough
+                if (!this.isStalling) {
+                    this.isStalling = true;
+                    this.eventBus.emit('notification', {
+                        message: 'STALL! Increase speed to recover!',
+                        type: 'danger'
+                    });
+
+                    // Play stall warning sound if available
+                    this.eventBus.emit('sound.play', { sound: 'stall_warning' });
+                }
+            } else if (this.mesh.position.y <= this.groundHeight + 0.1) {
+                // Landing logic - close to ground
                 this.isAirborne = false;
+                this.isStalling = false;
                 this.eventBus.emit('notification', {
                     message: 'Landed',
                     type: 'info'
                 });
             }
+        } else if (this.isStalling && this.speed >= this.stallRecoverySpeed) {
+            // Recover from stall when speed is high enough
+            this.isStalling = false;
+            this.eventBus.emit('notification', {
+                message: 'Stall recovery!',
+                type: 'success'
+            });
         }
 
         // Get the plane's forward direction
@@ -212,6 +241,9 @@ export default class Plane extends Entity {
 
         // Apply flight controls if airborne
         if (this.isAirborne) {
+            // Apply stall effects to control response if stalling
+            const controlEffectiveness = this.isStalling ? this.stallControlEffectiveness : 1.0;
+
             // Check if we have target roll angle input
             const hasTargetRollAngle = this.analogControls && this.analogControls.useTargetRollAngle;
 
@@ -252,7 +284,7 @@ export default class Plane extends Entity {
                     const adjustedRollSpeed = minRollSpeed + (maxRollSpeed - minRollSpeed) * rollSpeedFactor;
 
                     // Calculate roll amount using consistent direction logic
-                    const rollAmount = adjustedRollSpeed * rollDirection;
+                    const rollAmount = adjustedRollSpeed * rollDirection * controlEffectiveness;
 
                     // Apply rotation around the plane's local Z axis consistently
                     // This will ensure consistent behavior regardless of current orientation
@@ -290,37 +322,40 @@ export default class Plane extends Entity {
                 // Apply roll at the standard speed in the appropriate direction
                 // Only roll if we're not very close to the target angle
                 if (Math.abs(rollDifference) > 0.01) {
-                    this.mesh.rotateZ(rollDirection * this.rollSpeed * deltaTime * 60);
+                    this.mesh.rotateZ(rollDirection * this.rollSpeed * controlEffectiveness * deltaTime * 60);
                 }
             }
             // Fall back to digital controls if no analog input
             else if (keysPressed['a'] || keysPressed['q']) {
-                this.mesh.rotateZ(this.rollSpeed * deltaTime * 60);
+                this.mesh.rotateZ(this.rollSpeed * controlEffectiveness * deltaTime * 60);
             } else if (keysPressed['d']) {
-                this.mesh.rotateZ(-this.rollSpeed * deltaTime * 60);
+                this.mesh.rotateZ(-this.rollSpeed * controlEffectiveness * deltaTime * 60);
             }
 
             // Pitch (Up and Down arrow keys)
             if (keysPressed['arrowup']) {
-                this.mesh.rotateX(-this.pitchSpeed * deltaTime * 60);
+                this.mesh.rotateX(-this.pitchSpeed * controlEffectiveness * deltaTime * 60);
             } else if (keysPressed['arrowdown']) {
-                this.mesh.rotateX(this.pitchSpeed * deltaTime * 60);
+                this.mesh.rotateX(this.pitchSpeed * controlEffectiveness * deltaTime * 60);
             }
 
             // Yaw (Left and Right arrow keys)
             if (keysPressed['arrowleft']) {
-                this.mesh.rotateY(this.yawSpeed * deltaTime * 60);
+                this.mesh.rotateY(this.yawSpeed * controlEffectiveness * deltaTime * 60);
             } else if (keysPressed['arrowright']) {
-                this.mesh.rotateY(-this.yawSpeed * deltaTime * 60);
+                this.mesh.rotateY(-this.yawSpeed * controlEffectiveness * deltaTime * 60);
             }
 
             // Auto-stabilization when no roll/pitch input is given
-            if (this.autoStabilizationEnabled) {
+            if (this.autoStabilizationEnabled && !this.isStalling) {
                 // Only apply roll stabilization when roll or pitch keys aren't pressed
                 // and no analog roll input is active
                 const isRolling = keysPressed['a'] || keysPressed['q'] || keysPressed['d'] ||
                     keysPressed['arrowup'] || keysPressed['arrowdown'] || hasAnalogRoll;
                 this.applyAutoStabilization(deltaTime, isRolling);
+            } else if (this.isStalling) {
+                // Add randomness to orientation during stall
+                this.applyStallTurbulence(deltaTime);
             }
 
             // Apply gravity if airborne
@@ -379,10 +414,15 @@ export default class Plane extends Entity {
         // Calculate lift based on speed and pitch
         // More speed = more lift, nose up = more lift
         const pitchFactor = Math.sin(rotation.x);
-        const liftFactor = (this.speed / this.maxSpeed) * 0.8 + pitchFactor * 0.2;
+
+        // During stall, lift is significantly reduced
+        const liftMultiplier = this.isStalling ? 0.2 : 1.0;
+        const liftFactor = ((this.speed / this.maxSpeed) * 0.8 + pitchFactor * 0.2) * liftMultiplier;
 
         // Apply gravity (reduced by lift)
-        const gravity = 0.005 * deltaTime * 60;
+        // Increase gravity effect during stall
+        const gravityMultiplier = this.isStalling ? this.stallGravityMultiplier : 1.0;
+        const gravity = 0.005 * gravityMultiplier * deltaTime * 60;
         const effectiveGravity = gravity * (1 - liftFactor);
 
         // Apply gravity in world space, but respect the ground height
@@ -558,6 +598,7 @@ export default class Plane extends Entity {
             speed: speedPercent,
             altitude: altitude,
             isAirborne: this.isAirborne,
+            isStalling: this.isStalling,
             autoStabilization: this.autoStabilizationEnabled,
             chemtrails: this.trailsEnabled,
             health: this.currentHealth,
@@ -1021,5 +1062,26 @@ export default class Plane extends Entity {
             this.wingTrails.left.mesh.visible = false;
             this.wingTrails.right.mesh.visible = false;
         }
+    }
+
+    /**
+     * Apply random turbulence during stall
+     * @param {number} deltaTime - Time since last frame in seconds
+     */
+    applyStallTurbulence(deltaTime) {
+        // Add random rotation changes to simulate turbulence during stall
+        const turbulenceFactor = 0.01 * deltaTime * 60;
+
+        // Random pitch turbulence (mostly upward)
+        const pitchTurbulence = (Math.random() * 4 - 3) * turbulenceFactor; // Doubled the range and bias
+        this.mesh.rotateX(pitchTurbulence);
+
+        // Random roll turbulence
+        const rollTurbulence = (Math.random() * 2 - 1) * turbulenceFactor * 2;
+        this.mesh.rotateZ(rollTurbulence);
+
+        // Random yaw turbulence (less than roll)
+        const yawTurbulence = (Math.random() * 2 - 1) * turbulenceFactor * 0.5;
+        this.mesh.rotateY(yawTurbulence);
     }
 } 
