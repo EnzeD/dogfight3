@@ -52,8 +52,12 @@ export default class WW2Plane extends Plane {
 
         // Create tapered fuselage for more realistic shape 
         const fuselageGeometry = new THREE.BoxGeometry(fuselageWidth, fuselageHeight, fuselageLength);
-        const fuselageMaterial = new THREE.MeshPhongMaterial({
-            color: fuselageColor
+        fuselageGeometry.computeVertexNormals(); // Ensure normals are computed
+
+        const fuselageMaterial = new THREE.MeshStandardMaterial({
+            color: fuselageColor,
+            roughness: 0.7,
+            metalness: 0.1
         });
         const fuselage = new THREE.Mesh(fuselageGeometry, fuselageMaterial);
         fuselage.position.set(0, 0, 0);
@@ -65,7 +69,12 @@ export default class WW2Plane extends Plane {
         const noseLength = 2;
         // Reduced segments from 8 to 6
         const noseGeometry = new THREE.CylinderGeometry(0.8, 1.2, noseLength, 6);
-        const noseMaterial = new THREE.MeshPhongMaterial({ color: fuselageColor });
+        noseGeometry.computeVertexNormals(); // Ensure normals are computed
+        const noseMaterial = new THREE.MeshStandardMaterial({
+            color: fuselageColor,
+            roughness: 0.7,
+            metalness: 0.1
+        });
         const nose = new THREE.Mesh(noseGeometry, noseMaterial);
         nose.rotation.x = Math.PI / 2; // Rotate to align with fuselage
         nose.position.set(0, 0, -fuselageLength / 2 - noseLength / 2 + 0.3);
@@ -78,7 +87,12 @@ export default class WW2Plane extends Plane {
         const cowlingLength = 0.8;
         // Reduced segments from 16 to 8
         const cowlingGeometry = new THREE.CylinderGeometry(cowlingRadius, cowlingRadius, cowlingLength, 8);
-        const cowlingMaterial = new THREE.MeshPhongMaterial({ color: detailColor });
+        cowlingGeometry.computeVertexNormals(); // Ensure normals are computed
+        const cowlingMaterial = new THREE.MeshStandardMaterial({
+            color: detailColor,
+            roughness: 0.5,
+            metalness: 0.3
+        });
         const cowling = new THREE.Mesh(cowlingGeometry, cowlingMaterial);
         cowling.rotation.x = Math.PI / 2;
         cowling.position.set(0, 0, -fuselageLength / 2 - noseLength + 0.8);
@@ -93,32 +107,55 @@ export default class WW2Plane extends Plane {
         const aileronWidth = wingSpan * 0.25; // 25% of wing span for ailerons
         const aileronChord = wingChord * 0.3; // 30% of wing chord
 
-        // Create full wing as a single object instead of 3 separate pieces
+        // Create wing using standard BoxGeometry but with better material settings
         const wingGeometry = new THREE.BoxGeometry(wingSpan, wingThickness, wingChord);
-        const wingMaterial = new THREE.MeshPhongMaterial({ color: wingsColor });
+
+        // Make sure vertex normals are computed - this helps with lighting
+        wingGeometry.computeVertexNormals();
+
+        const wingMaterial = new THREE.MeshStandardMaterial({
+            color: wingsColor,
+            flatShading: false,      // Use smooth shading instead of flat shading
+            roughness: 0.7,          // More realistic surface
+            metalness: 0.1,          // Slightly metallic for a painted metal look
+            envMapIntensity: 0.5     // Reduce environment map reflections
+        });
+
         const wings = new THREE.Mesh(wingGeometry, wingMaterial);
         wings.position.set(0, fuselageHeight / 5, -0.5);
         wings.castShadow = true;
         wings.receiveShadow = true;
         this.mesh.add(wings);
 
-        // Create ailerons
+        // Create ailerons with matching material properties
         const aileronGeometry = new THREE.BoxGeometry(aileronWidth, wingThickness, aileronChord);
         // Move geometry origin to front edge (closer to nose)
         aileronGeometry.translate(0, 0, aileronChord / 2);
-        const aileronMaterial = new THREE.MeshPhongMaterial({ color: controlSurfaceColor });
+
+        // Make sure vertex normals are computed
+        aileronGeometry.computeVertexNormals();
+
+        const aileronMaterial = new THREE.MeshStandardMaterial({
+            color: controlSurfaceColor,
+            flatShading: false,      // Use smooth shading
+            roughness: 0.7,          // Match wing material properties
+            metalness: 0.1,
+            polygonOffset: true,     // Keep the z-fighting prevention
+            polygonOffsetFactor: 1,
+            polygonOffsetUnits: 1
+        });
 
         // Left aileron
         this.leftAileron = new THREE.Mesh(aileronGeometry, aileronMaterial);
-        this.leftAileron.position.set(-wingSpan / 2 + aileronWidth / 2, fuselageHeight / 5, -1.25 + wingChord / 2);
+        this.leftAileron.position.set(-wingSpan / 2 + aileronWidth / 2, fuselageHeight / 5 + 0.001, -1.25 + wingChord / 2);
         this.leftAileron.name = "leftAileron";
         this.leftAileron.castShadow = true;
         this.leftAileron.receiveShadow = true;
         this.mesh.add(this.leftAileron);
 
         // Right aileron
-        this.rightAileron = new THREE.Mesh(aileronGeometry, aileronMaterial);
-        this.rightAileron.position.set(wingSpan / 2 - aileronWidth / 2, fuselageHeight / 5, -1.25 + wingChord / 2);
+        this.rightAileron = new THREE.Mesh(aileronGeometry, aileronMaterial.clone());
+        this.rightAileron.position.set(wingSpan / 2 - aileronWidth / 2, fuselageHeight / 5 + 0.001, -1.25 + wingChord / 2);
         this.rightAileron.name = "rightAileron";
         this.rightAileron.castShadow = true;
         this.rightAileron.receiveShadow = true;
@@ -129,10 +166,13 @@ export default class WW2Plane extends Plane {
         const cockpitWidth = 1.1;
         const cockpitHeight = 0.8;
         const cockpitGeometry = new THREE.BoxGeometry(cockpitWidth, cockpitHeight, cockpitLength);
-        const cockpitMaterial = new THREE.MeshPhongMaterial({
+        cockpitGeometry.computeVertexNormals(); // Ensure normals are computed
+        const cockpitMaterial = new THREE.MeshStandardMaterial({
             color: cockpitColor,
             transparent: true,
-            opacity: 0.6
+            opacity: 0.6,
+            roughness: 0.1,   // More glassy
+            metalness: 0.3
         });
         const cockpit = new THREE.Mesh(cockpitGeometry, cockpitMaterial);
         cockpit.position.set(0, fuselageHeight / 2 + cockpitHeight / 2 - 0.1, 0);
@@ -143,7 +183,12 @@ export default class WW2Plane extends Plane {
         // Add canopy frame (simplified - just top frame)
         const frameWidth = 0.05;
         const frameGeometry = new THREE.BoxGeometry(cockpitWidth + frameWidth, frameWidth, cockpitLength + frameWidth);
-        const frameMaterial = new THREE.MeshPhongMaterial({ color: detailColor });
+        frameGeometry.computeVertexNormals(); // Ensure normals are computed
+        const frameMaterial = new THREE.MeshStandardMaterial({
+            color: detailColor,
+            roughness: 0.5,
+            metalness: 0.3
+        });
         const topFrame = new THREE.Mesh(frameGeometry, frameMaterial);
         topFrame.position.set(0, fuselageHeight / 2 + cockpitHeight - 0.1, 0);
         topFrame.castShadow = true;
@@ -156,8 +201,11 @@ export default class WW2Plane extends Plane {
         const tailFinLength = 1.5;
         const tailFinThickness = 0.15;
         const tailFinGeometry = new THREE.BoxGeometry(tailFinThickness, tailFinHeight, tailFinLength);
-        const tailMaterial = new THREE.MeshPhongMaterial({
-            color: wingsColor
+        tailFinGeometry.computeVertexNormals(); // Ensure normals are computed
+        const tailMaterial = new THREE.MeshStandardMaterial({
+            color: wingsColor,
+            roughness: 0.7,
+            metalness: 0.1
         });
         const tailFin = new THREE.Mesh(tailFinGeometry, tailMaterial);
         tailFin.position.set(0, fuselageHeight / 2 + tailFinHeight / 2 - 0.3, fuselageLength / 2 - tailFinLength / 2);
@@ -170,11 +218,21 @@ export default class WW2Plane extends Plane {
         const rudderLength = tailFinLength * 0.5;
         const rudderThickness = tailFinThickness;
         const rudderGeometry = new THREE.BoxGeometry(rudderThickness, rudderHeight, rudderLength);
+        rudderGeometry.computeVertexNormals(); // Ensure normals are computed
         // Move the geometry origin to the front edge (where it connects to the fin)
         rudderGeometry.translate(0, 0, rudderLength / 2);
-        const rudderMaterial = new THREE.MeshPhongMaterial({ color: controlSurfaceColor });
+        const rudderMaterial = new THREE.MeshStandardMaterial({
+            color: controlSurfaceColor,
+            // Add slight offset to prevent z-fighting
+            polygonOffset: true,
+            polygonOffsetFactor: 1,
+            polygonOffsetUnits: 1,
+            roughness: 0.7,
+            metalness: 0.1
+        });
         this.rudder = new THREE.Mesh(rudderGeometry, rudderMaterial);
-        this.rudder.position.set(0, fuselageHeight / 2 + tailFinHeight / 2 - 0.3, fuselageLength / 2);
+        // Move rudder slightly back to prevent z-fighting
+        this.rudder.position.set(0, fuselageHeight / 2 + tailFinHeight / 2 - 0.3, fuselageLength / 2 + 0.001);
         this.rudder.name = "rudder";
         this.rudder.castShadow = true;
         this.rudder.receiveShadow = true;
@@ -185,7 +243,8 @@ export default class WW2Plane extends Plane {
         const tailWingLength = 1.5;
         const tailWingThickness = 0.15;
         const tailWingGeometry = new THREE.BoxGeometry(tailWingSpan, tailWingThickness, tailWingLength);
-        const horizontalStabilizer = new THREE.Mesh(tailWingGeometry, tailMaterial);
+        tailWingGeometry.computeVertexNormals(); // Ensure normals are computed
+        const horizontalStabilizer = new THREE.Mesh(tailWingGeometry, tailMaterial.clone());
         horizontalStabilizer.position.set(0, fuselageHeight / 4, fuselageLength / 2 - tailWingLength / 2);
         horizontalStabilizer.castShadow = true;
         horizontalStabilizer.receiveShadow = true;
@@ -198,9 +257,14 @@ export default class WW2Plane extends Plane {
         const elevatorGeometry = new THREE.BoxGeometry(elevatorSpan, elevatorThickness, elevatorLength);
         // Move the geometry origin to the front edge (where it connects to the stabilizer)
         elevatorGeometry.translate(0, 0, elevatorLength / 2);
-        const elevatorMaterial = new THREE.MeshPhongMaterial({ color: controlSurfaceColor });
+        const elevatorMaterial = new THREE.MeshPhongMaterial({
+            color: controlSurfaceColor,
+            polygonOffset: true,
+            polygonOffsetFactor: 1,
+            polygonOffsetUnits: 1
+        });
         this.elevators = new THREE.Mesh(elevatorGeometry, elevatorMaterial);
-        this.elevators.position.set(0, fuselageHeight / 4, fuselageLength / 2);
+        this.elevators.position.set(0, fuselageHeight / 4 + 0.001, fuselageLength / 2);
         this.elevators.name = "elevators";
         this.elevators.castShadow = true;
         this.elevators.receiveShadow = true;

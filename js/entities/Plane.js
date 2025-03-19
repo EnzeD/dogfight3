@@ -491,11 +491,11 @@ export default class Plane extends Entity {
         // Rudder animation (yaw)
         if (this.rudder) {
             if (keysPressed['arrowleft']) {
-                // Yaw left: rudder left
-                this.rudder.rotation.y = Math.min(this.rudder.rotation.y + 0.1, 0.5);
-            } else if (keysPressed['arrowright']) {
-                // Yaw right: rudder right
+                // Yaw left: rudder right (inverted for correct aerodynamics)
                 this.rudder.rotation.y = Math.max(this.rudder.rotation.y - 0.1, -0.5);
+            } else if (keysPressed['arrowright']) {
+                // Yaw right: rudder left (inverted for correct aerodynamics)
+                this.rudder.rotation.y = Math.min(this.rudder.rotation.y + 0.1, 0.5);
             } else {
                 // Return to neutral
                 this.rudder.rotation.y *= 0.8;
