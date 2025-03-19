@@ -27,6 +27,9 @@ export default class Plane extends Entity {
         this.deceleration = 0.01;
         this.isAirborne = false;
 
+        // New property for pitch-to-speed effect strength
+        this.pitchSpeedEffect = -0.003; // Strength of pitch influence on speed
+
         // Flag to track first flight info update
         this._hasEmittedFirstUpdate = false;
 
@@ -366,7 +369,7 @@ export default class Plane extends Entity {
     }
 
     /**
-     * Apply gravity to make the plane descend when not enough lift
+     * Apply gravity and pitch effects on speed
      * @param {number} deltaTime - Time since last frame in seconds
      */
     applyGravity(deltaTime) {
@@ -384,6 +387,33 @@ export default class Plane extends Entity {
 
         // Apply gravity in world space, but respect the ground height
         this.mesh.position.y = Math.max(this.groundHeight, this.mesh.position.y - effectiveGravity);
+
+        // Apply pitch effect on speed (only when airborne)
+        if (this.isAirborne) {
+            // Negative pitch (nose up) decreases speed, positive pitch (nose down) increases speed
+            // pitchFactor is already sin(rotation.x), so negative when pitched up, positive when pitched down
+            const pitchSpeedChange = pitchFactor * this.pitchSpeedEffect * deltaTime * 60;
+
+            // Apply speed change but respect min/max limits
+            this.speed = Math.max(0, Math.min(this.maxSpeed, this.speed + pitchSpeedChange));
+
+            // Optional: Emit notification for significant pitch effects
+            if (Math.abs(pitchSpeedChange) > 0.005 && !this._lastPitchEffect) {
+                if (pitchSpeedChange < 0) {
+                    this.eventBus.emit('notification', {
+                        message: 'Losing speed due to climb!',
+                        type: 'warning'
+                    });
+                } else {
+                    this.eventBus.emit('notification', {
+                        message: 'Gaining speed in dive!',
+                        type: 'info'
+                    });
+                }
+                this._lastPitchEffect = true;
+                setTimeout(() => { this._lastPitchEffect = false; }, 5000); // Prevent spam
+            }
+        }
     }
 
     /**
