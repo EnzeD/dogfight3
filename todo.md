@@ -22,4 +22,5 @@ Camera snaps back too fast
 
 Added leaderboard on mobile
 Improved the controls UI
-Fix Rudder
+Fixed Rudder to be more realistic
+Made number of trees depending on quality settings

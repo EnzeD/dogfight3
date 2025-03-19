@@ -35,12 +35,13 @@ export default class QualitySettings {
                     small: 72                  // Increased from 60
                 },
                 trees: {
+                    totalCount: 20,           // Total of 20 trees for low quality
                     count: {
-                        pine: 3,               // Reduced from 6
-                        oak: 2,                // Reduced from 5
-                        palm: 1,               // Reduced from 3
-                        birch: 2,              // Reduced from 4
-                        willow: 0              // Removed
+                        pine: 8,               // Prioritize pines (most efficient)
+                        oak: 5,
+                        palm: 3,
+                        birch: 4,
+                        willow: 0              // No willows in low quality
                     },
                     segments: 3,               // Reduced from 4
                     foliageDetail: 0           // Minimum detail
@@ -75,15 +76,16 @@ export default class QualitySettings {
                     small: 45                   // Same as high
                 },
                 trees: {
+                    totalCount: 50,            // Total of 50 trees for medium quality
                     count: {
-                        pine: 3,               // Same as low
-                        oak: 2,                // Same as low
-                        palm: 1,               // Same as low
-                        birch: 2,              // Same as low
-                        willow: 0              // Same as low
+                        pine: 15,              // Distributed across types
+                        oak: 12,
+                        palm: 8,
+                        birch: 10,
+                        willow: 5               // Some willows in medium
                     },
-                    segments: 3,               // Same as low
-                    foliageDetail: 0           // Same as low
+                    segments: 4,               // Moderate detail
+                    foliageDetail: 1           // Some foliage detail
                 },
                 villages: {
                     count: 0,                  // Same as low
@@ -102,7 +104,7 @@ export default class QualitySettings {
                 antialiasing: true             // Enable anti-aliasing (difference from low)
             },
 
-            // High quality settings - Unchanged
+            // High quality settings - Updated for 150 trees
             high: {
                 clouds: {
                     count: 300,
@@ -115,12 +117,13 @@ export default class QualitySettings {
                     small: 45      // % chance for small clouds
                 },
                 trees: {
+                    totalCount: 150,           // Total of 150 trees for high quality
                     count: {
-                        pine: 30,
-                        oak: 25,
-                        palm: 15,
-                        birch: 20,
-                        willow: 10
+                        pine: 50,              // Distributed across types
+                        oak: 35,
+                        palm: 20,
+                        birch: 25,
+                        willow: 20              // More willows in high quality
                     },
                     segments: 8,    // cylinder/cone segments
                     foliageDetail: 3 // subdivisions for foliage

@@ -52,7 +52,11 @@ export default class Trees {
         // Store segment detail based on quality
         this.foliageDetail = this.quality.foliageDetail || 2; // Default to medium
 
-        console.log(`Creating trees with quality settings: segments=${this.segments}, foliageDetail=${this.foliageDetail}`);
+        // Get tree count limits from quality settings
+        this.treeCountLimits = this.quality.trees.count;
+        this.totalTreeLimit = this.quality.trees.totalCount || 100; // Default to 100 if not specified
+
+        console.log(`Creating trees with quality settings: segments=${this.segments}, foliageDetail=${this.foliageDetail}, totalLimit=${this.totalTreeLimit}`);
 
         // Initialize trees
         this.init();
@@ -137,6 +141,9 @@ export default class Trees {
         const typeKeys = Object.keys(this.treeTypes);
         this.instanceMatrices = {};
 
+        // Process the map data to determine tree counts by type
+        const treesPerType = this.limitTreeCountsByQuality();
+
         for (const type of typeKeys) {
             this.instanceMatrices[type] = [];
             const treeTemplate = this.treeTypes[type];
@@ -154,14 +161,8 @@ export default class Trees {
                 }
             });
 
-            // Count trees of this type in the map data
-            let count = 0;
-            if (this.treeMapData[type] && Array.isArray(this.treeMapData[type])) {
-                count = this.treeMapData[type].length;
-
-                // Add capacity for additional trees
-                count = Math.max(count, 100); // Allow at least 100 trees per type
-            }
+            // Get the limited count for this tree type
+            const count = treesPerType[type] || 0;
 
             if (count > 0) {
                 // Create instanced mesh for each component
@@ -178,6 +179,54 @@ export default class Trees {
                 });
             }
         }
+    }
+
+    /**
+     * Limit tree counts based on quality settings
+     * @returns {Object} Map of tree types to their limited counts
+     */
+    limitTreeCountsByQuality() {
+        // Get counts from map data
+        const availableTrees = {};
+        let totalAvailable = 0;
+
+        // Count trees by type
+        for (const type in this.treeMapData) {
+            if (Array.isArray(this.treeMapData[type])) {
+                availableTrees[type] = this.treeMapData[type].length;
+                totalAvailable += availableTrees[type];
+            }
+        }
+
+        // Apply limits based on quality settings
+        const limits = this.treeCountLimits;
+        const limitedCounts = {};
+        let totalLimited = 0;
+
+        // Calculate total trees allowed by quality settings
+        const totalAllowedByType = Object.values(limits).reduce((sum, count) => sum + count, 0);
+        const totalAllowed = Math.min(this.totalTreeLimit, totalAllowedByType);
+
+        console.log(`Limiting trees to ${totalAllowed} total trees based on quality setting`);
+
+        // Apply per-type limits first
+        for (const type in availableTrees) {
+            if (limits[type] !== undefined) {
+                // Limit to the smaller of: available trees, quality limit, or remaining total allowed
+                const remaining = totalAllowed - totalLimited;
+                limitedCounts[type] = Math.min(
+                    availableTrees[type],
+                    limits[type],
+                    remaining
+                );
+                totalLimited += limitedCounts[type];
+            } else {
+                limitedCounts[type] = 0;
+            }
+        }
+
+        console.log('Tree counts after quality limits applied:', limitedCounts);
+        return limitedCounts;
     }
 
     /**
@@ -485,16 +534,23 @@ export default class Trees {
         const rotation = new THREE.Euler();
         const scale = new THREE.Vector3();
 
+        // Get tree counts limited by quality
+        const treeLimits = this.limitTreeCountsByQuality();
+
         // Place trees using instanced rendering
         for (const treeType in this.treeMapData) {
             if (this.treeTypes[treeType] && Array.isArray(this.treeMapData[treeType])) {
                 const treePositions = this.treeMapData[treeType];
 
+                // Limit the number of trees based on quality settings
+                const limit = treeLimits[treeType] || 0;
+                const limitedPositions = treePositions.slice(0, limit);
+
                 if (this.useInstancing && this.instancedMeshes[treeType]) {
-                    console.log(`Creating ${treePositions.length} instanced trees of type ${treeType}`);
+                    console.log(`Creating ${limitedPositions.length}/${treePositions.length} instanced trees of type ${treeType}`);
 
                     // For each tree position, create a transformation matrix
-                    treePositions.forEach((tree, index) => {
+                    limitedPositions.forEach((tree, index) => {
                         position.set(tree.x, 0, tree.z);
                         rotation.set(0, tree.rotation || 0, 0);
                         const treeScale = tree.scale || 1;
@@ -526,10 +582,10 @@ export default class Trees {
                 }
                 else {
                     // Fallback to individual meshes
-                    console.log(`Creating ${treePositions.length} individual trees of type ${treeType}`);
+                    console.log(`Creating ${limitedPositions.length}/${treePositions.length} individual trees of type ${treeType}`);
                     const treeTemplate = this.treeTypes[treeType];
 
-                    treePositions.forEach(tree => {
+                    limitedPositions.forEach(tree => {
                         const treeMesh = treeTemplate.clone();
 
                         // Apply position, rotation, and scale
@@ -554,7 +610,13 @@ export default class Trees {
             }
         }
 
-        console.log(`Tree placement complete. Using instanced rendering: ${this.useInstancing}`);
+        // Count total trees placed
+        let totalTreesPlaced = 0;
+        for (const type in treeLimits) {
+            totalTreesPlaced += treeLimits[type];
+        }
+
+        console.log(`Tree placement complete. Total trees: ${totalTreesPlaced}. Using instanced rendering: ${this.useInstancing}`);
     }
 
     /**
