@@ -36,6 +36,7 @@ export default class SceneManager {
         this.billboards = null; // Store reference to the billboards
         this.zeppelin = null; // Store reference to the zeppelin
         this.groundLogo = null; // Store reference to the ground logo
+        this.groundLogo2 = null; // Store reference to the second ground logo
 
         // Main actor (plane)
         this.mainActor = null;
@@ -81,6 +82,7 @@ export default class SceneManager {
         this.billboards = new Billboard(this.scene, this.gameMap.billboards); // Pass billboard config
         this.zeppelin = new Zeppelin(this.scene, this.gameMap.zeppelin); // Pass zeppelin config
         this.groundLogo = new GroundLogo(this.scene, this.gameMap.groundLogo); // Pass ground logo config
+        this.groundLogo2 = new GroundLogo(this.scene, this.gameMap.groundLogo2); // Pass second ground logo config
 
         console.log(`SceneManager initialized with quality: ${this.qualitySettings.getQuality()}`);
 
@@ -331,6 +333,11 @@ export default class SceneManager {
             this.groundLogo.update(deltaTime);
         }
 
+        // Update second ground logo if needed
+        if (this.groundLogo2) {
+            this.groundLogo2.update(deltaTime);
+        }
+
         // Update camera to follow the main actor
         if (this.camera && this.mainActor) {
             this.camera.update(deltaTime);
@@ -408,6 +415,11 @@ export default class SceneManager {
             allClickableObjects = allClickableObjects.concat(this.groundLogo.getClickableObjects());
         }
 
+        // Add second ground logo clickable objects
+        if (this.groundLogo2 && this.groundLogo2.getClickableObjects) {
+            allClickableObjects = allClickableObjects.concat(this.groundLogo2.getClickableObjects());
+        }
+
         // ... any other clickable objects from other components ...
 
         // Find intersections
@@ -418,6 +430,7 @@ export default class SceneManager {
         let billboardHandled = false;
         let zeppelinAdHandled = false;
         let groundLogoHandled = false;
+        let groundLogo2Handled = false;
 
         // Handle intersections
         if (intersects.length > 0) {
@@ -484,6 +497,21 @@ export default class SceneManager {
                     }
                 }
             }
+
+            // Handle second ground logo hover effect
+            if (this.groundLogo2 && userData && userData.type === 'groundLogo') {
+                // Show hover effect only if ads are clickable or we're in gameplay
+                if (this.adsClickable) {
+                    this.groundLogo2.handleHoverEffect(firstIntersect, true);
+                    groundLogo2Handled = true;
+                    document.body.style.cursor = 'pointer';
+
+                    // Handle click if user is clicking
+                    if (isClicking && userData.clickURL) {
+                        window.open(userData.clickURL, '_blank');
+                    }
+                }
+            }
         }
 
         // Reset any hover effects for components that aren't being hovered
@@ -504,8 +532,13 @@ export default class SceneManager {
             this.groundLogo.handleHoverEffect(null, false);
         }
 
+        // Reset second ground logo hover effect if not handled
+        if (this.groundLogo2 && !groundLogo2Handled) {
+            this.groundLogo2.handleHoverEffect(null, false);
+        }
+
         // Reset cursor if no hover is active
-        if (!runwayHandled && !billboardHandled && !zeppelinAdHandled && !groundLogoHandled) {
+        if (!runwayHandled && !billboardHandled && !zeppelinAdHandled && !groundLogoHandled && !groundLogo2Handled) {
             document.body.style.cursor = 'auto';
         }
     }

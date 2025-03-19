@@ -25,3 +25,5 @@ Revamped the controls UI
 Fixed Rudder to be more realistic
 Made number of trees depending on quality settings
 Added gravity speed changes
+Improved "chem" trails opacity based on speed
+New sponsor

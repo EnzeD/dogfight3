@@ -434,5 +434,23 @@ export default class GameMap {
             texture: 'assets/textures/village1.png',  // Same texture as zeppelin
             clickURL: 'https://softgen.ai/?utm_source=flyzullo&utm_medium=ads&utm_campaign=zeppelin'  // Same URL as zeppelin
         };
+
+        // Ground logo configuration for village 2
+        this.groundLogo2 = {
+            // Position settings - near village 1 center (-800, -350)
+            position: {
+                x: -700,  // Left/right (negative = left)
+                y: 0.1,  // Very slightly above ground to prevent z-fighting
+                z: -230  // Forward/backward (negative = into the screen) - adjusted to be at village 1
+            },
+
+            // Size settings - same as village 1 logo
+            width: 502,   // Width of the ad panel
+            height: 282,  // Height of the ad panel
+
+            // Advertisement settings 
+            texture: 'assets/textures/village2.png',  // Texture for village 2
+            clickURL: 'https://cedra.network/?utm_source=flyzullo&utm_medium=ingameads&utm_campaign=village'  // URL for village 2
+        };
     }
 } 
