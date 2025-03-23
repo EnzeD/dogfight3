@@ -26,6 +26,23 @@ function isMobileDevice() {
 }
 
 /**
+ * Parses URL parameters to check for portal entry
+ * @returns {Object|null} Portal entry data or null if not from portal
+ */
+function checkPortalEntry() {
+    const urlParams = new URLSearchParams(window.location.search);
+
+    if (urlParams.get('portal') === 'true') {
+        return {
+            isPortal: true,
+            name: urlParams.get('username') || 'PortalPlayer',
+        };
+    }
+
+    return null;
+}
+
+/**
  * Creates and displays a message for mobile users
  */
 function showMobileMessage() {
@@ -190,7 +207,11 @@ function startGame(options) {
 
     // FIRST create a temp game options object
     const gameOptions = {
-        playerCallsign: options.mode === 'multi' ? options.callsign : null
+        playerCallsign: options.mode === 'multi' ? options.callsign : null,
+        // If this is a portal entry, include additional options
+        isPortalEntry: options.isPortalEntry || false,
+        startInFlight: options.startInFlight || false,
+        initialSpeed: options.initialSpeed || 0
     };
 
     // Initialize game with options AFTER URL parameters are set
@@ -221,8 +242,35 @@ function startGame(options) {
     activeGame.startGame();
 }
 
+// Handle portal entry directly - bypassing normal flow
+function handlePortalEntry(portalData) {
+    console.log('Portal entry detected:', portalData);
+
+    // Create options object similar to what LandingPage would provide
+    const options = {
+        mode: 'multi',
+        callsign: portalData.name,
+        isPortalEntry: true,
+        startInFlight: true,
+        initialSpeed: 0.6 // 60% of max speed
+    };
+
+    // Start the game with these options, bypassing landing page
+    startGame(options);
+}
+
 // Initialize the game once the window loads
 window.addEventListener('load', () => {
+    // First check for portal entry
+    const portalData = checkPortalEntry();
+
+    if (portalData) {
+        // Handle portal entry immediately
+        handlePortalEntry(portalData);
+        return;
+    }
+
+    // Continue with normal startup flow
     // Check if user is on a mobile device
     if (isMobileDevice()) {
         console.log('Mobile device detected, optimizing settings');
@@ -248,6 +296,7 @@ window.addEventListener('load', () => {
         // Skip the mobile message and directly start the game
         startPreviewAndLanding();
     } else {
+        // Start preview and show landing page for desktop users
         startPreviewAndLanding();
     }
 }); 

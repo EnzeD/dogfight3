@@ -5,6 +5,9 @@
 
 ## Features
 
+Portal towards vibeverse
+landing page towards fly.zullo.fun with portal
+
 Low poly Mountains and hallmarks
 Nickname on top of plane
 Gravity / Stall
@@ -18,12 +21,15 @@ Not everything is muted (hit effects)
 Rubberbanding
 Camera snaps back too fast
 
-## Release Notes
+## Release Notes v0.1.1
+
+
+
+## Release Notes v0.1.0
 
 Added leaderboard on mobile
 Revamped the controls UI
 Fixed Rudder to be more realistic
 Made number of trees depending on quality settings
-Added gravity speed changes
-Improved "chem" trails opacity based on speed
-New sponsor
+Added gravity speed changes!
+Added stall mecanics!

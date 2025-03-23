@@ -584,10 +584,17 @@ export default class Plane extends Entity {
         const altitude = Math.max(0, this.mesh.position.y);
 
         // Get speed as percentage of max speed
-        // Force the speed to 0 at the start of the game
+        // Force the speed to 0 at the start of the game ONLY if not coming via portal
         // (We might have a bug where the player's speed is set high initially)
         if (!this._hasEmittedFirstUpdate) {
-            this.speed = 0;
+            // Check if we have an event bus and if there's a game reference with portal status
+            const isPortalEntry = this.eventBus && this.eventBus.game && this.eventBus.game.isPortalEntry;
+
+            // Only reset speed to 0 if this is NOT a portal entry
+            if (!isPortalEntry) {
+                this.speed = 0;
+            }
+
             this._hasEmittedFirstUpdate = true;
         }
 

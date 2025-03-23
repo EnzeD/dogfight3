@@ -186,19 +186,49 @@ export default class NetworkManager {
     }
 
     /**
-     * Connect to multiplayer server
+     * Connect to the multiplayer server
      * @param {Object} data - Connection data
      * @param {string} [data.serverUrl] - Optional server URL override
      * @param {string} [data.callsign] - Player's callsign
      */
     connect(data = {}) {
-        this._setPlayerCallsign(data.callsign);
-        const serverUrl = this._determineServerUrl(data.serverUrl);
+        // Check if already connected to avoid duplicate connections
+        if (this.connected) {
+            console.log('Already connected to server');
+            return;
+        }
+
+        // Access game instance for playerCallsign if available
+        const gameInstance = this.eventBus.game;
+        const gamePlayerCallsign = gameInstance ? gameInstance.playerCallsign : null;
+
+        // Priority: 1. data.callsign (from event), 2. game.playerCallsign, 3. existing callsign, 4. "Unknown"
+        this.callsign = data.callsign || gamePlayerCallsign || this.callsign || 'Unknown';
+
+        // Debug logging
+        console.log('Callsign determination:');
+        console.log('- From connection data:', data.callsign || 'not provided');
+        console.log('- From game instance:', gamePlayerCallsign || 'not available');
+        console.log('- Final callsign used:', this.callsign);
+
+        // Make sure we have a valid callsign - enforce minimum length & fallback
+        if (!this.callsign || this.callsign.length < 2) {
+            console.warn('Invalid callsign, using default');
+            this.callsign = 'Pilot_' + Math.floor(Math.random() * 1000);
+        }
+
+        console.log('Connecting to multiplayer server with callsign:', this.callsign);
+
+        // Set this callsign on the eventBus for other components
+        this.eventBus.playerCallsign = this.callsign;
+
+        // Determine WebSocket server URL
+        this.serverUrl = this._determineServerUrl(data.serverUrl);
+        console.log('Using server URL:', this.serverUrl);
 
         try {
-            console.log(`Connecting to multiplayer server at ${serverUrl}...`);
-
-            this.socket = new WebSocket(serverUrl);
+            // Create WebSocket connection
+            this.socket = new WebSocket(this.serverUrl);
 
             // Set up event handlers
             this.socket.onopen = this.handleConnection.bind(this);
@@ -569,11 +599,17 @@ export default class NetworkManager {
         console.log('Connected to multiplayer server');
         this.connected = true;
 
-        // Send initial player data to server
+        // Store the clientId on the eventBus for other components 
+        // (e.g., leaderboard needs this to highlight current player)
+        this.eventBus.clientId = this.clientId;
+
+        // Send initial data to server
         this._sendInitialPlayerData();
 
-        // Emit connection event
+        // Emit connected event
         this.eventBus.emit('network.connected');
+
+        // Show notification
         this.eventBus.emit('notification', {
             message: 'Connected to multiplayer server',
             type: 'success'
@@ -721,6 +757,9 @@ export default class NetworkManager {
         // Store client ID assigned by the server
         this.clientId = data.clientId;
         console.log(`Server assigned client ID: ${this.clientId}`);
+
+        // Make sure the EventBus has the client ID for leaderboard and other components
+        this.eventBus.clientId = this.clientId;
 
         // Initialize existing players
         if (data.players && Array.isArray(data.players)) {

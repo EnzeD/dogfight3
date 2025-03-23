@@ -18,9 +18,15 @@ export default class Game {
      * @param {boolean} previewMode - Whether this is preview mode (landing page background)
      * @param {Object} options - Game options
      * @param {string} options.playerCallsign - Optional player callsign for multiplayer
+     * @param {boolean} options.isPortalEntry - Whether this is a portal entry
+     * @param {boolean} options.startInFlight - Whether to start in flight
+     * @param {number} options.initialSpeed - Initial speed as a percentage of max speed (0-1)
      */
     constructor(previewMode = false, options = {}) {
         console.log('Initializing Game...');
+
+        // Store options
+        this.options = options;
 
         // If player callsign is provided in options, store it
         if (options.playerCallsign) {
@@ -28,8 +34,15 @@ export default class Game {
             console.log('Player callsign set during Game initialization:', this.playerCallsign);
         }
 
+        // Store portal entry state
+        this.isPortalEntry = options.isPortalEntry || false;
+        this.startInFlight = options.startInFlight || false;
+        this.initialSpeed = options.initialSpeed || 0;
+
         // Create event bus for communication between modules
         this.eventBus = new EventBus();
+        // Store reference to game in event bus for other components to access
+        this.eventBus.game = this;
 
         // Initialize quality settings
         this.qualitySettings = new QualitySettings();
@@ -182,10 +195,22 @@ export default class Game {
         console.log('Player plane created:', this.playerPlane);
         this.sceneManager.setMainActor(this.playerPlane);
 
-        // Position the player plane for testing combat
-        this.playerPlane.mesh.position.set(0, 0.5, 35); // On the runway (slightly elevated to avoid clipping)
-        this.playerPlane.isAirborne = false; // Start on the ground
-        this.playerPlane.speed = 0; // Start stationary
+        // Position differently for portal entry vs normal start
+        if (this.isPortalEntry && this.startInFlight) {
+            // Position player plane in the air for portal entry
+            console.log('Positioning player plane in the air for portal entry');
+            this.playerPlane.mesh.position.set(0, 50, 35); // Higher altitude
+            this.playerPlane.isAirborne = true; // Already in the air
+            this.playerPlane.speed = this.playerPlane.maxSpeed * this.initialSpeed; // Set to specified initial speed
+
+            // Set plane's orientation for level flight
+            this.playerPlane.mesh.rotation.set(0, 0, 0);
+        } else {
+            // Default positioning on the runway
+            this.playerPlane.mesh.position.set(0, 0.5, 35); // On the runway (slightly elevated to avoid clipping)
+            this.playerPlane.isAirborne = false; // Start on the ground
+            this.playerPlane.speed = 0; // Start stationary
+        }
 
         // Store reference to player plane in eventBus for proper event source identification
         this.eventBus.playerPlane = this.playerPlane;
@@ -270,8 +295,14 @@ export default class Game {
      * and set up multiplayer components if needed
      */
     checkMultiplayerMode() {
-        const urlParams = new URLSearchParams(window.location.search);
-        this.isMultiplayer = urlParams.has('multiplayer');
+        // For portal entry, force multiplayer mode
+        if (this.isPortalEntry) {
+            this.isMultiplayer = true;
+        } else {
+            // Default behavior - check URL params
+            const urlParams = new URLSearchParams(window.location.search);
+            this.isMultiplayer = urlParams.has('multiplayer');
+        }
 
         if (!this.isMultiplayer) return;
 
@@ -287,7 +318,7 @@ export default class Game {
         this.setupServerSyncedHealth();
 
         // Connect to server with callsign if available
-        this._connectToMultiplayerServer(urlParams);
+        this._connectToMultiplayerServer(new URLSearchParams(window.location.search));
     }
 
     /**
@@ -329,21 +360,42 @@ export default class Game {
     }
 
     /**
-     * Connect to the multiplayer server
+     * Connect to the multiplayer server if multiplayer mode is enabled
      * @private
      * @param {URLSearchParams} urlParams - URL parameters
      */
     _connectToMultiplayerServer(urlParams) {
-        const serverUrl = urlParams.get('server');
-        const connectionData = { serverUrl };
+        // Skip if network manager isn't initialized
+        if (!this.networkManager) return;
 
-        // Add callsign if it was set
-        if (this.playerCallsign) {
-            console.log(`Using callsign for multiplayer: ${this.playerCallsign}`);
-            connectionData.callsign = this.playerCallsign;
+        console.log('Connecting to multiplayer server...');
+
+        // Determine the player's callsign
+        // Priority: 1. playerCallsign property, 2. URL 'username' parameter
+        let playerCallsign = this.playerCallsign;
+
+        // Fallback to URL parameter if no callsign set
+        if (!playerCallsign && urlParams.has('username')) {
+            playerCallsign = urlParams.get('username');
+            console.log('Using username from URL parameter:', playerCallsign);
         }
 
-        // Connect to server
+        // Set a random callsign if none provided
+        if (!playerCallsign) {
+            playerCallsign = 'Pilot_' + Math.floor(Math.random() * 1000);
+            console.log('No callsign provided, using random:', playerCallsign);
+        }
+
+        // Store the callsign on the game instance
+        this.playerCallsign = playerCallsign;
+
+        // Prepare connection data
+        const connectionData = {
+            callsign: playerCallsign,
+            serverUrl: urlParams.get('server') // Optional server URL
+        };
+
+        // Connect to server via event
         this.eventBus.emit('network.connect', connectionData);
 
         // Set up protection zone for multiplayer
@@ -1017,21 +1069,39 @@ export default class Game {
      * Start the game (called when player clicks start button)
      */
     startGame() {
-        // Hide the instructions panel
+        // If this is a portal entry, skip showing instructions
+        if (this.isPortalEntry) {
+            console.log('Portal entry - bypassing instructions');
+
+            // Hide all intro UI elements
+            this.uiManager.hideUIForPortalEntry();
+
+            // Enable input immediately
+            this.inputManager.enable();
+
+            // Start engine sound
+            this.audioManager.playEngineSound();
+
+            // Show welcome notification for portal entry
+            this.eventBus.emit('notification', {
+                message: `Welcome ${this.playerCallsign}! You've arrived in WW2 Dogfight Arena via portal.`,
+                type: 'success',
+                duration: 5000
+            });
+
+            // Emit game started event
+            this.eventBus.emit('game.started');
+
+            console.log('Game started via portal');
+            return;
+        }
+
+        // Normal flow for non-portal entries
         this.uiManager.hideInstructions();
-
-        // Unpause game if it was paused
         this.resumeGame();
-
-        // Enable input
         this.inputManager.enable();
-
-        // Start engine sound
         this.audioManager.playEngineSound();
-
-        // Emit game started event
         this.eventBus.emit('game.started');
-
         console.log('Game started');
     }
 
