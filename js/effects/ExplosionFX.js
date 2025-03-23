@@ -301,13 +301,11 @@ export default class ExplosionFX {
     }
 
     /**
-     * Stop ongoing explosions and clean up immediately
-     * Called when a plane is completely removed from the scene
+     * Stop all explosions and clean up resources
      */
     stopAndCleanup() {
-        // First dispose any active explosions
+        // Remove all active explosions
         for (const explosion of this.activeExplosions) {
-            // Remove from scene
             this.scene.remove(explosion.group);
 
             // Dispose geometries and materials
@@ -332,7 +330,7 @@ export default class ExplosionFX {
             }
         }
 
-        // Clear the array
+        // Clear the active explosions array
         this.activeExplosions = [];
     }
 } 

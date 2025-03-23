@@ -5,9 +5,10 @@ import AmmoSystem from '../entities/AmmoSystem.js';
 import EventBus from './EventBus.js';
 
 export default class NetworkManager {
-    constructor(eventBus, playerPlane) {
+    constructor(eventBus, playerPlane, scene) {
         this.eventBus = eventBus || new EventBus();
         this.playerPlane = playerPlane;
+        this.scene = scene; // Store reference to the scene for cleanup
 
         // Connection settings
         this.connected = false;
@@ -1112,6 +1113,40 @@ export default class NetworkManager {
             if (remotePlane && remotePlane.mesh) {
                 console.log(`Removing destroyed remote player ${data.id} after timeout`);
                 remotePlane.mesh.visible = false;
+
+                // MEMORY LEAK FIX: Properly remove all resources
+                if (remotePlane.dispose) {
+                    remotePlane.dispose(); // Call dispose method if available
+                } else {
+                    // Manual cleanup if dispose method isn't available
+                    // Remove from scene
+                    if (this.scene && remotePlane.mesh) {
+                        this.scene.remove(remotePlane.mesh);
+                    }
+
+                    // Dispose geometries and materials
+                    if (remotePlane.mesh && remotePlane.mesh.geometry) {
+                        remotePlane.mesh.geometry.dispose();
+                    }
+                    if (remotePlane.mesh && remotePlane.mesh.material) {
+                        if (Array.isArray(remotePlane.mesh.material)) {
+                            remotePlane.mesh.material.forEach(m => m.dispose());
+                        } else {
+                            remotePlane.mesh.material.dispose();
+                        }
+                    }
+
+                    // Clean up effects
+                    if (remotePlane.smokeFX) {
+                        remotePlane.smokeFX.stopAndCleanup();
+                    }
+                    if (remotePlane.explosionFX) {
+                        remotePlane.explosionFX.stopAndCleanup();
+                    }
+                }
+
+                // Remove from remote planes map
+                this.remotePlanes.delete(data.id);
             }
         }, 10000);
     }

@@ -308,8 +308,8 @@ export default class Game {
 
         console.log('Initializing multiplayer mode');
 
-        // Create network manager
-        this.networkManager = new NetworkManager(this.eventBus, this.playerPlane);
+        // Initialize network manager for multiplayer
+        this.networkManager = new NetworkManager(this.eventBus, this.playerPlane, this.sceneManager.scene);
 
         // Listen for remote plane creation to register with ammo system
         this._setupNetworkEventHandlers();

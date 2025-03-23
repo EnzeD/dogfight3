@@ -270,6 +270,11 @@ export default class AmmoSystem {
 
             // Remove from active bullets array
             this.bullets.splice(index, 1);
+
+            // MEMORY LEAK FIX: Return to pool instead of leaving in limbo
+            if (!this.bulletPool.includes(bullet)) {
+                this.bulletPool.push(bullet);
+            }
         }
 
         return collisions;
@@ -510,6 +515,11 @@ export default class AmmoSystem {
 
             // Remove from active bullets array
             this.bullets.splice(index, 1);
+
+            // MEMORY LEAK FIX: Return to pool instead of leaving in limbo
+            if (!this.bulletPool.includes(bullet)) {
+                this.bulletPool.push(bullet);
+            }
         }
     }
 

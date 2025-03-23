@@ -5,9 +5,6 @@
 
 ## Features
 
-Portal towards vibeverse
-landing page towards fly.zullo.fun with portal
-
 Low poly Mountains and hallmarks
 Nickname on top of plane
 Gravity / Stall
@@ -23,6 +20,8 @@ Camera snaps back too fast
 
 ## Release Notes v0.1.1
 
+Portal towards vibeverse
+landing page towards fly.zullo.fun with portal
 
 
 ## Release Notes v0.1.0
