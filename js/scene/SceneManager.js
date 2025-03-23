@@ -11,6 +11,7 @@ import Skyscrapers from './Skyscrapers.js';  // Import the new Skyscrapers class
 import Billboard from './Billboard.js';  // Import the new Billboard class
 import Zeppelin from './Zeppelin.js';  // Import the new Zeppelin class
 import GroundLogo from './GroundLogo.js';  // Import the new GroundLogo class
+import Portal from './Portal.js';  // Import the new Portal class
 import GameMap from './Map.js';  // Import the GameMap class for static map data
 
 export default class SceneManager {
@@ -37,6 +38,7 @@ export default class SceneManager {
         this.zeppelin = null; // Store reference to the zeppelin
         this.groundLogo = null; // Store reference to the ground logo
         this.groundLogo2 = null; // Store reference to the second ground logo
+        this.portal = null; // Store reference to the portal
 
         // Main actor (plane)
         this.mainActor = null;
@@ -83,6 +85,7 @@ export default class SceneManager {
         this.zeppelin = new Zeppelin(this.scene, this.gameMap.zeppelin); // Pass zeppelin config
         this.groundLogo = new GroundLogo(this.scene, this.gameMap.groundLogo); // Pass ground logo config
         this.groundLogo2 = new GroundLogo(this.scene, this.gameMap.groundLogo2); // Pass second ground logo config
+        this.portal = new Portal(this.scene, this.gameMap.portal); // Pass portal config
 
         console.log(`SceneManager initialized with quality: ${this.qualitySettings.getQuality()}`);
 
@@ -301,6 +304,11 @@ export default class SceneManager {
         // Update sky (will update the sun position if implemented)
         if (this.sky) {
             this.sky.update(deltaTime);
+        }
+
+        // Update the portal animation
+        if (this.portal) {
+            this.portal.update(deltaTime);
         }
 
         // Update trees if needed

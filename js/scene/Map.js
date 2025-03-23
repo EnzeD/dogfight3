@@ -13,6 +13,16 @@ export default class GameMap {
             length: 200         // Length of the runway
         };
 
+        // Portal configuration - positioned to be visible from takeoff
+        this.portal = {
+            position: { x: 0, y: 30, z: 300 },  // High enough to fly through
+            rotation: 0,                      // Portal faces the runway
+            radius: 25,                       // Large enough for plane to fly through
+            tubeRadius: 2,                    // Thickness of the torus
+            tubularSegments: 64,              // Quality of the circle
+            radialSegments: 16               // Quality of the tube
+        };
+
         // Billboard configurations
         // These billboards will be placed on the left side at the end of the runway
         this.billboards = [
