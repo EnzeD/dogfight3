@@ -43,6 +43,9 @@ export default class SceneManager {
         // Main actor (plane)
         this.mainActor = null;
 
+        // Game time tracker
+        this.time = 0;
+
         // Game state
         this.isMainMenuActive = true; // Default to true since game starts at menu
         this.adsClickable = false; // Control whether ads are clickable
@@ -60,6 +63,9 @@ export default class SceneManager {
 
         // Set scene background color (will be replaced by sky)
         this.scene.background = new THREE.Color(0x87CEEB);
+
+        // Store eventBus in scene userData so it can be accessed by components
+        this.scene.userData.eventBus = this.eventBus;
 
         // Create the renderer
         this.createRenderer();
@@ -282,6 +288,9 @@ export default class SceneManager {
      * @param {number} deltaTime - Time since last update
      */
     update(deltaTime) {
+        // Update game time
+        this.time += deltaTime;
+
         // Update cinematic camera if in that mode
         if (this.cinematicAngle !== undefined) {
             // Update camera position in a circular pattern
@@ -309,6 +318,11 @@ export default class SceneManager {
         // Update the portal animation
         if (this.portal) {
             this.portal.update(deltaTime);
+
+            // Check for portal collision with main actor if we have both
+            if (this.mainActor && !this.isMainMenuActive) {
+                this.portal.checkCollision(this.mainActor, this.time || 0);
+            }
         }
 
         // Update trees if needed

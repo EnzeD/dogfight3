@@ -15,6 +15,9 @@ export default class Portal {
         this.portalGroup = new THREE.Group();
         this.time = 0;
 
+        // Get event bus from scene.userData if available (set by SceneManager)
+        this.eventBus = scene.userData && scene.userData.eventBus ? scene.userData.eventBus : null;
+
         // Default values if not provided in mapData
         this.position = this.mapData.position || { x: 0, y: 30, z: 200 };
         this.rotation = this.mapData.rotation || 0;
@@ -22,6 +25,16 @@ export default class Portal {
         this.tubeRadius = this.mapData.tubeRadius || 2;
         this.tubularSegments = this.mapData.tubularSegments || 64;
         this.radialSegments = this.mapData.radialSegments || 16;
+
+        // Portal destination URL base - actual URL will be constructed with player name
+        this.portalUrlBase = "https://portal.pieter.com/?username={username}&ref=fly.zullo.fun";
+
+        // Collision detection properties
+        this.lastCheckTime = 0;
+        this.checkInterval = 0.1; // Check every 100ms for better performance
+        this.hasTriggered = false; // Prevent multiple triggers
+        this.cooldownTime = 5; // 5 second cooldown before portal can be triggered again
+        this.lastTriggerTime = 0;
 
         // Create the portal
         this.createPortal();
@@ -229,6 +242,100 @@ export default class Portal {
         // Create particle system
         this.particles = new THREE.Points(particleGeometry, particleMaterial);
         this.portalGroup.add(this.particles);
+    }
+
+    /**
+     * Check if a plane has flown through the portal
+     * @param {Object} plane - The player's plane object
+     * @param {number} time - Current game time
+     * @returns {boolean} - Whether the portal was triggered
+     */
+    checkCollision(plane, time) {
+        // Skip collision check if no plane or on cooldown
+        if (!plane || time - this.lastTriggerTime < this.cooldownTime) {
+            return false;
+        }
+
+        // Only check collision every checkInterval seconds for performance
+        if (time - this.lastCheckTime < this.checkInterval) {
+            return false;
+        }
+        this.lastCheckTime = time;
+
+        // Get the world position of the portal
+        const portalWorldPosition = new THREE.Vector3();
+        this.portalGroup.getWorldPosition(portalWorldPosition);
+
+        // Get the plane's position
+        const planePosition = plane.mesh ? plane.mesh.position : plane.position;
+
+        // Calculate distance from plane to portal center
+        const distanceToPortal = planePosition.distanceTo(portalWorldPosition);
+
+        // Determine if plane is within the portal ring
+        if (distanceToPortal < this.radius && !this.hasTriggered) {
+            // Check if the plane is passing through the portal's plane
+            // Get portal's forward direction (assuming it's facing along its local Z axis)
+            const portalForward = new THREE.Vector3(0, 0, 1).applyQuaternion(this.portalGroup.quaternion);
+
+            // Get vector from portal to plane
+            const portalToPlane = new THREE.Vector3().subVectors(planePosition, portalWorldPosition);
+
+            // Normalize for direction comparison
+            portalToPlane.normalize();
+
+            // Dot product to check if plane is passing through (close to 0 means perpendicular)
+            const passingThrough = Math.abs(portalToPlane.dot(portalForward)) < 0.5;
+
+            if (passingThrough) {
+                // Get player's name or default to "Guest"
+                let playerName = "Guest";
+
+                // Try multiple sources for the player name, in order of priority
+
+                // 1. Try to get from event bus game instance
+                if (this.eventBus && this.eventBus.game && this.eventBus.game.playerCallsign) {
+                    playerName = this.eventBus.game.playerCallsign;
+                }
+                // 2. Try to get from event bus directly (sometimes stored there)
+                else if (this.eventBus && this.eventBus.playerCallsign) {
+                    playerName = this.eventBus.playerCallsign;
+                }
+                // 3. Try to get from plane object directly
+                else if (plane.playerName) {
+                    playerName = plane.playerName;
+                }
+                // 4. Try to get from plane's userData
+                else if (plane.userData && plane.userData.playerName) {
+                    playerName = plane.userData.playerName;
+                }
+                // 5. Try to get from plane's player property
+                else if (plane.player && plane.player.name) {
+                    playerName = plane.player.name;
+                }
+
+                // Construct URL with player name
+                const portalUrl = this.portalUrlBase.replace('{username}', encodeURIComponent(playerName));
+
+                console.log("Portal triggered! Opening URL with player name:", playerName);
+
+                // Set triggered flag and cooldown
+                this.hasTriggered = true;
+                this.lastTriggerTime = time;
+
+                // Replace current window with the portal URL instead of opening a new tab
+                window.location.href = portalUrl;
+
+                // Reset triggered flag after a short delay
+                setTimeout(() => {
+                    this.hasTriggered = false;
+                }, 1000);
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
