@@ -325,4 +325,22 @@ export default class UIManager {
             this.notifications.show('Exited Runway Protection Zone - Combat Enabled', 'warning', 3000);
         }
     }
+
+    /**
+     * Hide UI elements for portal entry
+     * Called when game is entered via portal to ensure clean UI
+     */
+    hideUIForPortalEntry() {
+        // Hide any instruction panels
+        this.hideInstructions();
+
+        // Hide any other intro elements that might be visible
+        const introElements = document.querySelectorAll('.intro-element, .landing-container, .mobile-message');
+        introElements.forEach(element => {
+            element.style.display = 'none';
+        });
+
+        // Make sure game UI is visible
+        this.showGameUI();
+    }
 } 

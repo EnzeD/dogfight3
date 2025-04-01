@@ -236,23 +236,26 @@ export default class SmokeFX {
 
     /**
      * Stop smoke emission and clean up existing particles
-     * Makes existing particles fade out faster
      */
     stopAndCleanup() {
-        // Accelerate the fade-out of existing particles
+        // Immediately remove all particles
         for (const particle of this.particles) {
-            // Get the current age
-            const age = performance.now() - particle.creationTime;
-
-            // If the particle is very new, make it disappear quickly
-            if (age < 100) {
-                particle.mesh.material.opacity = 0.1;
+            if (particle.mesh && particle.mesh.parent) {
+                particle.mesh.parent.remove(particle.mesh);
             }
 
-            // Shorten the lifetime of existing particles to make them disappear faster
-            const remainingTime = this.particleLifetime - age;
-            particle.creationTime = performance.now() - (this.particleLifetime - Math.min(remainingTime, 500));
+            // Return to pool properly
+            if (particle.mesh) {
+                particle.mesh.visible = false;
+                this.particlePool.push(particle);
+            }
         }
+
+        // Clear active particles array
+        this.particles = [];
+
+        // Make sure scene doesn't retain references
+        this.clearAllParticles();
     }
 
     /**

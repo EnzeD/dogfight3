@@ -149,8 +149,39 @@ export default class HitEffect {
     triggerEffect(position) {
         // Find an inactive effect
         const effect = this.effectPool.find(e => !e.active);
+
+        // If no inactive effects are available, force cleanup of the oldest active effect
         if (!effect) {
-            console.warn('Hit effect pool exhausted');
+            console.warn('Hit effect pool exhausted, cleaning up oldest effect');
+
+            // Find the oldest active effect
+            let oldestEffect = null;
+            let oldestTime = Infinity;
+
+            for (const e of this.effectPool) {
+                if (e.active && e.startTime < oldestTime) {
+                    oldestEffect = e;
+                    oldestTime = e.startTime;
+                }
+            }
+
+            // Force deactivate the oldest effect
+            if (oldestEffect) {
+                oldestEffect.active = false;
+                oldestEffect.group.visible = false;
+
+                // Reset positions and properties
+                oldestEffect.flash.scale.set(1, 1, 1);
+                oldestEffect.glow.scale.set(1, 1, 1);
+                oldestEffect.sparks.forEach(spark => {
+                    spark.position.set(0, 0, 0);
+                });
+
+                // Use this effect
+                return this.triggerEffect(position);
+            }
+
+            // If we couldn't find any active effects (shouldn't happen), just return
             return null;
         }
 

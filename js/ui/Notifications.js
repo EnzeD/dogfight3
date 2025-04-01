@@ -4,6 +4,9 @@ export default class Notifications {
         this.eventBus = eventBus;
         this.container = null;
         this.notificationTimeout = null;
+        this.maxNotifications = 5; // Maximum notifications to show at once
+        this.recentMessages = new Map(); // Store recent messages with timestamps
+        this.messageThrottleTime = 2000; // Minimum ms between duplicate messages
 
         // Create the notifications container
         this.createContainer();
@@ -34,6 +37,33 @@ export default class Notifications {
      * @param {string} type - Notification type (info, success, warning, error)
      */
     show(message, type = 'info') {
+        // Check if we need to throttle this message
+        const now = performance.now();
+        const lastShown = this.recentMessages.get(message);
+
+        if (lastShown && (now - lastShown) < this.messageThrottleTime) {
+            // Skip this notification - too soon after the last identical one
+            return;
+        }
+
+        // Update the last shown time for this message
+        this.recentMessages.set(message, now);
+
+        // Clean up old entries from the recentMessages map (keep it from growing too large)
+        for (const [key, timestamp] of this.recentMessages.entries()) {
+            if (now - timestamp > 10000) { // Remove entries older than 10 seconds
+                this.recentMessages.delete(key);
+            }
+        }
+
+        // Check for max notifications and remove oldest if needed
+        if (this.container.children.length >= this.maxNotifications) {
+            // Remove the oldest notification (first child)
+            if (this.container.firstChild) {
+                this.hide(this.container.firstChild);
+            }
+        }
+
         // Create notification element
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
