@@ -86,6 +86,59 @@
 
     <!-- Main game script using ES modules -->
     <script type="module" src="js/main.js"></script>
+
+    <!-- Vibe Jam link -->
+    <a target="_blank" href="https://jam.pieter.com"
+        style="font-family: 'system-ui', sans-serif; position: fixed; bottom: 6px; left: 50%; transform: translateX(-50%); padding: 4px; font-size: 14px; font-weight: bold; background: #fff; color: #000; text-decoration: none; z-index: 10; border-radius: 8px; z-index: 10000; border: 1px solid #fff; display: flex; align-items: center;">
+        <span style="margin-right: 5px;">🕹️</span>
+        <span class="vibe-jam-text" style="display: inline;">Vibe Jam 2025</span>
+        <span class="vibe-jam-mobile" style="display: none;">vibejam</span>
+    </a>
+
+    <script>
+        // Mobile detection for Vibe Jam link
+        function updateVibeJamLink() {
+            const textElement = document.querySelector('.vibe-jam-text');
+            const mobileTextElement = document.querySelector('.vibe-jam-mobile');
+            const linkElement = document.querySelector('a[href="https://jam.pieter.com"]');
+            const emojiElement = linkElement.querySelector('span:first-child');
+
+            if (window.innerWidth <= 768) {
+                textElement.style.display = 'none';
+                mobileTextElement.style.display = 'inline';
+                linkElement.style.padding = '0px';
+                linkElement.style.fontSize = '8px';
+                linkElement.style.height = '14px';
+                linkElement.style.lineHeight = '14px';
+                linkElement.style.borderRadius = '4px';
+                emojiElement.style.fontSize = '8px';
+                emojiElement.style.marginRight = '1px';
+                emojiElement.style.marginLeft = '2px';
+                mobileTextElement.style.marginRight = '2px';
+                linkElement.style.boxSizing = 'border-box';
+                linkElement.style.border = 'none';
+                linkElement.style.background = 'rgba(255, 255, 255, 0.8)';
+            } else {
+                textElement.style.display = 'inline';
+                mobileTextElement.style.display = 'none';
+                linkElement.style.padding = '4px';
+                linkElement.style.fontSize = '14px';
+                linkElement.style.height = 'auto';
+                linkElement.style.lineHeight = 'normal';
+                linkElement.style.borderRadius = '8px';
+                emojiElement.style.fontSize = '';
+                emojiElement.style.marginRight = '5px';
+                emojiElement.style.marginLeft = '0px';
+                linkElement.style.boxSizing = 'content-box';
+                linkElement.style.border = '1px solid #fff';
+                linkElement.style.background = '#fff';
+            }
+        }
+
+        // Run on load and resize
+        window.addEventListener('load', updateVibeJamLink);
+        window.addEventListener('resize', updateVibeJamLink);
+    </script>
 </body>
 
 </html>
