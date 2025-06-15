@@ -420,8 +420,8 @@ export default class GameMap {
 
             // Advertisement settings - Upload your PNG and set the click URL here
             advertisement: {
-                texture: 'assets/textures/your_ad_here.png',  // Updated to use the "Your Ad Here" texture
-                clickURL: 'https://www.pykaso.ai/?utm_source=flyzullo&utm_medium=ads&utm_campaign=zeppelin',  // URL to navigate to when clicked
+                texture: 'assets/textures/billboard-empty.png',  // Generic "your ad here" billboard texture
+                clickURL: 'https://buy.stripe.com/7sI2bz8WK1wo2yI7sv',  // Stripe checkout for zeppelin advertising
                 width: 80,  // Width of the ad space
                 height: 40   // Height of the ad space
             }
@@ -440,9 +440,9 @@ export default class GameMap {
             width: 502,   // Width of the ad panel
             height: 109,  // Height of the ad panel
 
-            // Advertisement settings - same as zeppelin
-            texture: 'assets/textures/village1.png',  // Same texture as zeppelin
-            clickURL: 'https://softgen.ai/?utm_source=flyzullo&utm_medium=ads&utm_campaign=zeppelin'  // Same URL as zeppelin
+            // Advertisement settings - now shows "your ad here" and links to Stripe checkout
+            texture: 'assets/textures/billboard-empty.png',  // Generic "your ad here" texture
+            clickURL: 'https://buy.stripe.com/4gw2bz4Gu2As8X65kl'  // Stripe checkout for advertising
         };
 
         // Ground logo configuration for village 2
