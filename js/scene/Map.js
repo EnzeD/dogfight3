@@ -32,8 +32,8 @@ export default class GameMap {
                 width: 20,
                 height: 10,
                 poleHeight: 15,
-                texture: 'assets/textures/billboard1.jpg',
-                clickURL: 'https://x.com/leftcurvecletus'
+                texture: 'assets/textures/billboard1.png',
+                clickURL: 'https://buy.stripe.com/eVa17v8WKa2U6OY144' // Stripe checkout for billboard advertising
             },
             {
                 position: { x: -70, y: 0, z: -160 }, // Second billboard slightly forward
@@ -41,8 +41,8 @@ export default class GameMap {
                 width: 20,
                 height: 10,
                 poleHeight: 15,
-                texture: 'assets/textures/billboard2.png', // Texture should display "@sjanuskas"
-                clickURL: 'https://gaimes.store' // Twitter/X profile link
+                texture: 'assets/textures/billboard-empty.png', // Generic "your ad here" billboard
+                clickURL: 'https://buy.stripe.com/eVa17v8WKa2U6OY144' // Stripe checkout for billboard advertising
             },
             {
                 position: { x: -70, y: 0, z: -110 }, // Third billboard further forward
